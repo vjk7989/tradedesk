@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import os
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +15,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from bt_service.runner import run_backtest
+from bt_service.walkforward import walk_forward
 
 MAX_BODY_BYTES = 1024 * 1024
 BUSY_WAIT_S = 30.0
@@ -44,6 +45,34 @@ class BacktestRequest(BaseModel):
     costs: dict[str, Any] | None = None
     source: str = "auto"
     signal_parameters: dict[str, Any] | None = None
+
+    @field_validator("start", "end")
+    @classmethod
+    def _iso_date(cls, v: str) -> str:
+        try:
+            if len(v) != 10:
+                raise ValueError
+            date.fromisoformat(v)
+        except ValueError:
+            raise ValueError("must be an ISO date (YYYY-MM-DD)") from None
+        return v
+
+
+class WalkForwardRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    symbols: list[str]
+    start: str
+    end: str
+    train_days: int = Field(le=3650)
+    test_days: int = Field(le=3650)
+    candidates: list[dict[str, Any]]
+    metric: Literal["sharpe", "total_return", "calmar"] = "sharpe"
+    interval: str = "1D"
+    capital: float = Field(default=1_000_000, gt=0, allow_inf_nan=False)
+    costs: dict[str, Any] | None = None
+    source: str = "auto"
 
     @field_validator("start", "end")
     @classmethod
@@ -156,6 +185,34 @@ async def backtest(req: BacktestRequest):
             source=req.source,
             timeout_s=_timeout_s(),
             signal_parameters=req.signal_parameters,
+        )
+    finally:
+        sem.release()
+
+
+@app.post("/walkforward", dependencies=[Depends(require_auth)])
+async def walkforward(req: WalkForwardRequest):
+    sem = _semaphore()
+    try:
+        await asyncio.wait_for(sem.acquire(), timeout=BUSY_WAIT_S)
+    except asyncio.TimeoutError:
+        return JSONResponse({"error": "busy"}, status_code=429)
+    try:
+        return await run_in_threadpool(
+            walk_forward,
+            code=req.code,
+            symbols=req.symbols,
+            start=req.start,
+            end=req.end,
+            train_days=req.train_days,
+            test_days=req.test_days,
+            candidates=req.candidates,
+            metric=req.metric,
+            interval=req.interval,
+            capital=req.capital,
+            costs=req.costs,
+            source=req.source,
+            timeout_s=_timeout_s(),
         )
     finally:
         sem.release()
