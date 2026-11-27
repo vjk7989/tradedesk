@@ -90,7 +90,7 @@ Detailed plan: `plan.md`.
 - P7.2b · bt-service · add 3m and 10m intervals (_VALID_INTERVALS, _INTERVAL_SECONDS, _normalize_interval, _BARS_PER_DAY) — OpenAlgo supports them (387541e) [x]
 - P7.4 · trade-mcp · backtest.walkForward binding (OpenCode OC1) (merged f51d06d) [x]
 - P4.5 · e2e · local end-to-end smoke test, node e2e/smoke.mjs (37c2f40) [x]
-- TM-1 · bt-service · MIS intraday stamp duty (teammate TM1) [ ]
+- TM-1 · bt-service · MIS intraday stamp duty (teammate TM1) (PR #1 merged c1ccbac) [x]
 - TM-2 · agent-runner · signal shutdown tested (teammate TM1) (PR #2 merged 58df924) [x]
 - P9.1 · bt-service+trade-mcp · F&O defaults verified Nov 2026: lots NIFTY 65/BANKNIFTY 30/FINNIFTY 60/MIDCPNIFTY 120, futures STT 0.05% (testing: 22 pinned tests being updated) [.]
 - P9.2 · bt-service · crypto funding last-bar carried across scale-in (e98828c) [x]

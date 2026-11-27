@@ -9,3 +9,19 @@ Verdict: approve (minor notes only). Tests not run by reviewer.
 3. test_tm1_mis_stamp.py, low: no composite-run test proving product_by_market-driven MIS picks the new rate. Suggest one IndiaEquityEngine({"interval":"5m","product_by_market":{"india_equity":"MIS"}}) assertion.
 4. test_tm1_mis_stamp.py:41-55, ok: hand-computed round trip checked (exch 7.425/7.4547, gst 1.3815/1.387026, stt 62.75, stamp 7.5) and is not tautological. bool/str values: bool explicitly rejected, str rejected by type check; bad cases not parametrized for True/"x" (nit).
 5. Docs, nit: ADR-13 "MIS stamp duty uses the delivery rate" is now stale; out of scope for this PR, follow up.
+
+## Test run (Haiku)
+
+Branch review-tm1 merged origin/main cleanly (merge commit 02dca55). Command wrapper: no project low-priority wrapper found, so `nice -n 19` was used.
+
+| command | result | time |
+|---|---|---|
+| git merge -q --no-edit origin/main | clean | <1s |
+| uv sync (bt-service) | OK, 65 packages resolved | <1s |
+| uv run pytest -q tests/test_intraday.py tests/test_intraday_edge.py tests/test_tm1_mis_stamp.py tests/test_tm1_edge.py | 151 passed, 0 failed | 45s |
+| uv run pytest -q (full) | 998 passed, 0 failed | 334s |
+
+Log: G:\uday-demos\reports\TM-1.md
+
+## Verdict (Opus)
+PR #1 merged as c1ccbac. Owner side updated the 5 pinned tests (AC ruling) and added 36 Opus edge tests. Haiku: bt-service 998/998 with latest main.

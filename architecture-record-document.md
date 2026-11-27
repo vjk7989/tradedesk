@@ -66,7 +66,7 @@ Decision:
 - Products: equity CNC (default, T+1, no shorts) or MIS (shorts allowed, same-day exits, no new entries from 15:20, forced square-off at the day's last bar ≤ 15:20; MCX at 23:20). F&O NRML (default, held overnight) or MIS. `product_by_market` overrides the run-level `product`. Unknown values are an error.
 - Bars are interpreted as IST wall clock for India. Loaders convert timezone-aware input to IST (India) or UTC (others).
 - Crypto funding settles at every 8h UTC slot between bars, deduplicated, and never before entry.
-Consequences: Rates (MIS STT, F&O charges, lot sizes) are config-overridable and flagged "verify current". MIS stamp duty uses the delivery rate (open item).
+Consequences: Rates (MIS STT, F&O charges, lot sizes) are config-overridable and flagged "verify current". MIS stamp duty is 0.003% buy-side via in_mis_stamp_duty (TM-1).
 
 ## ADR-14: OpenCode developers retired  (2026-11-27, status: accepted; amends ADR-11)
 Decision: At the user's request, no further tasks go to OpenCode. Two OpenCode tasks were delivered, reviewed through the Claude chain and merged (OC-P7.3, OC-P7.4). OC-P5.2 was withdrawn and done by a Claude developer. The `coord/` protocol stays in the repo for future use.
