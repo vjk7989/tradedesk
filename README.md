@@ -55,6 +55,7 @@ Local smoke test (fake OpenAlgo, no broker needed): `node e2e/smoke.mjs`. See [e
 - Connecting clients: [docs/connect-clients.md](docs/connect-clients.md).
 - Fincept cockpit: [docs/fincept-setup.md](docs/fincept-setup.md).
 - Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md).
+- Backtesting guide: [docs/backtesting.md](docs/backtesting.md).
 - Backup and restore: [docs/backup.md](docs/backup.md).
 - Exchange holidays sync: [docs/holidays.md](docs/holidays.md).
 
