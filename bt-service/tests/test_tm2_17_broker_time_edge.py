@@ -12,16 +12,18 @@ Findings on pandas 2.3.3 (see the individual tests for detail):
   ``+00:00``, ``Z``, naive, ``T`` or space separator, 3/6/9-digit fractions,
   date-only, leading whitespace, trailing whitespace on datetimes, empty/None/NaN,
   garbage, single row, all-bad.
-* **Regression, kept failing**: a column of date-only strings with trailing
-  whitespace (``"2024-01-02 "``). The old parse read every row; ISO8601 turns
-  every row into NaT, so the loader silently returns ``None`` for the symbol.
+* Date-only strings with trailing whitespace (``"2024-01-02 "``) became NaT
+  under the first ISO8601 commit; fixed in round 1 (strings are stripped).
+* Fix round 1 masks rows whose tz-awareness differs from the first non-null
+  row, so offset/naive mixes are now dropped like the old path (no raise).
+* **Regression, kept failing**: that awareness decision uses the first
+  *string*, even ``""``, whitespace-only or garbage. A junk first row marks
+  the column naive and NaT-s every offset row, so the loader returns ``None``.
 * Divergent but heterogeneous columns that one broker response should not
   produce. These are ``xfail(strict=True)`` and documented: the old parse locked
   onto the first row's format and silently NaT-ed (so dropped) any row with a
   different shape; ISO8601 parses those rows. Mixed separators, optional
-  fraction, date-only mixed with datetimes, per-row whitespace, offset then
-  naive. The naive-then-offset case now *raises* out of ``_bars_to_frame``
-  (the old path NaT-ed the offset row).
+  fraction, date-only mixed with datetimes, per-row whitespace.
 * The old path emitted the "Could not infer format" UserWarning when the first
   row was garbage, the whole column was garbage, or rows had trailing
   whitespace after an offset. The comparison still holds (same values), and the
@@ -245,8 +247,8 @@ def test_trailing_whitespace_after_offset_old_warned_but_values_match():
     ],
     ids=["trail_date", "both_date", "tab_date"],
 )
-def test_trailing_whitespace_date_only_REGRESSION(times):
-    """KEPT FAILING ON PURPOSE.
+def test_trailing_whitespace_date_only_identical(times):
+    """Failed on the first commit, fixed in round 1 by stripping. Original finding:
 
     Old path: inferred ``%Y-%m-%d`` and parsed every row.
     New path: ISO8601 rejects the trailing whitespace after a date-only value,
@@ -348,21 +350,109 @@ def test_per_row_whitespace_diverges():
     _check([" 2024-01-02T09:15:00", "2024-01-03T09:15:00 "])
 
 
-@pytest.mark.xfail(strict=True, reason=_HETERO_REASON + " New path localises the naive row to row 0's +05:30.")
-def test_offset_then_naive_diverges():
-    # old: [09:15, NaT]; new: [09:15, 09:15] (naive row silently given +05:30).
-    _check(["2024-01-02T09:15:00+05:30", "2024-01-03T09:15:00"])
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "naive-then-offset: old NaT-ed the offset row; new emits a mixed-tz FutureWarning and "
-        "then raises ValueError out of _bars_to_frame (uncaught in fetch). Not a broker shape."
-    ),
+@pytest.mark.parametrize(
+    "times",
+    [
+        ["2024-01-02T09:15:00+05:30", "2024-01-03T09:15:00"],
+        ["2024-01-02T09:15:00+0530", "2024-01-03T09:15:00"],
+        ["2024-01-02T03:45:00Z", "2024-01-03T03:45:00"],
+    ],
+    ids=["ist", "ist_nocolon", "zulu"],
 )
-def test_naive_then_offset_diverges():
-    _check(["2024-01-02T09:15:00", "2024-01-03T09:15:00+05:30"])
+def test_offset_then_naive_row_dropped_like_old(times):
+    """Fix round 1: the naive row is NaT-ed and dropped (old behaviour), no offset stamping."""
+    new = _check(times)
+    assert len(new) == 1 and list(new["close"]) == [100.5]
+
+
+@pytest.mark.parametrize(
+    "times",
+    [
+        ["2024-01-02T09:15:00", "2024-01-03T09:15:00+05:30"],
+        ["2024-01-02T09:15:00", "2024-01-03T09:15:00+0530"],
+        ["2024-01-02T03:45:00", "2024-01-03T03:45:00Z"],
+    ],
+    ids=["ist", "ist_nocolon", "zulu"],
+)
+def test_naive_then_offset_row_dropped_like_old_no_exception(times):
+    """Fix round 1: the offset row is NaT-ed and dropped; no FutureWarning, no ValueError."""
+    new = _check(times)
+    assert not isinstance(new, type), f"raised {new!r}"
+    assert len(new) == 1 and list(new["close"]) == [100.5]
+
+
+# ------------------------------------------------------------- fix round 1 coverage
+
+
+def test_fix_date_only_trailing_whitespace_mixed_rows_identical():
+    # Uniform padding per column (per-row differences are the documented xfail divergence).
+    for pad in (("", " "), (" ", " "), ("", "\t"), ("", "  ")):
+        new = _check([f"{pad[0]}2024-01-0{d}{pad[1]}" for d in (2, 3, 4)])
+        assert _idx(new) == [TS("2024-01-02"), TS("2024-01-03"), TS("2024-01-04")]
+
+
+@pytest.mark.parametrize(
+    "times",
+    [
+        [" 2024-01-02T09:15:00+05:30 ", " 2024-01-03T09:15:00+05:30 "],
+        ["  2024-01-02T09:15:00+0530\t", "  2024-01-03T09:15:00+0530\t"],
+        ["\t2024-01-02T03:45:00Z\n", "\t2024-01-03T03:45:00Z\n"],
+    ],
+    ids=["padded_all", "padded_nocolon", "zulu_tab_nl"],
+)
+def test_fix_padded_offset_strings_parse(times):
+    new = _check(times, old_may_warn=True)
+    assert len(new) == 2
+    assert new.index[0].strftime("%H:%M") in ("09:15", "03:45")
+
+
+@pytest.mark.parametrize("lead", [None, np.nan], ids=["none", "nan"])
+@pytest.mark.parametrize(
+    "rest",
+    [
+        ["2024-01-02T09:15:00+05:30", "2024-01-03T09:15:00+05:30"],
+        ["2024-01-02T09:15:00", "2024-01-03T09:15:00"],
+        ["2024-01-02T09:15:00+05:30", "2024-01-03T09:15:00"],
+    ],
+    ids=["aware", "naive", "aware_then_naive"],
+)
+def test_fix_leading_null_skipped_for_awareness(lead, rest):
+    new = _check([lead] + rest)
+    assert new.index[0] == TS("2024-01-02 09:15")
+
+
+@pytest.mark.parametrize(
+    "aware_row",
+    ["2024-01-02T09:15:00+0530", "2024-01-02T09:15:00+05:30", "2024-01-02T03:45:00Z", "2024-01-02T09:15:00-0400"],
+    ids=["nocolon", "colon", "zulu", "negative"],
+)
+def test_fix_suffix_forms_count_as_aware(aware_row):
+    """Each form is aware: alongside another aware row both survive; alongside naive, naive drops."""
+    # Second row has the same suffix (mixed offsets raise on both paths, tested separately).
+    both = _check([aware_row, aware_row.replace("2024-01-02", "2024-01-03")])
+    assert len(both) == 2
+    mixed = _check([aware_row, "2024-01-03T09:15:00"])
+    assert len(mixed) == 1
+
+
+@pytest.mark.parametrize(
+    "lead",
+    ["", "   ", "garbage"],
+    ids=["empty", "whitespace_only", "garbage"],
+)
+def test_fix_REGRESSION_junk_first_row_decides_awareness(lead):
+    """KEPT FAILING ON PURPOSE (found in fix round 1).
+
+    The awareness mask uses the first non-null *string*, and ``""``, ``"   "``
+    (empty after strip) and ``"garbage"`` are strings with no tz suffix, so
+    they count as "naive". Every +05:30 row after them is then masked to NaT
+    and the loader returns None for the symbol. The old inferred parse skipped
+    the junk row and parsed every offset row. An empty first ``time`` field is
+    a plausible broker shape. Suggested fix: decide awareness from the first
+    row that actually parses (or skip empty or unparseable strings).
+    """
+    new = _check([lead, "2024-01-02T09:15:00+05:30", "2024-01-03T09:15:00+05:30"], old_may_warn=True)
+    assert len(new) == 2
 
 
 def test_mixed_offsets_raise_on_both_paths():
