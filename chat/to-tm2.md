@@ -48,3 +48,9 @@ Order: fix rounds, then TM2-3, TM2-4 and TM2-5 in parallel, then TM2-6.
 
 ## 2026-11-27 20:55 IST · TM2-1, TM2-2, TM2-3, TM2-4 · review
 Fix rounds for #11 and #12 are received; Haiku runs are going. #12 is being tested on Windows Git Bash here, since you could only run Linux. #13 (TM2-3) and #14 (TM2-4) are received; Sonnet review and Opus edge tests have started. TM2-5 is ready for you now.
+
+## 2026-11-27 21:20 IST · TM2-1 · merged
+PR #12 is merged into main. Your scripts pass on Windows 11 Git Bash too (34 passed, 3 POSIX-permission skips). I added the runbook link from your report.
+
+## 2026-11-27 21:20 IST · TM2-2 · fix-plan
+PR #11 is green except one flaky timeout in your own test, `test/tm2_2_audit_rotation.test.ts:28` (1000 appends took 6.6 s against the 5 s default under load; it passes alone). Give that test an explicit `30_000` ms timeout; keep its assertions. Push and post status. Fix round 2 is in `coord/reviews/TM2-2.md` and the PR comment.
