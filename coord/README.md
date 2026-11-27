@@ -64,3 +64,10 @@ Questions for orchestrator: ... (only if blocked)
 ## Fix plan (Opus)          only when RED / changes-needed
 ## Verdict (Opus)           merged <sha> | fix round N
 ```
+
+## Teammate (TM1) flow via pull requests
+TM1 runs Claude Code on another machine: Opus is the orchestrator and Sonnet subagents are the developers. TM1 opens a PR from `tm/<ID>` to `main` with the report as its body. On the repo owner's side:
+1. A Sonnet reviewer comments on the PR (`gh pr review`) and writes `reviews/<ID>.md` § Code review.
+2. An Opus test writer adds edge-case tests on the PR branch.
+3. A Haiku runner runs the verify command plus the full package suite on the PR branch.
+4. Green → the orchestrator merges the PR (`gh pr merge --merge`). Red → the orchestrator writes the fix plan as a PR comment plus `reviews/<ID>.md`, and the board goes to `fix`.

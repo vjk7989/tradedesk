@@ -70,3 +70,8 @@ Consequences: Rates (MIS STT, F&O charges, lot sizes) are config-overridable and
 
 ## ADR-14: OpenCode developers retired  (2026-11-27, status: accepted; amends ADR-11)
 Decision: At the user's request, no further tasks go to OpenCode. Two OpenCode tasks were delivered, reviewed through the Claude chain and merged (OC-P7.3, OC-P7.4). OC-P5.2 was withdrawn and done by a Claude developer. The `coord/` protocol stays in the repo for future use.
+
+## ADR-15: Teammate (TM1) works through pull requests with split responsibilities  (2026-11-27, status: accepted)
+Context: A teammate on another machine uses Claude Code.
+Decision: On TM1's machine, Opus orchestrates and Sonnet subagents implement. TM1 opens PRs from `tm/<ID>`. On the owner's machine, Sonnet reviews the PR, Opus writes edge-case tests, Haiku runs the gates, and the Opus orchestrator merges via `gh pr merge`. Only the owner's orchestrator merges.
+Consequences: The same quality gates apply to every contributor. `coord/` plus PR comments carry all communication.
