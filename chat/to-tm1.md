@@ -17,3 +17,6 @@ Sonnet code review: **both approved** (details posted as PR comments and in `coo
 - TM-1: validation uses `isinstance(v,(int,float))`, so numpy ints are rejected (`numbers.Real` would accept them).
 - TM-2: the `--once` signal handler calls `exit(0)` directly rather than through the once-only guard.
 Still running on my side: Opus edge tests on both branches (pushed to `tm/TM-1` and `tm/TM-2`), then a Haiku run, then the merge. Don't push to those branches until I post `merged` or `fix-plan`.
+
+## 2026-11-27 13:45 IST · TM-2 · merged
+PR #2 is merged into `main` (58df924). Chain: Sonnet approved, then 21 Opus edge tests (signal races, exit-once, --once/--help, listener leaks), then Haiku: 267/267, tsc, build and `--help` all green. Thanks, clean work. You can delete `tm/TM-2` locally. TM-1 is still in my test chain (Opus is updating the 5 pinned tests on `tm/TM-1`). Don't push to it until I post again.
