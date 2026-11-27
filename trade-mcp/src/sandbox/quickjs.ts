@@ -18,6 +18,7 @@ export interface RunResult {
 }
 
 const TIMEOUT = Symbol("timeout");
+const ABORT = Symbol("abort");
 const MIN_MEMORY = 1024 * 1024;
 // runtime.setMemoryLimit does not count ArrayBuffer/TypedArray backing stores, so the WASM linear
 // memory itself is also capped: memoryBytes + this headroom (absolute WASM size).
@@ -131,12 +132,13 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
   async function execute(vm: QuickJSContext, runtime: QuickJSRuntime): Promise<RunResult> {
     jsonParse = vm.unwrapResult(vm.evalCode("JSON.parse"));
     const parseFn = jsonParse;
-    // Measured inside the guest (under the guest memory limit) so no host copy of a huge argument is built.
-    // Returns the JSON length in UTF-16 units (a lower bound of the byte size), -1 for undefined.
+    // Single snapshot of a binding argument: JSON.stringify is captured here, before any user code can
+    // replace it, and called exactly once per call inside the guest (under the guest memory limit), so
+    // toJSON/getters/Proxies run once. Returns the guest string, undefined, or null when not serialisable.
     guestSize = vm.unwrapResult(
-      vm.evalCode(`(a) => { const s = JSON.stringify(a); return s === undefined ? -1 : s.length; }`),
+      vm.evalCode(`(() => { const S = JSON.stringify; return (a) => { try { return S(a); } catch (e) { return null; } }; })()`),
     );
-    const sizeFn = guestSize;
+    const snapFn = guestSize;
     const fromJson = (json: string | undefined): QuickJSHandle => {
       if (json === undefined) return vm.undefined;
       const s = vm.newString(json);
@@ -172,6 +174,11 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     vm.setProp(vm.global, "console", consoleObj);
     consoleObj.dispose();
 
+    // Resolves when a settling binding finds the heap ceiling exceeded: the run fails without resuming the guest.
+    let abortRun: () => void = () => {};
+    const aborted = new Promise<typeof ABORT>((resolve) => {
+      abortRun = () => resolve(ABORT);
+    });
     let inFlight = 0;
     let pendingBytes = 0;
     // host bindings: each call returns a QuickJS promise settled from the host
@@ -185,41 +192,52 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
         const fn = vm.newFunction(name, (argHandle?: QuickJSHandle) => {
           const deferred = vm.newPromise();
           const rejectWith = (msg: string) => {
+            // Host error text is capped like results (it is copied into the guest too).
+            if (msg.length > resultCap) msg = msg.slice(0, resultCap) + "...[truncated]";
             const err = vm.newError({ name: "Error", message: msg });
             deferred.reject(err);
             err.dispose();
           };
-          let guestLen = 0;
-          if (argHandle !== undefined) {
-            try {
-              const r = vm.callFunction(sizeFn, vm.undefined, argHandle);
-              if (r.error) {
-                r.error.dispose();
-                guestLen = Infinity; // unserializable or out of guest memory
-              } else {
-                guestLen = Math.max(0, vm.getNumber(r.value));
-                r.value.dispose();
-              }
-            } catch {
-              guestLen = Infinity;
-            }
-          }
-          if (guestLen > MAX_ARG_BYTES) {
-            rejectWith("binding argument too large");
-            return deferred.handle;
-          }
-          // Second check, on the host bytes, now that the guest has vouched for the size.
-          let arg = argHandle === undefined ? undefined : vm.dump(argHandle);
+          let arg: unknown;
           let argBytes = 0;
-          try {
-            argBytes = arg === undefined ? 0 : Buffer.byteLength(JSON.stringify(arg) ?? "");
-          } catch {
-            argBytes = Infinity;
-          }
-          if (argBytes > MAX_ARG_BYTES) {
-            arg = undefined;
-            rejectWith("binding argument too large");
-            return deferred.handle;
+          if (argHandle !== undefined) {
+            let r: ReturnType<typeof vm.callFunction>;
+            try {
+              r = vm.callFunction(snapFn, vm.undefined, argHandle);
+            } catch {
+              rejectWith("binding argument too large");
+              return deferred.handle;
+            }
+            if (r.error) {
+              r.error.dispose(); // out of guest memory or interrupted while serialising
+              rejectWith("binding argument too large");
+              return deferred.handle;
+            }
+            const snap = r.value;
+            try {
+              const kind = vm.typeof(snap);
+              if (kind === "string") {
+                // .length is an intrinsic of the string primitive; the host copy is only made when small.
+                const len = vm.getNumber(vm.getProp(snap, "length"));
+                if (len > MAX_ARG_BYTES) {
+                  rejectWith("binding argument too large");
+                  return deferred.handle;
+                }
+                const json = vm.getString(snap);
+                // Second check, on the host bytes of the very string the guest measured.
+                argBytes = Buffer.byteLength(json);
+                if (argBytes > MAX_ARG_BYTES) {
+                  rejectWith("binding argument too large");
+                  return deferred.handle;
+                }
+                arg = JSON.parse(json);
+              } else if (kind !== "undefined") {
+                rejectWith("binding argument not serialisable");
+                return deferred.handle;
+              }
+            } finally {
+              snap.dispose();
+            }
           }
           if (inFlight >= MAX_IN_FLIGHT) {
             arg = undefined;
@@ -241,6 +259,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
               (value) => {
                 if (disposed) return;
                 checkCeiling();
+                if (memoryExceeded) return abortRun();
                 let h: QuickJSHandle;
                 try {
                   const json = value === undefined ? undefined : JSON.stringify(value);
@@ -260,6 +279,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
               },
               (e) => {
                 checkCeiling();
+                if (memoryExceeded) return abortRun();
                 if (!disposed) rejectWith(errMessage(e));
               },
             )
@@ -293,7 +313,8 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     const timeout = new Promise<typeof TIMEOUT>((resolve) => {
       timer = setTimeout(() => resolve(TIMEOUT), Math.max(0, deadline - Date.now()));
     });
-    const outcome = await Promise.race([hostPromise, timeout]);
+    const outcome = await Promise.race([hostPromise, timeout, aborted]);
+    if (outcome === ABORT) return fail(MEMORY_ERROR);
     if (outcome === TIMEOUT) return fail(timeoutMsg);
     if (outcome.error) {
       const e = vm.dump(outcome.error);

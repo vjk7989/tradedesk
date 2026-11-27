@@ -139,7 +139,7 @@ describe("O-9 in-guest argument sizing", () => {
        return [m, await t.f({ a: 1 }), await t.f()];`,
       { t: { f: async (a: unknown) => a ?? "none" } },
     );
-    expect(r.result).toEqual(["binding argument too large", { a: 1 }, "none"]);
+    expect(r.result).toEqual(["binding argument not serialisable", { a: 1 }, "none"]);
   });
   it("an argument just under the limit passes (host check is a second check)", async () => {
     const r = await runCode(`return (await t.f("z".repeat(1000*1000))).length;`, {
@@ -267,4 +267,117 @@ describe("O-9 loop: no leak across 200 mixed runs", () => {
     expect(end.rss - base.rss).toBeLessThan(64 * MB);
     expect(end.external - base.external).toBeLessThan(32 * MB);
   }, 300_000);
+});
+
+describe("O-9 round 1: single-snapshot argument serialisation", () => {
+  const run = (code: string, f: (a: unknown) => Promise<unknown>, calls?: unknown[]) =>
+    runCode(code, { t: { f: async (a: unknown) => (calls?.push(a), f(a)) } }, { memoryBytes: 64 * 1024 * 1024 });
+
+  it("a guest-replaced JSON.stringify cannot hide a big argument", async () => {
+    const calls: unknown[] = [];
+    const r = await run(
+      `JSON.stringify = () => "1";
+       try { await t.f({ big: "x".repeat(2*1024*1024) }); return "no"; } catch (e) { return e.message; }`,
+      async () => 1,
+      calls,
+    );
+    expect(r.result).toBe("binding argument too large");
+    expect(calls).toEqual([]);
+  });
+  it("a counter-based toJSON runs once and the host gets exactly the measured value", async () => {
+    const calls: unknown[] = [];
+    const r = await run(
+      `let n = 0;
+       const o = { toJSON() { n++; return n === 1 ? "small" : "y".repeat(2*1024*1024); } };
+       await t.f(o); return n;`,
+      async () => 1,
+      calls,
+    );
+    expect(r).toMatchObject({ ok: true, result: 1 });
+    expect(calls).toEqual(["small"]);
+  });
+  it("a growing getter is read once", async () => {
+    const calls: unknown[] = [];
+    const r = await run(
+      `let n = 0;
+       const o = { get a() { n++; return "z".repeat(n === 1 ? 10 : 3*1024*1024); } };
+       await t.f(o); return n;`,
+      async () => 1,
+      calls,
+    );
+    expect(r).toMatchObject({ ok: true, result: 1 });
+    expect(calls).toEqual([{ a: "zzzzzzzzzz" }]);
+  });
+  it("a Proxy is traversed once; a growing Proxy cannot exceed the cap", async () => {
+    const calls: unknown[] = [];
+    const r = await run(
+      `let gets = 0;
+       const p = new Proxy({}, {
+         ownKeys: () => ["a"],
+         getOwnPropertyDescriptor: () => ({ value: 1, enumerable: true, configurable: true }),
+         get: (_t, k) => { if (k !== "a") return undefined; gets++; return gets === 1 ? "ok" : "q".repeat(3*1024*1024); },
+       });
+       await t.f(p);
+       const big = new Proxy({}, {
+         ownKeys: () => ["a"],
+         getOwnPropertyDescriptor: () => ({ value: 1, enumerable: true, configurable: true }),
+         get: () => "q".repeat(3*1024*1024),
+       });
+       let m; try { await t.f(big); m = "no"; } catch (e) { m = e.message; }
+       return [gets, m];`,
+      async () => 1,
+      calls,
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.result).toEqual([1, "binding argument too large"]);
+    expect(calls).toEqual([{ a: "ok" }]);
+  });
+  it("BigInt and cycles report not serialisable without calling the host", async () => {
+    const calls: unknown[] = [];
+    const r = await run(
+      `const out = []; for (const v of [10n, (() => { const c = {}; c.c = c; return c; })()]) {
+         try { await t.f(v); out.push("no"); } catch (e) { out.push(e.message); } }
+       return out;`,
+      async () => 1,
+      calls,
+    );
+    expect(r.result).toEqual(["binding argument not serialisable", "binding argument not serialisable"]);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("O-9 round 1: capped error path", () => {
+  it("a huge host error message is truncated with a marker", async () => {
+    const r = await runCode(
+      `try { await t.f(); return "no"; } catch (e) { return e.message; }`,
+      { t: { f: async () => { throw new Error("e".repeat(6 * 1024 * 1024)); } } },
+      { memoryBytes: 64 * 1024 * 1024 },
+    );
+    expect(r.ok).toBe(true);
+    const m = r.result as string;
+    expect(m.length).toBeLessThanOrEqual(4 * 1024 * 1024 + 20);
+    expect(m.endsWith("...[truncated]")).toBe(true);
+  });
+});
+
+describe("O-9 round 1: ceiling on settle does not resume the guest", () => {
+  it("fails the run directly without allocating the result", async () => {
+    reset();
+    hooks.fakeWasm = { byteLength: 1024 * 1024 };
+    const fake = hooks.fakeWasm;
+    let resumed = false;
+    const r = await runCode(
+      `await t.grow(); globalThis.resumed = true; await t.mark(); return "finished";`,
+      {
+        t: {
+          grow: async () => ((fake.byteLength = 200 * 1024 * 1024), "r".repeat(1000)),
+          mark: async () => ((resumed = true), 1),
+        },
+      },
+      { memoryBytes: 8 * 1024 * 1024, timeoutMs: 20_000 },
+    );
+    expect(r).toMatchObject({ ok: false, error: "memory limit exceeded" });
+    expect(resumed).toBe(false);
+    reset();
+  });
 });
