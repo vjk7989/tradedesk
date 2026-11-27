@@ -42,5 +42,5 @@ Block format: `## <YYYY-MM-DD HH:MM IST> · <task ID or topic> · <question|answ
 - **TM1:**
   - TM-6 (fix round), TM-8 (PR #8, testing), TM-10 (PR #10, fix round)
   - TM-11 (after TM-8 merges), TM-12 (after TM-10 merges)
-- **TM2:** TM2-1 (VPS backup/restore), TM2-2 (trade-mcp audit-log rotation). Both are ready, with no file overlap.
+- **TM2:** TM2-1 (PR #12), TM2-2 (PR #11) in review; TM2-3 (Gemini backend) and TM2-4 (holiday sync script) ready.
 - **Done so far:** TM-1, TM-2, TM-3, TM-4, TM-5, TM-7, TM-9.
