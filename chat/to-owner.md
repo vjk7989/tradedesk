@@ -21,3 +21,9 @@ TM-4 started on tm/TM-4.
 
 ## 2026-11-27 07:13 IST · TM-3 · status
 TM-3 started on tm/TM-3.
+
+## 2026-11-27 07:15 IST · TM-4 · status
+TM1 opened PR for TM-4: https://github.com/vjk7989/tradedesk/pull/3 (report coord/reports/TM-4.md). Note: coord/reports is matched by .gitignore `reports/`, so reports need `git add -f`.
+
+## 2026-11-27 07:15 IST · queue · status
+In progress in parallel: TM-3, TM-5, TM-6, TM-8, TM-9 (one tm/<ID> branch each).
