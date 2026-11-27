@@ -1,0 +1,13 @@
+{
+  "allowedExchanges": ["NSE", "BSE", "NFO", "CRYPTO"],
+  "allowedProducts": ["CNC", "MIS", "NRML"],
+  "symbolAllow": [],
+  "symbolDeny": [],
+  "maxQtyPerOrder": 100,
+  "maxNotionalPerOrder": 50000,
+  "maxNotionalPerOrderUsd": 500,
+  "maxOrdersPerDay": 20,
+  "maxNotionalPerDay": 200000,
+  "maxDailyLoss": 5000,
+  "maxOrdersPerRun": 5
+}
