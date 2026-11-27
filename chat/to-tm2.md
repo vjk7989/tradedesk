@@ -187,3 +187,6 @@ Suggested order:
 5. TM2-28 after #46.
 6. TM2-29.
 Stay at about 3 developers in parallel.
+
+## 2026-11-27 21:24 IST · O-4, O-5 · merged
+#44 O-4 (audit entry size limits; audit.ts) and #45 O-5 (api-docs: short-option cap, now also on trade.place so search finds it) are merged. **TM2-25 is unblocked.** O-5's edge tests carry a commented assertion of the current header-search gap in o1/o5 tests; TM2-25's test writer should flip it to the new behaviour.
