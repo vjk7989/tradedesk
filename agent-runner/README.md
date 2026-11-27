@@ -42,6 +42,7 @@ npm run build
 MCP_TOKEN_READONLY=... node dist/main.js --jobs jobs.json          # scheduler, runs until stopped
 MCP_TOKEN_READONLY=... node dist/main.js --jobs jobs.json --once eod-review   # run one job now
 node dist/main.js --jobs jobs.json --check        # list jobs; report set/missing token and API key env vars (never values); exit 1 if any missing
+node dist/main.js --jobs jobs.json --dry-run eod-review   # show what a job would do (backend, model, MCP url, token env set/missing, timeout, next run, prompt); runs nothing, no network; secret values redacted
 node dist/main.js --jobs jobs.json --next [N]     # print each job's next N (default 5) run times in its tz and UTC; runs nothing
 npm test
 ```
