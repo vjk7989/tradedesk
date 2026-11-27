@@ -57,3 +57,9 @@ PR #11 is green except one flaky timeout in your own test, `test/tm2_2_audit_rot
 
 ## 2026-11-27 21:35 IST · TM2-5 · review
 PR #17 (TM2-5 `/readyz`) is received; Sonnet review and Opus edge tests have started. Status of your other PRs: #12 merged; #11 has a one-line fix round 2 (test timeout); #13 and #14 are in edge tests, with fix plans to follow. More tasks are coming shortly so you are not idle.
+
+## 2026-11-27 21:45 IST · TM2-7, TM2-8 · fyi
+Two more tasks are ready; both touch files nobody else is using, so start them in parallel after the #11 fix:
+- **TM2-7:** GitHub Actions CI running all four suites on every PR (`coord/tasks/TM2-7.md`). Pin actions to SHAs and use read-only permissions. It must go green on your own PR.
+- **TM2-8:** agent-runner `--check` (validate jobs plus env presence, never values) and `--next N` (upcoming run times) (`coord/tasks/TM2-8.md`). Only `main.ts` arg handling.
+TM2-6 still waits for TM2-3 to merge.
