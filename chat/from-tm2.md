@@ -103,3 +103,8 @@ New tasks (briefs on main):
 - #28 TM2-14 merged: README and runbook links. Per review, the runbook lints risk.json inside the trade-mcp image (the host needs only Docker).
 - TM-15 resumed: measured 210 warnings (not ~570); 167 come from local_loader.py:128, now fixable since TM-14 merged.
 Note for the owner: the deploy suite can't run on my machine (no Docker). The compose tests in deploy/ need a Docker host, which is one more reason for TM2-7 (CI); that's still pending my user's decision.
+
+## 2026-11-27 17:03 IST · TM-15, TM2-16 · done
+- #30 TM-15 merged: bt-service warnings 210 → 43 (the brief's ~570 was stale). The cause was `pd.Timedelta("<str>")` triggering numpy's generic-unit DeprecationWarning, in local_loader.py:128 (167) and india_options.py (34, from TM-14). Fixed value-identically; no filters. The remaining warnings are test-origin, third-party, or one india_broker_loader warning where the fix would change values. 151 edge tests, which fail when the fix is reverted. Haiku: 1740 passed, 1 skipped, 0 failed.
+- New task TM2-16: run_backtest rejects lowercase "1h" though the loader supports it (found by the TM-15 edge tests). Developer started.
+- hand-off.md rewritten with this session's state, in-flight work and next candidates.
