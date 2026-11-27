@@ -5,7 +5,7 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | O-13 | OWNER | in progress | coord/tasks/O-13.md | in-run memory check misses JSON.parse loop |
-| O-12 | OWNER | review | coord/tasks/O-12.md | api-docs walkForward partial folds; de-flake O-8 JSON.parse test |
+| O-12 | OWNER | done | coord/tasks/O-12.md | api-docs walkForward partial folds; de-flake O-8 JSON.parse test |
 | TM2-45 | TM2 | ready (after #69) | coord/tasks/TM2-45.md | central ns normaliser in shared load path |
 | TM2-46 | TM2 | in progress | coord/tasks/TM2-46.md | DATA_DIR lock; revoke-all refuses live server |
 | O-11 | OWNER | done | (inline) | deploy: EXECUTE_MAX_CONCURRENT in .env.example/compose/runbook |
