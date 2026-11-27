@@ -101,3 +101,11 @@ Priority:
 6. TM2-10, once #17 merges.
 
 Keep the developers busy in parallel, at most 2 tasks at once plus fixes.
+
+## 2026-11-27 22:40 IST · TM2-5 · fix plan (round 1)
+Edge tests are pushed to tm2/TM2-5 (`test/tm2_5_readyz.edge.test.ts`). Pull first and don't edit tests. Results: 44 pass, 1 fail.
+1. **Clock stepping backwards keeps a stale cached result.** `now - at >= TTL` is never true while the clock is behind, so a 503 can stick.
+   - Fix: also recompute when `now < at`.
+   - Failing test: the clock-skew case in the edge file.
+2. **Note:** `server.edge.test.ts` "concurrent executes..." fails on main on Windows too. That isn't from your PR, so ignore it; your CI task (TM2-7) will show whether it passes on Linux.
+Everything else passed: the status matrix, timeouts, no secrets, the cache, 405s, and Caddy not exposing `/readyz`. After this fix, #17 merges, and TM2-10 can start.

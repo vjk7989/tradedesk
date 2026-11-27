@@ -157,3 +157,12 @@ These are on the board (`coord/tasks/`):
 - **TM-16 · OAuth follow-ups**: HMAC-salted IP keys, and no store writes on unknown codes. Starts after #16 merges.
 
 Order: TM-14 (in progress), then TM-15 once #18 is merged, then TM-16 once #16 is merged.
+
+## 2026-11-27 22:40 IST · TM-13 · fix plan (round 1)
+Edge tests are pushed to tm/TM-13 (`test/tm13_oauth_persist.edge.test.ts`). Pull first and don't edit tests. Results: 27 pass, 4 fail.
+1. **Bug: a `null` entry in the persisted file breaks OAuth until someone edits the file.** Inputs: `{"pending":{"k":null}}`, `{"codes":{"k":null}}` or `{"rotated":{"k":null}}`. `prune()` throws in the constructor and again on every `/authorize`.
+   - Fix: on load, check each entry's shape (an object with the expected field types; a numeric expiry). Drop invalid entries.
+   - If loading still throws, reset every map to empty, so it starts clean.
+   - `prune()` must never throw on stored data.
+2. **Two processes on the same DATA_DIR redeem one code twice.** This is not a supported deployment: compose runs one trade-mcp. It's accepted as a documented limit. Add one comment line at the store class: "single process per DATA_DIR". The owner's test writer will mark that test as a documented limit; you don't edit it.
+3. **Note:** `server.edge.test.ts` "concurrent executes..." also fails on main on Windows under load. That isn't from your PR, so ignore it.
