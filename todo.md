@@ -95,7 +95,7 @@ Detailed plan: `plan.md`.
 - P9.1 · bt-service+trade-mcp · F&O defaults verified Nov 2026: lots NIFTY 65/BANKNIFTY 30/FINNIFTY 60/MIDCPNIFTY 120, futures STT 0.05% (42cf3ae) [x]
 - P9.2 · bt-service · crypto funding last-bar carried across scale-in (e98828c) [x]
 - P9.3 · bt-service · resample anchored to market session open, not first bar (ca4ac9f) [x]
-- P9.4 · watch · TM1 PR poll every 20 min (cron, session-only) [.]
+- P9.4 · watch · TM1 PR poll every 20 min (cron, session-only) [x] (ended: solo mode)
 - TM-3 · trade-mcp · exchange holidays in risk hours (teammate TM1) (PR #4 merged e88dfd3) [x]
 - TM-4 · repo · root README (teammate TM1) (PR #3 merged 8b280cd) [x]
 - TM-5 · agent-runner · OpenAI API backend (teammate TM1) (PR #5 merged 0293cf7) [x]
@@ -111,13 +111,13 @@ Detailed plan: `plan.md`.
 - TM2-3 · agent-runner · Gemini API backend (TM2) [x]
 - TM2-4 · deploy · OpenAlgo holiday sync script (TM2) [x]
 - TM-13 · trade-mcp · OAuth state persistence (TM1) [x]
-- TM-14 · bt-service · NSE options engine (TM1) [.] (PR #19, fix round 1 + addendum)
+- TM-14 · bt-service · NSE options engine (TM2, from TM1) [.] (PR #19 fix round 1 + addendum)
 - TM2-5 · trade-mcp · /readyz (TM2) [x]
 - TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [ ]
 - TM2-7 · repo · GitHub Actions CI (TM2) [ ]
-- TM2-8 · agent-runner · --check/--next (TM2) [.] (PR #21, edge tests)
+- TM2-8 · agent-runner · --check/--next (TM2) [x]
 - TM2-9 · trade-mcp · risk:lint CLI (TM2) [ ]
 - TM2-10 · trade-mcp · shared audit probe + /readyz follow-ups (TM2, after #17) [ ]
 - TM2-11 · docs · troubleshooting guide (TM2) [ ]
-- TM-15 · bt-service · remaining ~570 warnings (TM1, after #18) [ ]
-- TM-16 · trade-mcp · OAuth follow-ups (TM1, after #16) [.] (PR #20, fix round 1)
+- TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [ ]
+- TM-16 · trade-mcp · OAuth follow-ups (TM1, after #16) [x]

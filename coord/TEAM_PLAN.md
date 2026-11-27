@@ -1,5 +1,7 @@
 # TradeDesk team plan (single source of truth)
 
+> **2026-11-27 ~16:15 IST: SOLO MODE.** The owner session and TM1 have stopped. TM2 (buckleson) runs everything: build, review, test and merge. See `coord/TM2_SOLO.md`, which overrides this file where they conflict.
+
 Last updated: 2026-11-27 18:50 IST. If anything else contradicts this file, this file wins.
 
 ## 1. Who is who
