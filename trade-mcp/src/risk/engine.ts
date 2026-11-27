@@ -25,6 +25,12 @@ interface Day {
   notional: number;
 }
 
+export interface ReserveToken {
+  date: string;
+  notional: number;
+  done: boolean;
+}
+
 const norm = (s: string) => s.trim().toUpperCase();
 const minor = (n: number) => Math.round(n * 100);
 
@@ -111,6 +117,38 @@ export class RiskEngine {
     return { allow: r.length === 0, reasons: r };
   }
 
+  /**
+   * Synchronous check + immediate reservation of the order count and notional,
+   * so concurrent callers cannot slip past the caps. commit() persists,
+   * release() undoes the reservation.
+   */
+  reserve(
+    o: RiskOrder,
+    run: { ordersThisRun: number },
+    dayPnl?: number,
+  ): { allow: boolean; reasons: string[]; token?: ReserveToken } {
+    const d = this.checkOrder(o, run, dayPnl);
+    if (!d.allow) return d;
+    const notional = o.exchange.trim().toUpperCase() === "CRYPTO" ? 0 : o.quantity * (o.price as number);
+    this.day.orders += 1;
+    this.day.notional += notional;
+    return { ...d, token: { date: this.day.date, notional, done: false } };
+  }
+
+  release(t: ReserveToken): void {
+    if (t.done) return;
+    t.done = true;
+    if (t.date !== this.day.date) return;
+    this.day.orders = Math.max(0, this.day.orders - 1);
+    this.day.notional = Math.max(0, this.day.notional - t.notional);
+  }
+
+  commit(t: ReserveToken): void {
+    if (t.done) return;
+    t.done = true;
+    this.save();
+  }
+
   recordOrder(o: RiskOrder, notional: number): void {
     this.roll();
     this.day.orders += 1;
@@ -123,8 +161,8 @@ export class RiskEngine {
     return {
       mode: this.opts.mode,
       killSwitch: existsSync(this.opts.killSwitchFile),
-      limits: this.cfg,
-      today: { date: this.day.date, orders: this.day.orders, notional: this.day.notional },
+      limits: structuredClone(this.cfg),
+      today: structuredClone({ date: this.day.date, orders: this.day.orders, notional: this.day.notional }),
     };
   }
 }
