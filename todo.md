@@ -83,6 +83,6 @@ Detailed plan: `plan.md`.
 - P8.1 · docs · connect guides: Claude Code (`claude mcp add --transport http`), Codex (`~/.codex/config.toml` mcp_servers), Gemini CLI (`settings.json` mcpServers), local stdio mode (9f94230; verify after P1.6) [x]
 - P8.2 · agent-runner · interface + `cli` backend (claude -p / codex exec / gemini -p headless, stream parse, timeout, trade-mcp attached) (965b822) [x]
 - P8.3 · agent-runner · `api` backend (Anthropic/OpenAI/Gemini keys) behind the same interface (dcbdc99; Anthropic only) [x]
-- P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) (testing) [.]
+- P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) (357fb45) [x]
 - P8.5 · trade-mcp · read-only MCP token scope (MCP_TOKEN_READONLY → trade.* bindings absent) for scheduled jobs (D1 building) [.]
 - P5.2 · deploy · Caddy routes for OAuth paths + OAUTH_* env in compose/.env.example + runbook note (trade-mcp port never published) [ ]
