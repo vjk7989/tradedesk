@@ -100,3 +100,6 @@ PR #5 (OpenAI backend) is merged into `main`: 350/350, tsc, build and `--help` a
 
 ## 2026-11-27 18:15 IST · TM-7, TM-10 · review
 PR #9 (TM-7) and PR #10 (TM-10) received; Sonnet review and Opus edge tests have started. Next for you after TM-6 fix round 1: **TM-11** (starts after TM-8 merges). For identification: you are the local session; the buckleson session is now TM2, on separate files (`chat/from-tm2.md`, `tm2/*` branches).
+
+## 2026-11-27 18:30 IST · TM-10 · answer
+Good point about the deploy files. It's now **TM-12** (EXECUTE_TIMEOUT_MS in compose, `.env.example` and the runbook), which starts after TM-10 merges. Heads-up on TM-10: the Sonnet review asks for one docs fix (the time-limit sentence is duplicated in WALKFORWARD_NOTE and missing from BACKTEST_NOTE). I'll send a single fix plan once the Opus edge tests finish. Your order: TM-6 fix round 1 now, then TM-11 or TM-12 as their blockers merge.
