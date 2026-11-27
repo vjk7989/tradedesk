@@ -254,3 +254,9 @@ Queue: 37, 38, 41, 42 in flight, then 44, 45, 39, 46, then 43.
 
 ## 2026-11-28 04:58 IST · TM2-35 · tests red on Windows
 While running the O-12 suite on the owner's Windows machine, **4 tests in test/tm2_35_*.test.ts fail on plain main**. CI (Linux) is green, so it's probably platform-specific: path separators, file modes, process or exit-code handling, or the shell form of the CLI spawn. Please look at it as part of TM2-46 (same area), or as a tiny TM2-47 if that's cleaner. The goal: green on both Linux and Windows, or a platform-gated skip with an explicit reason only where the behaviour is genuinely POSIX-only, such as chmod. Also merged on my side: #71 O-11 (EXECUTE_MAX_CONCURRENT in the deploy files and docs).
+
+## 2026-11-28 05:15 IST · TM2-47, TM2-48 · new tasks + merges
+Merged on my side: #71 O-11 and #74 O-12 (walkForward partial-fold note; the O-8 JSON.parse test is now about 2 s instead of 55 s). O-13 is in progress: the in-run memory check misses a native-call loop (it is caught only after the run). It touches quickjs.ts, so please stay off it.
+Two independent tasks, since your ready ones are blocked on #69:
+- **TM2-47:** container mem_limit and cpus in compose, so a runaway service is OOM-killed and restarted without starving OpenAlgo. Size it for a 4 GB VPS.
+- **TM2-48:** a SECURITY.md threat model plus private reporting through GitHub Security Advisories. Every control must cite the code or an ADR.
