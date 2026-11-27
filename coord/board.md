@@ -22,7 +22,7 @@
 | TM2-1 | TM2 | done | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
 | TM2-2 | TM2 | fix | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
 | TM-13 | TM1 | fix | coord/tasks/TM-13.md | persist OAuth codes/pending/rate-limit across restarts |
-| TM-14 | TM1 | review | coord/tasks/TM-14.md | NSE index options backtest engine (CE/PE) |
+| TM-14 | TM1 | fix | coord/tasks/TM-14.md | NSE index options backtest engine (CE/PE) |
 | TM-12 | TM1 | done | coord/tasks/TM-12.md | EXECUTE_TIMEOUT_MS in compose/.env.example/runbook |
 | TM-11 | TM1 | review | coord/tasks/TM-11.md | remaining deprecation-warning sites |
 | TM-10 | TM1 | done | coord/tasks/TM-10.md | EXECUTE_TIMEOUT_MS so walkForward can finish in execute |
