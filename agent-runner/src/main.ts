@@ -28,27 +28,32 @@ const modelLine = (b: string) =>
   : b === "api-gemini" ? `${DEFAULT_GEMINI_MODEL} (default; GEMINI_MODEL overrides if set)`
   : "backend CLI default (none configured)";
 
-/** Describes a job without running it. Redacts the values of every env var the job references. */
-function dryRun(job: Job): string {
-  const keyName = KEY_ENV[job.backend];
-  const refs = [job.mcp.tokenEnv, keyName, job.notify?.telegram.chatIdEnv, job.notify ? "TELEGRAM_BOT_TOKEN" : undefined];
-  const secrets = [
-    ...new Set(refs.flatMap((n) => (n && process.env[n]?.trim() ? [process.env[n] as string, (process.env[n] as string).trim()] : []))),
-  ].sort((a, b) => b.length - a.length);
-  const redact = (t: string) => secrets.reduce((acc, s) => acc.split(s).join("[redacted]"), t);
+/** Describes a job without running it. Every printed line is redacted against all known secret env values. */
+function dryRun(job: Job, all: Job[]): string {
+  const names = [
+    ...Object.values(KEY_ENV),
+    "TELEGRAM_BOT_TOKEN",
+    ...all.flatMap((j) => [j.mcp.tokenEnv, j.notify?.telegram.chatIdEnv]),
+  ];
+  const vals = [...new Set(names.flatMap((n) => (n && process.env[n]?.trim() ? [process.env[n] as string] : [])))];
+  const short = vals.some((v) => v.trim().length < 4);
+  const secrets = [...new Set(vals.flatMap((v) => (v.trim().length >= 4 ? [v, v.trim()] : [])))].sort((x, y) => y.length - x.length);
+  const redact = (t: string) => secrets.reduce((acc, x) => acc.split(x).join("[redacted]"), t);
+  const withheld = "[withheld: a referenced secret is shorter than 4 characters]";
   const next = nextRun(job.schedule, new Date());
-  return [
+  const lines = [
     `job: ${job.name}`,
     `backend: ${job.backend}`,
     `model: ${modelLine(job.backend)}`,
-    `mcp url: ${job.mcp.url}`,
+    `mcp url: ${short ? withheld : job.mcp.url}`,
     `token env: ${job.mcp.tokenEnv} (${state(job.mcp.tokenEnv)})`,
     `timeout: ${job.timeoutMs !== undefined ? `${job.timeoutMs} ms` : "default"}`,
     `schedule: ${job.schedule.days.join(",")} ${job.schedule.time} ${job.schedule.tz}`,
     `next run: ${wall(next, job.schedule.tz)} | ${next.toISOString()}`,
-    "prompt:",
-    redact(job.prompt),
-  ].join("\n");
+    `prompt: ${short ? withheld : ""}`.trimEnd(),
+    ...(short ? [] : [job.prompt]),
+  ];
+  return lines.map(redact).join("\n");
 }
 
 /** `args` are the CLI arguments after the script name. */
@@ -75,15 +80,16 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>] [--check] [--next N] [--dry-run <name>]");
     return;
   }
-  const dryIdx = args.indexOf("--dry-run");
+  const dryIdx = args.findIndex((a) => a === "--dry-run" || a.startsWith("--dry-run="));
   if (dryIdx >= 0) {
     const bad = ["--once", "--check", "--next"].filter((f) => args.includes(f));
     if (bad.length) {
       console.error(`--dry-run cannot be combined with ${bad.join(", ")}`);
       return exit(1);
     }
-    const name = args[dryIdx + 1];
-    if (name === undefined || name.startsWith("--")) {
+    const arg = args[dryIdx];
+    const name = arg.startsWith("--dry-run=") ? arg.slice(10) : args[dryIdx + 1];
+    if (!name || name.startsWith("--")) {
       console.error("--dry-run requires a job name");
       return exit(1);
     }
@@ -99,7 +105,7 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
       console.error(`no such job: ${name}. valid names: ${jobs.map((j) => j.name).join(", ")}`);
       return exit(1);
     }
-    console.log(dryRun(job));
+    console.log(dryRun(job, jobs));
     return exit(0);
   }
   const check = args.includes("--check");
