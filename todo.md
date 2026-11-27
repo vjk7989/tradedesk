@@ -136,3 +136,5 @@ Detailed plan: `plan.md`.
 - TM2-21 · agent-runner · Telegram timeout tidy (TM2) [x]
 - TM2-22 · docs · timeout clamp + truncation (TM2) [x]
 - TM2-23 · trade-mcp · short-option qty cap (TM2) [.]
+- O-4 · trade-mcp · bound audited entry size (OWNER) [.] (building)
+- TM2-24 · e2e · smoke clock pinned via preload (TM2) [ ]
