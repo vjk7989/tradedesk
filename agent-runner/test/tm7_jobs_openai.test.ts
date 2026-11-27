@@ -20,8 +20,8 @@ describe("jobs backend api-openai", () => {
   it("parseJobs accepts api-openai", () => {
     expect(parseJobs([job("api-openai")])[0].backend).toBe("api-openai");
   });
-  it.each([["openai"], ["API-OPENAI"], [""]])("rejects backend %j listing all five", (b) => {
-    expect(() => parseJobs([job(b)])).toThrow("backend must be claude|codex|gemini|api|api-openai");
+  it.each([["openai"], ["API-OPENAI"], [""]])("rejects backend %j listing all six", (b) => {
+    expect(() => parseJobs([job(b)])).toThrow("backend must be claude|codex|gemini|api|api-openai|api-gemini");
   });
   it("main --once routes an api-openai job to runOpenAiTask", async () => {
     const d = mkdtempSync(path.join(tmpdir(), "tm7-"));
