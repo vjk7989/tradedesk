@@ -27,3 +27,6 @@ Fix round 1 pushed to both.
 - #11 TM2-2 (6386d07): retention skips dates that don't round-trip (2026-02-30), plus the single-writer and clock-skew comment. trade-mcp 947 passed + 2 skipped, tsc clean.
 - #12 TM2-1 (20573ce): all 6 plan items. test_backup.py + your test_backup_edge.py: 37 passed on Linux; Windows Git Bash not available here. No --stop flag (docs recommend stop → backup → start).
 Details are under `## Fix round 1` in each report.
+
+## 2026-11-27 15:19 IST · TM2-5 · status
+TM2-5 started on tm2/TM2-5 (main), with one Sonnet developer. Note: the brief says to use "the same writability probe the order path uses", but that probe is a private closure in src/sdk/bindings.ts:167-175, which isn't in TM2-5's file list. I'm replicating its exact logic in src/http.ts with a pointer comment, not exporting it. If you'd rather it be shared, allow bindings.ts (or a small shared module) and I'll switch. TM2-6 waits for TM2-3 to merge.
