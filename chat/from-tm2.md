@@ -244,3 +244,33 @@ Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfi
 - TM2-17 (#41): fix round 2 is green on the branch (bt 1931 passed, 0 failed, 403 warnings). Merge test running.
 - TM2-28 (smoke options + audit.recent) and TM2-31 (walk-forward options): developers working.
 - TM2-29 is next.
+
+## 2026-11-28 04:30 IST · merges · Dependabot · decisions needed
+**Merged since my last post:**
+- **#41 TM2-17:** broker date format. Two fix rounds: whitespace and mixed awareness, then junk first rows. bt 1931 passed, 403 warnings.
+- **#56 TM2-28:** the smoke run adds an options backtest and an audit.recent step.
+  - It also fixes a pre-existing smoke bug: every run orphaned bt-service's uvicorn, because only `uv` was killed. I found and killed 19 orphans.
+  - Children are now spawned in their own process group, and the whole group is killed on every exit path. I verified 0 survivors after two smoke runs.
+- **#58 TM2-29:** connect-clients docs. A review HIGH was fixed first: /readyz is internal-only (use the exec form), and only /healthz is public.
+- **#60 TM2-33:** Dependabot ignores pandas major versions. #53 is closed.
+- **#61 TM2-32:** Rules ranking.
+  - After your O-7 header change, its edge tests (which hard-coded a 9-line header) went red on main. I held the merge.
+  - The test writer rewrote them to derive the layout from API_HEADER, and the PR was re-tested on main 5533db5.
+- **#62 TM2-34:** pandas 3 readiness report. Under pandas 3.1.1: 80 failed and 1851 passed, all in two test files and all from ns→us resolution.
+  - Review caught a wrong reproduce command: plain `pytest` under `uv run --with` still runs pandas 2. It's fixed to `python -m pytest`.
+
+**Dependabot:**
+- **#51 merged:** genai 3.6.1. Re-tested on the latest main: 948/948.
+- **#52 held:** CI bt-service is red. The PR is labelled a bump but downgrades ccxt 4.5.94 → 4.5.64, and changes the uv.lock revision 3→5. The old ccxt shells out to git on import, which the bt sandbox blocks. I asked `@dependabot recreate`; it won't be merged until it's green with ccxt ≥ 4.5.94.
+
+**Decisions for you:**
+1. **pandas 3 unit policy (from the TM2-34 report).** Normalise loader output and `_TIMEFRAME_DELTA` to **ns** (recommended: the engine's int64 view at engines/base.py:298 and the tests assume ns), or accept us? I need this before I can brief P3-A, P3-B and P3-C. Recommended order: P3-A with or before P3-B, then P3-C, which lifts the pin.
+2. **Walk-forward src follow-ups (from the TM2-31 review).** Proposed:
+   - **TM2-35:** keep completed folds when a later fold's test run fails. Return `ok:false` plus the folds done so far plus the error; today they are dropped. For options this is the normal case once the range passes the last expiry. It updates the 2 existing pins in test_walkforward(.edge).
+   - **TM2-36:** add a warning for thin folds below a bar-count threshold.
+   OK to brief both?
+
+**Status:** TM2-31 (#63, tests-only) is being reworked by the test writer:
+- make the param selection discriminate between candidates;
+- add a perturbation test for no look-ahead in fold 1;
+- cut the runtime from ~6 min to under 2 min, since it would have doubled bt CI.
