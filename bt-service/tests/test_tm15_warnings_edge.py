@@ -55,7 +55,10 @@ def test_target_equals_old_timedelta_value_and_ns_unit(interval):
         old = pd.Timedelta(rule)  # the pre-fix expression (warns on this pandas)
     assert new == independent == old
     assert new.value == old.value == secs * 10**9
-    assert new.unit == "ns" == old.unit
+    # TM2-41 policy: the loader's target is ns. pd.Timedelta(rule) is ns on pandas 2.x
+    # but us on pandas 3, so the old side is compared at ns (value already checked).
+    assert new.unit == "ns"
+    assert old.as_unit("ns") == new and old.as_unit("ns").unit == "ns"
     assert new.total_seconds() == secs
     # source loader code is actually using this expression
     import inspect
@@ -306,8 +309,17 @@ def _numpy_version() -> tuple[int, int]:
 
 # The 'generic' unit DeprecationWarning only exists in NumPy >= 2.5. uv.lock pins
 # numpy 2.4.6 for Python < 3.12 (CI runs 3.11), where pd.Timedelta('3min') is silent.
+def _pandas_major() -> int:
+    return int(re.match(r"\d+", pd.__version__).group())
+
+
+# pandas 3 no longer routes pd.Timedelta('3min') through a generic-unit NumPy timedelta,
+# so the warning cannot appear there; the positive control is pandas-2 only (TM2-41).
 @pytest.mark.skipif(_numpy_version() < (2, 5),
                     reason="NumPy < 2.5 does not emit the 'generic' unit DeprecationWarning")
+@pytest.mark.skipif(_pandas_major() >= 3,
+                    reason="pandas >= 3 no longer emits the 'generic' unit DeprecationWarning "
+                           "for pd.Timedelta('3min'); positive control applies to pandas 2.x only")
 def test_capture_mechanism_sees_generic_timedelta_warning():
     """Positive control: the same flags/isolation do surface the old warning text.
 
