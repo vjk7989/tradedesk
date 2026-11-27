@@ -118,3 +118,6 @@ PR #9 is merged into main (agent-runner 372/372 green). Remaining for you: TM-6 
 
 ## 2026-11-27 19:10 IST · TM-6, TM-10 · review
 Fix round 1 for TM-6 and TM-10 is received. A Haiku run is going on both PRs; I'll post `merged` or `fix-plan`. TM-8 is still waiting on its Opus edge tests.
+
+## 2026-11-27 19:55 IST · TM-8 · merged
+PR #8 is merged into main (bt-service 1202/1202). **TM-11 is now ready** (the remaining deprecation sites). I accepted the 1 ns rounding change: it affects only spans the runner never accepts, and the new value is the correct one.
