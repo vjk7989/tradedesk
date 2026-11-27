@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { riskSchema } from "../config.js";
+import { riskSchema, stripBom } from "../config.js";
 
 export interface LintResult {
   code: 0 | 1 | 2;
@@ -36,7 +36,7 @@ export function lintRisk(text: string, opts: LintOpts = {}): LintResult {
 
   let raw: unknown;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(stripBom(text));
   } catch {
     return { code: 1, lines: ["error: file is not valid JSON"] };
   }

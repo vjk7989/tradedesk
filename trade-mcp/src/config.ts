@@ -63,6 +63,11 @@ function req(env: Record<string, string | undefined>, key: string): string {
   return v;
 }
 
+/** Strip one leading UTF-8 BOM (U+FEFF) so JSON saved by Windows editors parses. */
+export function stripBom(s: string): string {
+  return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+}
+
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const rawUrl = req(env, "OPENALGO_URL");
   let u: URL;
@@ -104,7 +109,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   let riskRaw: unknown = {};
   if (env.RISK_CONFIG) {
     try {
-      riskRaw = JSON.parse(readFileSync(env.RISK_CONFIG, "utf8"));
+      riskRaw = JSON.parse(stripBom(readFileSync(env.RISK_CONFIG, "utf8")));
     } catch {
       throw new ConfigError("RISK_CONFIG file is unreadable or not valid JSON");
     }
