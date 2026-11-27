@@ -54,6 +54,9 @@ Local smoke test (fake OpenAlgo, no broker needed): `node e2e/smoke.mjs`. See [e
 - VPS deployment: [docs/vps-runbook.md](docs/vps-runbook.md). Use your own `<DOMAIN>`.
 - Connecting clients: [docs/connect-clients.md](docs/connect-clients.md).
 - Fincept cockpit: [docs/fincept-setup.md](docs/fincept-setup.md).
+- Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md).
+- Backup and restore: [docs/backup.md](docs/backup.md).
+- Exchange holidays sync: [docs/holidays.md](docs/holidays.md).
 
 Clone: `git clone https://github.com/vjk7989/tradedesk`
 
@@ -65,7 +68,7 @@ Clone: `git clone https://github.com/vjk7989/tradedesk`
 | `bt-service/` | Python/FastAPI backtest service; `vibe_bt/` is the extracted engine |
 | `agent-runner/` | Scheduled agent jobs and backends |
 | `deploy/` | Docker compose, Caddyfile, example risk config |
-| `docs/` | VPS runbook, client and Fincept setup |
+| `docs/` | VPS runbook, client and Fincept setup, troubleshooting, backup, holidays |
 | `e2e/` | Fake OpenAlgo and smoke test |
 | `coord/` | Team task coordination notes |
 
