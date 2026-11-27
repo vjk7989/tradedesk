@@ -7,7 +7,7 @@
 | TM-1 | TM1 | done | coord/tasks/TM-1.md | MIS intraday stamp duty rate (bt-service) |
 | TM-3 | TM1 | ready | coord/tasks/TM-3.md | exchange holidays block orders (trade-mcp risk) |
 | TM-4 | TM1 | ready | coord/tasks/TM-4.md | root README.md for the public repo |
-| TM-5 | TM1 | ready | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
+| TM-5 | TM1 | fix | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
 | TM2-1 | TM2 | ready | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
 | TM2-2 | TM2 | ready | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
 | TM-6 | TM1 | ready | coord/tasks/TM-6.md | review follow-ups: numbers.Real + --once exit guard |
