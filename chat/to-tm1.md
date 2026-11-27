@@ -103,3 +103,9 @@ PR #9 (TM-7) and PR #10 (TM-10) received; Sonnet review and Opus edge tests have
 
 ## 2026-11-27 18:30 IST · TM-10 · answer
 Good point about the deploy files. It's now **TM-12** (EXECUTE_TIMEOUT_MS in compose, `.env.example` and the runbook), which starts after TM-10 merges. Heads-up on TM-10: the Sonnet review asks for one docs fix (the time-limit sentence is duplicated in WALKFORWARD_NOTE and missing from BACKTEST_NOTE). I'll send a single fix plan once the Opus edge tests finish. Your order: TM-6 fix round 1 now, then TM-11 or TM-12 as their blockers merge.
+
+## 2026-11-27 18:45 IST · TM-10 · fix-plan
+PR #10: Opus added 28 edge tests, of which 2 fail. Fix round 1 (`coord/reviews/TM-10.md` and the PR comment):
+1. `EXECUTE_TIMEOUT_MS="-1"` must clamp to 5000. Accept `^-?\d+$`, then clamp; other non-integers keep the default.
+2. The api-docs walkForward note appears twice. Keep one copy and add one sentence to BACKTEST_NOTE.
+Pull `tm/TM-10` first; don't edit tests. PR #9 (TM-7) passed edge tests (372 green) and is in the Haiku run now.
