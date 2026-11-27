@@ -220,7 +220,7 @@ class IndiaOptionsEngine(FuturesBaseEngine):
     @staticmethod
     def _upto_expiry(frame, spec: OptionSpec, col: str = "close") -> pd.Series:
         """Valid (non-NaN) ``col`` values on or before the expiry DATE (no look-ahead)."""
-        cutoff = pd.Timestamp(spec.expiry) + pd.Timedelta(days=1)
+        cutoff = pd.Timestamp(spec.expiry) + pd.Timedelta(1, unit="D")
         if frame.index.tz is not None:
             cutoff = cutoff.tz_localize(frame.index.tz)
         return pd.to_numeric(frame.loc[frame.index < cutoff, col], errors="coerce").dropna()

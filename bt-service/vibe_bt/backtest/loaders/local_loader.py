@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+from pandas.tseries.frequencies import to_offset
 import yaml
 
 from vibe_bt.backtest.loaders.base import cached_loader_fetch, validate_date_range, validate_ohlc
@@ -125,7 +126,9 @@ def _resample_to_interval(
         )
         return df
 
-    target = pd.Timedelta(rule)
+    # ``pd.Timedelta("<n>min")`` emits a numpy "generic unit" DeprecationWarning
+    # on this pandas; build the same ns-resolution Timedelta from the offset.
+    target = pd.Timedelta(to_offset(rule).nanos, unit="ns")
     if len(df.index) >= 2:
         source = df.index.to_series().diff().dropna().median()
         if pd.notna(source):
