@@ -297,9 +297,8 @@ describe("sandbox limits", () => {
 
   it("memory cap -> ok:false, stopped by cap, host survives", async () => {
     const r = await runCode(`const a=[]; for(let i=0;;i++) a.push({ i, s: [i, i, i, i] });`, {}, { memoryBytes: 8 * 1024 * 1024, timeoutMs: 30_000 });
-    // GC-heap allocator: typed-array backing stores are NOT counted by the cap (see the REPORT
-    // control pair in sandbox.edge.test.ts), so a Uint8Array loop only stops at the ~2 GB WASM
-    // heap ceiling whatever memoryBytes is. That needs ~2 GB of host RAM and is not deterministic.
+    // GC-heap allocator (O-8 removed ArrayBuffer/typed arrays from the guest, so the GC heap and
+    // strings are the only allocation routes left; both are counted by the cap).
     // The memory cap must stop the run (positive match on the QuickJS OOM error), not the
     // deadline, a syntax/reference error or a stack overflow; no WASM abort text leaks and the
     // host still works. timeoutMs is generous so the cap always fires before the deadline.
@@ -338,12 +337,16 @@ describe("sandbox limits", () => {
     await capPair(`const a=[]; for(let i=0;i<200000;i++) a.push({ i, s: [i, i, i, i] }); return a.length;`, 200000);
   }, 70_000);
 
-  // REPORT (product bug, fails today): ArrayBuffer/typed-array backing stores are not counted
-  // by runtime.setMemoryLimit, so 16 x 1 MB retained succeeds under a 4 MB cap (measured: even
-  // 256 x 1 MB does). An infinite Uint8Array loop only stops at the ~2 GB WASM heap ceiling, the
-  // same at a 4 MB, 64 MB or 1 GB cap. Left failing on purpose; do not weaken.
-  it("REPORT: control pair (Uint8Array): 16 x 1 MB retained passes at 64 MB, fails on memory at 4 MB", async () => {
-    await capPair(`const a=[]; for(let i=0;i<16;i++) a.push(new Uint8Array(1 << 20)); return a.length;`, 16);
+  // Was the Uint8Array REPORT pair (typed-array backing stores escaped the cap). O-8 removed
+  // ArrayBuffer/typed arrays from the guest, so the pair now uses ~16 MB of retained strings +
+  // objects: 16 x (1 MB string + small object) passes at 64 MB, fails on memory at 4 MB.
+  it("control pair (objects/strings, was Uint8Array): ~16 MB retained passes at 64 MB, fails on memory at 4 MB", async () => {
+    await capPair(
+      `const a=[]; for(let i=0;i<16;i++) a.push({ i, s: String(i).padEnd(1 << 20, "x") }); return [a.length, a[15].s.length, typeof Uint8Array];`,
+      [16, 1 << 20, "undefined"],
+    );
+    const t = await runCode(`return typeof Uint8Array === "undefined";`, {});
+    expect(t).toMatchObject({ ok: true, result: true });
   }, 70_000);
 
   it("memory cap stops allocation, does not leak, and next run is clean", async () => {
@@ -353,8 +356,12 @@ describe("sandbox limits", () => {
       expect(r.error).toMatch(MEM_OK);
       expect(r.error).not.toMatch(/timeout|syntax|ReferenceError|stack|Aborted|RuntimeError|Assertion/i);
     }
-    const next = await runCode(`const b = new Uint8Array(1 << 20); return b.length;`, {}, { memoryBytes: 4 * 1024 * 1024 });
-    expect(next).toMatchObject({ ok: true, result: 1 << 20 });
+    const next = await runCode(
+      `const s = "x".repeat(1 << 20); const n = []; for (let i = 0; i < 1000; i++) n.push(i * 1.5); return [s.length, n.length];`,
+      {},
+      { memoryBytes: 4 * 1024 * 1024 },
+    );
+    expect(next).toMatchObject({ ok: true, result: [1 << 20, 1000] });
   }, 120_000);
 
   it("deep recursion -> ok:false, not host stack overflow", async () => {
