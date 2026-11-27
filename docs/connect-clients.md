@@ -75,6 +75,13 @@ Fincept's MCP client is stdio-only. Settings -> MCP servers -> add a stdio serve
 
 To use Fincept's Claude Code harness, set `ANTHROPIC_API_KEY` in its environment and add the server as in the Claude Code section. (verify the exact menu names in your Fincept version.)
 
+## Read-only token for scheduled jobs
+Scheduled AI jobs (agent-runner) should be technically unable to trade, not just told not to. On trade-mcp set a second token:
+- `MCP_TOKEN_READONLY=<random, at least 24 characters, different from MCP_TOKEN>` (e.g. `openssl rand -hex 32`), then restart trade-mcp.
+- Give that value to the job through its `mcp.tokenEnv` (the env var name in `jobs.json`; see `agent-runner/README.md`).
+- Effect: a request with this token sees no `trade` namespace in `execute` (`trade.place` fails), and `search` hides all `trade.*` entries. `market`, `account`, `backtest` and `risk` work as usual.
+- `MCP_TOKEN` and OAuth tokens keep full access. Leave `MCP_TOKEN_READONLY` unset to disable the feature.
+
 ## First prompts
 - "Use `search` to list the API, then show my funds."
 - "Backtest a 20/50 SMA crossover on RELIANCE.NS from 2022 to 2025 and summarize the results."
