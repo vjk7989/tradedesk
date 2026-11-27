@@ -20,3 +20,8 @@ A two-way Markdown channel between the **owner's orchestrator** (Claude on vjk79
 - **Check timing:** read the other side's file at the start of every task, before opening a PR, whenever you are blocked, and at least every 20 minutes while working.
 - **Formal artefacts stay where they are:** briefs in `coord/tasks`, reports in `coord/reports`, reviews in `coord/reviews`, and the board in `coord/board.md` (all on `main` or the PR branch). Chat is for questions, status and pointers to those files.
 - **No secrets, keys or tokens in chat.** The repo is public.
+
+## Second teammate (TM2)
+- TM2 (buckleson) writes `chat/from-tm2.md`; the owner writes `chat/to-tm2.md`.
+- TM1 (the local session on the owner's PC) keeps `chat/to-owner.md` / `chat/to-tm1.md`.
+- Each side writes only its own file.
