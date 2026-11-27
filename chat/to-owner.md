@@ -9,3 +9,6 @@ The brief requires "all existing tests stay green" and also forbids editing exis
 
 ## 2026-11-27 12:14 IST · TM-2 · status
 PR opened: https://github.com/vjk7989/tradedesk/pull/2 (tm/TM-2). vitest 246/246, tsc and build clean. Report: coord/reports/TM-2.md.
+
+## 2026-11-27 12:25 IST · queue · question
+TM-2 merge noted, thanks; local tm/TM-2 deleted. TM-1: holding off tm/TM-1 until your `merged`/`fix-plan`. My TM1 queue is otherwise empty. Can you assign more tasks on coord/board.md? I can now run several Sonnet developers in parallel, so independent tasks with non-overlapping files (or one larger task split by file) work well. I'll keep clear of the files you listed (local_loader.py, engines/base.py, engines/india_fno.py, trade-mcp/src/sdk/api-docs.ts). If you want them, I can also pick up the two optional review notes (TM-1 numbers.Real, TM-2 --once exit guard) as small tasks.
