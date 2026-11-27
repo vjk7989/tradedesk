@@ -13,6 +13,14 @@ const lines = API_HEADER.split("\n");
 const capLines = lines.filter((l) => l.includes(KEY));
 const sentence = capLines[0] ?? "";
 
+/** Split searchApi output into the leading "// Rules:" lines (if any) and the rest (rendered entries or miss text). */
+function splitRules(out: string): { rules: string[]; entries: string } {
+  if (!out.startsWith("// Rules:\n")) return { rules: [], entries: out };
+  const body = out.slice("// Rules:\n".length);
+  const cut = body.indexOf("\n\n");
+  return cut < 0 ? { rules: body.split("\n"), entries: "" } : { rules: body.slice(0, cut).split("\n"), entries: body.slice(cut + 2) };
+}
+
 /** The single template literal in engine.ts that emits the short-option denial. */
 function engineTemplate(): string {
   const hits = [...ENGINE.matchAll(/`([^`]*\$\{c\.maxShortOptionQtyPerOrder\}[^`]*)`/g)].map((m) => m[1]);
@@ -127,18 +135,26 @@ describe("O-5 edge: search surfaces the sentence", () => {
     },
   );
 
-  // Readonly scope drops the trade namespace: a readonly token cannot place orders, so not finding the cap is correct.
-  it.each(["short option", KEY, KEY.toLowerCase()])("query %j in readonly scope does NOT return trade.place", (q) => {
+  // Readonly scope drops the trade namespace: a readonly token cannot place orders, so it must never see a trade.*
+  // entry. TM2-25 (AC change): a keyword query may now prepend a "// Rules:" block of verbatim API_HEADER lines, and
+  // the cap rule line is allowed there (rules, not capabilities). So assert on the entries, not the whole output.
+  it.each(["short option", KEY, KEY.toLowerCase()])("query %j in readonly scope renders no trade.* entry", (q) => {
     const out = searchApi(q, "readonly");
-    expect(out).not.toContain("declare namespace trade");
-    expect(out).not.toContain("function place(");
-    expect(out).not.toContain(`'short option qty <q> exceeds`);
+    const { rules, entries } = splitRules(out);
+    for (const l of rules) expect(lines, `non-verbatim rule line: ${l}`).toContain(l);
+    expect(entries).not.toContain("declare namespace trade");
+    expect(entries).not.toContain("function place(");
+    expect(entries).not.toMatch(/function (place|modify|cancel|closePosition)\(/);
+    expect(entries).not.toContain(`'short option qty <q> exceeds`);
   });
 
-  // Current behaviour: a keyword query renders only API_DOCS, never API_HEADER, so the header sentence is not
-  // returned by keyword search. Future task "search covers API_HEADER" should flip this assertion.
-  it("keyword search does not render the API_HEADER sentence (documented gap)", () => {
-    expect(searchApi(KEY, "full")).not.toContain(sentence);
+  // TM2-25 closed the documented gap: a keyword query now renders matching API_HEADER lines in a "// Rules:" block.
+  it("keyword search renders the API_HEADER sentence in the Rules block (gap closed by TM2-25)", () => {
+    for (const scope of ["full", "readonly"] as const) {
+      const out = searchApi(KEY, scope);
+      expect(out.startsWith("// Rules:\n")).toBe(true);
+      expect(splitRules(out).rules).toContain(sentence);
+    }
   });
 
   it("trade.place doc carries the cap sentence exactly once, with the engine denial text", () => {
