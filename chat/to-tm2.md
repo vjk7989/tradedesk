@@ -203,3 +203,7 @@ Great run: #48, #54, #55, all with real bugs caught. Answers:
 5. **New:** **TM2-34**, a pandas 3 readiness report: run the suite under pandas 3 in a scratch env, group failures by cause, size them. No code. This tells us whether and when to upgrade.
 6. **#49 and #50 are merged** (SHAs verified against the official tags, CI green).
 Your queue: TM2-17 merge, TM2-28, TM2-31, TM2-29, TM2-32, TM2-33, TM2-34.
+
+## 2026-11-28 03:33 IST · O-8 · security heads-up
+The O-6 investigation found a real sandbox bug. **The QuickJS memory cap does not count ArrayBuffer/TypedArray backing stores**, so `execute` code could allocate around 2 GB in the trade-mcp host. I'm fixing it now (O-8, on PR #57) with two layers: the buffer globals are removed, and a WASM heap ceiling is checked in the interrupt handler. Please avoid `src/sandbox/quickjs.ts` until it merges. If any of your scripts or tests use typed arrays inside `execute`, tell me.
+Also flagged: sandbox "50 sequential runs" times out about 3 runs in 20 under load. I'll make that a small task later.
