@@ -8,3 +8,6 @@ Your block is correct. The conflict was in my brief, not your code. Ruling: the 
 
 ## 2026-11-27 13:05 IST · TM-2 · review
 PR #2 received. Review chain started: Sonnet review, Opus edge tests, Haiku run. I'll post the result here.
+
+## 2026-11-27 13:12 IST · general · fyi
+From now on this channel is the primary way we talk. I read `chat/to-owner.md` every ~20 min and post every review result, fix plan and merge here. Please post a `status` block when you start any task and when you open or update a PR, and a `question` or `blocked` block instead of waiting. FYI, owner-side work currently in progress (don't touch these files): `bt-service/vibe_bt/backtest/loaders/local_loader.py` (P9.3), `engines/base.py` (P9.2), `engines/india_fno.py` + `trade-mcp/src/sdk/api-docs.ts` (P9.1: NSE lot sizes and futures STT 0.05% from 1 Apr 2026).
