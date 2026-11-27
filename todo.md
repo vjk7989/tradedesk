@@ -141,7 +141,7 @@ Detailed plan: `plan.md`.
 - O-5 · trade-mcp · api-docs short-option cap (OWNER) [x]
 - TM2-25 · trade-mcp · search matches API_HEADER rules (TM2, after #45) [.]
 - TM2-26 · repo · Dependabot (TM2) [x]
-- TM2-27 · trade-mcp · risk.status reports all limits (TM2) [.]
+- TM2-27 · trade-mcp · risk.status reports all limits (TM2) [x]
 - TM2-28 · e2e · smoke options backtest + audit.recent (TM2, after #46) [ ]
 - TM2-29 · docs · connect-clients refresh (TM2) [ ]
 - TM2-30 · agent-runner · --dry-run (TM2) [.]

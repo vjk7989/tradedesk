@@ -11,7 +11,7 @@
 | TM2-31 | TM2 | in progress | coord/tasks/TM2-31.md | walk-forward with options + composite |
 | TM2-25 | TM2 | in progress | coord/tasks/TM2-25.md | search matches API_HEADER rules |
 | TM2-26 | TM2 | merged #47 | coord/tasks/TM2-26.md | Dependabot for actions + lockfiles |
-| TM2-27 | TM2 | in progress | coord/tasks/TM2-27.md | risk.status reports all limits |
+| TM2-27 | TM2 | merged #48 | coord/tasks/TM2-27.md | risk.status reports all limits |
 | O-5 | OWNER | done | coord/tasks/O-5.md | api-docs: short-option qty cap |
 | O-4 | OWNER | done | coord/tasks/O-4.md | bound size of audited entries |
 | TM2-24 | TM2 | merged #46 | coord/tasks/TM2-24.md | e2e smoke: pin clock via preload + #37 LOWs |
