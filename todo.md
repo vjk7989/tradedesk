@@ -98,7 +98,7 @@ Detailed plan: `plan.md`.
 - P9.4 · watch · TM1 PR poll every 20 min (cron, session-only) [.]
 - TM-3 · trade-mcp · exchange holidays in risk hours (teammate TM1) (PR #4 merged e88dfd3) [x]
 - TM-4 · repo · root README (teammate TM1) (PR #3 merged 8b280cd) [x]
-- TM-5 · agent-runner · OpenAI API backend (teammate TM1) [ ]
+- TM-5 · agent-runner · OpenAI API backend (teammate TM1) (PR #5 merged 0293cf7) [x]
 - TM-6 · review follow-ups (teammate TM1) [ ]
 - TM-7 · agent-runner jobs api-openai (teammate TM1, after TM-5) [ ]
 - TM-8 · bt-service deprecation warnings (teammate TM1) [ ]
