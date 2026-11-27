@@ -36,16 +36,16 @@ _INTERVAL_MAP = {
 }
 
 _TIMEFRAME_DELTA = {
-    "1m": pd.Timedelta(1, "min"),
-    "3m": pd.Timedelta(3, "min"),
-    "5m": pd.Timedelta(5, "min"),
-    "15m": pd.Timedelta(15, "min"),
-    "30m": pd.Timedelta(30, "min"),
-    "1h": pd.Timedelta(1, "h"),
-    "4h": pd.Timedelta(4, "h"),
-    "1d": pd.Timedelta(1, "D"),
-    "1w": pd.Timedelta(1, "W"),
-    "1M": pd.Timedelta(31, "D"),
+    "1m": pd.Timedelta(1, "min").as_unit("ns"),
+    "3m": pd.Timedelta(3, "min").as_unit("ns"),
+    "5m": pd.Timedelta(5, "min").as_unit("ns"),
+    "15m": pd.Timedelta(15, "min").as_unit("ns"),
+    "30m": pd.Timedelta(30, "min").as_unit("ns"),
+    "1h": pd.Timedelta(1, "h").as_unit("ns"),
+    "4h": pd.Timedelta(4, "h").as_unit("ns"),
+    "1d": pd.Timedelta(1, "D").as_unit("ns"),
+    "1w": pd.Timedelta(1, "W").as_unit("ns"),
+    "1M": pd.Timedelta(31, "D").as_unit("ns"),
 }
 
 

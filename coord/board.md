@@ -4,15 +4,23 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| O-10 | OWNER | in progress (HIGH, DoS) | coord/tasks/O-10.md | cap concurrent execute runs |
+| TM2-47 | TM2 | ready | coord/tasks/TM2-47.md | container mem/cpu limits (compose) |
+| TM2-48 | TM2 | ready | coord/tasks/TM2-48.md | SECURITY.md threat model + reporting |
+| O-13 | OWNER | in progress | coord/tasks/O-13.md | in-run memory check misses JSON.parse loop |
+| O-12 | OWNER | done | coord/tasks/O-12.md | api-docs walkForward partial folds; de-flake O-8 JSON.parse test |
+| TM2-45 | TM2 | ready (after #69) | coord/tasks/TM2-45.md | central ns normaliser in shared load path |
+| TM2-46 | TM2 | in progress | coord/tasks/TM2-46.md | DATA_DIR lock; revoke-all refuses live server |
+| O-11 | OWNER | done | (inline) | deploy: EXECUTE_MAX_CONCURRENT in .env.example/compose/runbook |
+| TM2-44 | TM2 | merged #75 | coord/tasks/TM2-44.md | de-flake OAuth rate-limit tests (scrypt timing) |
+| O-10 | OWNER | done | coord/tasks/O-10.md | cap concurrent execute runs |
 | O-9 | OWNER | done | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
 | TM2-35 | TM2 | merged #66 | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
 | TM2-36 | TM2 | merged #64 | coord/tasks/TM2-36.md | agent-runner --history [N] |
 | TM2-37 | TM2 | in progress | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
 | TM2-40 | TM2 | merged #67 | coord/tasks/TM2-40.md | ccxt>=4.5.94 floor (after #52 downgrade) |
-| TM2-38 | TM2 | in progress | coord/tasks/TM2-38.md | walk-forward keeps completed folds on failure |
-| TM2-39 | TM2 | ready | coord/tasks/TM2-39.md | walk-forward thin-fold warning |
-| TM2-41 | TM2 | in progress | coord/tasks/TM2-41.md | P3-A loaders normalise to ns |
+| TM2-38 | TM2 | merged #70 | coord/tasks/TM2-38.md | walk-forward keeps completed folds on failure |
+| TM2-39 | TM2 | in progress | coord/tasks/TM2-39.md | walk-forward thin-fold warning |
+| TM2-41 | TM2 | merged #69 | coord/tasks/TM2-41.md | P3-A loaders normalise to ns |
 | TM2-42 | TM2 | in progress | coord/tasks/TM2-42.md | P3-B drop .values, unit-mixing guard |
 | TM2-43 | TM2 | ready (after 41, 42; needs CI leg) | coord/tasks/TM2-43.md | P3-C lift pandas pin to 3.x |
 | O-8 | OWNER | done | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |

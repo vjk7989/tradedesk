@@ -126,6 +126,7 @@ Switching to live is a server-side change only (see `docs/vps-runbook.md`).
 | `OAUTH_PASSWORD_HASH must be scrypt:<32 hex salt>:<128 hex hash>` | OAuth enabled but `OAUTH_PASSWORD_HASH` is missing or malformed (it is required with `OAUTH_ENABLED=1`) | Generate the hash with the `node -e` snippet in `trade-mcp/src/oauth/config.ts` |
 | `invalid authorization code` | Authorization code expired or reused | Start the connection again |
 | `timeout: execution exceeded <N>ms` | Code ran longer than `EXECUTE_TIMEOUT_MS` | Shorten the script, or raise `EXECUTE_TIMEOUT_MS` (default 60000, clamped to 5000-900000) |
+| `busy: too many concurrent executes, retry shortly` | More simultaneous `execute` calls than `EXECUTE_MAX_CONCURRENT` allows | Retry shortly, or raise `EXECUTE_MAX_CONCURRENT` (default 4, max 32; about 80 MB RAM per slot) and restart trade-mcp |
 | Long backtest or walkForward times out | `timeout: execution exceeded <N>ms`; walkForward needs about 660000 | Set `EXECUTE_TIMEOUT_MS` to 660000 or more (max 900000) and raise the client's tool-call timeout above it. A `trades truncated to 1000 of <N>` warning is not an error: the service caps trades at 1000 and MCP returns 20 plus `tradeCount` (see `docs/backtesting.md` sections 4-5) |
 | `code exceeds 100KB limit` | `execute` code too large | Send less code |
 | HTTP 413 `request body too large` | Request body over 1 MB | Send less |

@@ -399,6 +399,8 @@ describe("stdio is full", () => {
 describe("concurrency: per-request scope", () => {
   it("interleaved readonly and full requests each see their own scope", async () => {
     const s = await start({ mcpToken: FULL, mcpTokenReadonly: RO }, { delayMs: 30 });
+    // O-10 caps concurrent executes (default 4); raise the cap so all 16 interleaved runs overlap
+    (s.deps.cfg as any).executeMaxConcurrent = 32;
     try {
       // each run awaits a slow host call before reporting, so requests overlap inside the server
       const code = "await market.quote({symbol:'X',exchange:'NSE'}); return typeof trade";
