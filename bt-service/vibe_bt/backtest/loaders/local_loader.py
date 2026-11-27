@@ -155,6 +155,7 @@ def _resample_to_interval(
     else:
         resampled = df.resample(rule).agg(_OHLCV_AGG)
     resampled = resampled.dropna(subset=["open", "high", "low", "close"])
+    resampled.index = resampled.index.as_unit("ns")
     resampled.index.name = df.index.name
     return resampled
 
@@ -264,6 +265,9 @@ def _normalize_columns(
             df["trade_date"] = parsed_dates.dt.tz_convert(wall_tz).dt.tz_localize(None)
     df = df.dropna(subset=["trade_date"])
     df = df.set_index("trade_date").sort_index()
+    # Pin ns so pandas 2.3 and 3.x agree (engines compare int64 ns epochs).
+    if isinstance(df.index, pd.DatetimeIndex):
+        df.index = df.index.as_unit("ns")
 
     ohlcv_cols: list[str] = ["open", "high", "low", "close"]
     if "volume" in df.columns:
