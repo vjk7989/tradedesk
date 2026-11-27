@@ -9,7 +9,15 @@ const run = (job: Job) =>
 const exec = (job: Job) => executeJob(job, { run }).then((f) => console.error(`job ${job.name}: wrote ${f}`));
 
 /** `args` are the CLI arguments after the script name. */
-export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
+export interface MainDeps {
+  exit?: (code: number) => void;
+  onSignal?: (sig: string, fn: () => void) => void;
+}
+
+export async function main(args: string[] = process.argv.slice(2), deps: MainDeps = {}): Promise<void> {
+  const exit = deps.exit ?? ((c: number) => process.exit(c));
+  const onSignal = deps.onSignal ?? ((s: string, fn: () => void) => void process.on(s as NodeJS.Signals, fn));
+  const signals = ["SIGINT", "SIGTERM"] as const;
   const val = (flag: string) => {
     const i = args.indexOf(flag);
     return i >= 0 ? args[i + 1] : undefined;
@@ -23,16 +31,40 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
   if (once !== undefined) {
     const job = jobs.find((j) => j.name === once);
     if (!job) throw new Error(`no such job: ${once}`);
+    for (const sig of signals) onSignal(sig, () => exit(0));
     await exec(job);
     return;
   }
-  for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => process.exit(0));
+  let stopping = false;
+  let running = false;
+  let exited = false;
+  const bye = () => {
+    if (exited) return;
+    exited = true;
+    exit(0);
+  };
+  // First signal: stop starting jobs; exit now if idle, else after the running job. Second: exit now.
+  const onStop = () => {
+    const second = stopping;
+    stopping = true;
+    if (second || !running) bye();
+  };
+  for (const sig of signals) onSignal(sig, onStop);
   console.error(`agent-runner scheduler started: ${jobs.length} job(s)`);
   await runScheduler(jobs, {
     now: () => new Date(),
     sleep: (ms) => new Promise((r) => setTimeout(r, Math.min(ms, 3600000))),
-    run: exec,
+    run: async (job) => {
+      running = true;
+      try {
+        await exec(job);
+      } finally {
+        running = false;
+      }
+    },
+    stopped: () => stopping,
   });
+  if (stopping) bye();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
