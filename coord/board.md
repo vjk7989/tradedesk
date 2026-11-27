@@ -3,7 +3,7 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | OC-P7.3 | OC1 | done | coord/tasks/OC-P7.3.md | walk-forward / OOS endpoint in bt-service |
-| OC-P7.4 | OC1 | review | coord/tasks/OC-P7.4.md | backtest.walkForward binding in trade-mcp |
+| OC-P7.4 | OC1 | done | coord/tasks/OC-P7.4.md | backtest.walkForward binding in trade-mcp |
 | OC-P5.2 | — | withdrawn | coord/tasks/OC-P5.2.md | Caddy OAuth routes + compose env + runbook | (reassigned to Claude developer as P5.2) |
 
 States: `ready` · `fix` · `review` · `testing` · `done` · `blocked`.
