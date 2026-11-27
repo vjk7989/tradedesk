@@ -4,14 +4,30 @@ import path from "node:path";
 const SECRET_RE = /apikey|token|secret|password|authorization|passphrase|privatekey|cookie|session/;
 const isSecret = (k: string) => SECRET_RE.test(k.toLowerCase().replace(/[-_]/g, ""));
 
-function redact(v: unknown): unknown {
-  if (Array.isArray(v)) return v.map(redact);
-  if (v && typeof v === "object") {
+const MAX_STR = 2000;
+const MAX_ITEMS = 100;
+const MAX_DEPTH = 8;
+const MAX_LINE_BYTES = 64 * 1024;
+
+/** Key-name redaction plus size bounds (string length, array length, depth, cycles). */
+function sanitize(v: unknown, depth = 0, seen: WeakSet<object> = new WeakSet()): unknown {
+  if (typeof v === "string") return v.length > MAX_STR ? `${v.slice(0, MAX_STR)}…[+${v.length - MAX_STR} chars]` : v;
+  if (!v || typeof v !== "object") return v;
+  if (depth > MAX_DEPTH) return "[depth limit]";
+  if (seen.has(v)) return "[cycle]";
+  seen.add(v);
+  try {
+    if (Array.isArray(v)) {
+      const out = v.slice(0, MAX_ITEMS).map((x) => sanitize(x, depth + 1, seen));
+      if (v.length > MAX_ITEMS) out.push(`…[+${v.length - MAX_ITEMS} items]`);
+      return out;
+    }
     const out: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(v)) out[k] = isSecret(k) ? "[REDACTED]" : redact(val);
+    for (const [k, val] of Object.entries(v)) out[k] = isSecret(k) ? "[REDACTED]" : sanitize(val, depth + 1, seen);
     return out;
+  } finally {
+    seen.delete(v);
   }
-  return v;
 }
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -75,6 +91,9 @@ export function appendAudit(file: string, entry: object, now: () => Date = () =>
   if (rotateIfNeeded(file, t)) {
     try { applyRetention(file, t); } catch { /* retention must never block auditing */ }
   }
-  const line = JSON.stringify({ ...(redact(entry) as object), ts: t.toISOString() });
+  const clean: Record<string, unknown> = { ...(sanitize(entry) as Record<string, unknown>), ts: t.toISOString() };
+  let line = JSON.stringify(clean);
+  const bytes = Buffer.byteLength(line);
+  if (bytes > MAX_LINE_BYTES) line = JSON.stringify({ ts: clean.ts, run: clean.run, truncated: true, bytes });
   appendFileSync(file, line + "\n");
 }
