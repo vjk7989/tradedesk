@@ -1,0 +1,116 @@
+services:
+  openalgo:
+    build:
+      context: ${OPENALGO_SRC:-../vendor/openalgo}
+      dockerfile: Dockerfile
+    image: openalgo:latest
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - TZ=Asia/Kolkata
+    volumes:
+      - openalgo_db:/app/db
+      - openalgo_log:/app/log
+      - openalgo_strategies:/app/strategies
+      - openalgo_keys:/app/keys
+      - openalgo_tmp:/app/tmp
+      - type: bind
+        source: ${OPENALGO_ENV_FILE:-./openalgo.env}
+        target: /app/.env
+        bind:
+          create_host_path: false
+    shm_size: 512m
+    expose: ["5000", "8765"]
+    networks: [internal, egress]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/auth/check-setup"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  trade-mcp:
+    build:
+      context: ../trade-mcp
+    environment:
+      OPENALGO_URL: http://openalgo:5000
+      OPENALGO_API_KEY: ${OPENALGO_API_KEY:?set OPENALGO_API_KEY}
+      MCP_TOKEN: ${MCP_TOKEN:?set MCP_TOKEN}
+      BT_URL: http://bt-service:8000
+      BT_TOKEN: ${BT_TOKEN:?set BT_TOKEN}
+      MODE: ${MODE:-paper}
+      HOST: 0.0.0.0
+      PORT: "8787"
+      DATA_DIR: /data
+      RISK_CONFIG: /config/risk.json
+    volumes:
+      - trade_mcp_data:/data
+      - type: bind
+        source: ${RISK_CONFIG_FILE:-./risk.example.json}
+        target: /config/risk.json
+        read_only: true
+    expose: ["8787"]
+    networks: [internal]
+    depends_on: [openalgo, bt-service]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  bt-service:
+    build:
+      context: ../bt-service
+    environment:
+      BT_TOKEN: ${BT_TOKEN:?set BT_TOKEN}
+      OPENALGO_URL: http://openalgo:5000
+      OPENALGO_API_KEY: ${OPENALGO_API_KEY:?set OPENALGO_API_KEY}
+      BT_RUNS_DIR: /runs
+    tmpfs:
+      - /runs
+    mem_limit: 1g
+    cpus: 1
+    expose: ["8000"]
+    networks: [internal, egress]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [internal, public]
+    depends_on: [trade-mcp, openalgo]
+    restart: unless-stopped
+
+networks:
+  internal:
+    internal: true
+  egress: {}
+  public: {}
+
+volumes:
+  openalgo_db:
+  openalgo_log:
+  openalgo_strategies:
+  openalgo_keys:
+  openalgo_tmp:
+  trade_mcp_data:
+  caddy_data:
+  caddy_config:

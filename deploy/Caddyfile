@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+}
+
+mcp.{$DOMAIN} {
+	@allowed path /mcp /mcp/* /healthz
+	handle @allowed {
+		reverse_proxy trade-mcp:8787 {
+			flush_interval -1
+		}
+	}
+	handle {
+		respond "not found" 404
+	}
+}
+
+openalgo.{$DOMAIN} {
+	# OpenAlgo WebSocket proxy (WEBSOCKET_URL=wss://openalgo.<domain>/ws; prefix stripped)
+	handle_path /ws* {
+		reverse_proxy openalgo:8765
+	}
+	handle {
+		reverse_proxy openalgo:5000
+	}
+}
