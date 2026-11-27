@@ -9,21 +9,49 @@ const MAX_ITEMS = 100;
 const MAX_DEPTH = 8;
 const MAX_LINE_BYTES = 64 * 1024;
 
-/** Key-name redaction plus size bounds (string length, array length, depth, cycles). */
+const MAX_KEYS = 200;
+const UNREADABLE = "[unreadable]";
+
+/** Cut to MAX_STR UTF-16 units without splitting a surrogate pair; the marker counts characters. */
+function cutString(s: string): string {
+  if (s.length <= MAX_STR) return s;
+  let end = MAX_STR;
+  const hi = s.charCodeAt(end - 1);
+  const lo = s.charCodeAt(end);
+  if (hi >= 0xd800 && hi <= 0xdbff && lo >= 0xdc00 && lo <= 0xdfff) end--;
+  let dropped = 0;
+  for (const _ of s.slice(end)) dropped++;
+  return `${s.slice(0, end)}…[+${dropped} chars]`;
+}
+
+/** Key-name redaction plus size bounds (string, array, key counts, depth, cycles, binary). Never throws on odd values. */
 function sanitize(v: unknown, depth = 0, seen: WeakSet<object> = new WeakSet()): unknown {
-  if (typeof v === "string") return v.length > MAX_STR ? `${v.slice(0, MAX_STR)}…[+${v.length - MAX_STR} chars]` : v;
+  if (typeof v === "string") return cutString(v);
+  if (typeof v === "bigint") return v.toString();
+  if (typeof v === "symbol") return String(v);
+  if (typeof v === "function") return undefined; // JSON drops functions; never keep a callable (e.g. toJSON)
   if (!v || typeof v !== "object") return v;
+  if (ArrayBuffer.isView(v)) return `[binary ${v.byteLength} bytes]`;
   if (depth > MAX_DEPTH) return "[depth limit]";
   if (seen.has(v)) return "[cycle]";
   seen.add(v);
   try {
     if (Array.isArray(v)) {
-      const out = v.slice(0, MAX_ITEMS).map((x) => sanitize(x, depth + 1, seen));
+      const n = Math.min(v.length, MAX_ITEMS);
+      const out: unknown[] = [];
+      for (let i = 0; i < n; i++) {
+        try { out.push(sanitize(v[i], depth + 1, seen)); } catch { out.push(UNREADABLE); }
+      }
       if (v.length > MAX_ITEMS) out.push(`…[+${v.length - MAX_ITEMS} items]`);
       return out;
     }
+    const keys = Object.keys(v);
     const out: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(v)) out[k] = isSecret(k) ? "[REDACTED]" : sanitize(val, depth + 1, seen);
+    for (const k of keys.slice(0, MAX_KEYS)) {
+      if (isSecret(k)) { out[k] = "[REDACTED]"; continue; }
+      try { out[k] = sanitize((v as Record<string, unknown>)[k], depth + 1, seen); } catch { out[k] = UNREADABLE; }
+    }
+    if (keys.length > MAX_KEYS) out["…"] = `[+${keys.length - MAX_KEYS} keys]`;
     return out;
   } finally {
     seen.delete(v);
@@ -85,15 +113,28 @@ function applyRetention(file: string, now: Date): void {
   }
 }
 
+function fallbackRun(run: unknown): string | undefined {
+  if (run === undefined) return undefined;
+  try { return String(run).slice(0, 200); } catch { return undefined; }
+}
+
 export function appendAudit(file: string, entry: object, now: () => Date = () => new Date()): void {
   mkdirSync(path.dirname(file), { recursive: true });
   const t = now();
   if (rotateIfNeeded(file, t)) {
     try { applyRetention(file, t); } catch { /* retention must never block auditing */ }
   }
-  const clean: Record<string, unknown> = { ...(sanitize(entry) as Record<string, unknown>), ts: t.toISOString() };
-  let line = JSON.stringify(clean);
-  const bytes = Buffer.byteLength(line);
-  if (bytes > MAX_LINE_BYTES) line = JSON.stringify({ ts: clean.ts, run: clean.run, truncated: true, bytes });
+  const ts = t.toISOString();
+  let line: string;
+  let run: unknown;
+  try {
+    const clean: Record<string, unknown> = { ...(sanitize(entry) as Record<string, unknown>), ts };
+    run = clean.run;
+    line = JSON.stringify(clean);
+    const bytes = Buffer.byteLength(line);
+    if (bytes > MAX_LINE_BYTES) line = JSON.stringify({ ts, run: fallbackRun(run), truncated: true, bytes });
+  } catch {
+    line = JSON.stringify({ ts, run: fallbackRun(run), unserializable: true });
+  }
   appendFileSync(file, line + "\n");
 }

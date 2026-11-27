@@ -133,4 +133,53 @@ describe("O-4 bounds", () => {
     expect(r.skipped).toBe(0);
     expect(r.entries.some((x: any) => x.truncated === true && x.bytes === 66000)).toBe(true);
   });
+
+  it("bigint, symbol and throwing getters never throw; toJSON is not called", () => {
+    const o: any = { big: 12345678901234567890n, sym: Symbol("q"), ok: 1 };
+    Object.defineProperty(o, "bad", { enumerable: true, get() { throw new Error("x"); } });
+    o.toJSON = () => { throw new Error("toJSON"); };
+    write({ o, arr: [1n] });
+    expect(last().o).toEqual({ big: "12345678901234567890", sym: "Symbol(q)", ok: 1, bad: "[unreadable]" });
+    expect(last().arr).toEqual(["1"]);
+  });
+
+  it("unserializable entry (throwing proxy root) gives the fallback line", () => {
+    const p = new Proxy({}, { ownKeys() { throw new Error("p"); } });
+    write(p);
+    expect(last()).toEqual({ ts: NOW.toISOString(), unserializable: true });
+  });
+
+  it("surrogate pairs are not split; marker counts characters", () => {
+    write({ s: "x".repeat(1999) + "\u{1F600}".repeat(3) });
+    expect(last().s).toBe("x".repeat(1999) + "…[+3 chars]");
+    write({ s: "x".repeat(1998) + "\u{1F600}".repeat(3) });
+    expect(last().s).toBe("x".repeat(1998) + "\u{1F600}…[+2 chars]");
+  });
+
+  for (const [n, cut] of [[199, false], [200, false], [201, true]] as const) {
+    it(`object with ${n} keys ${cut ? "is cut" : "is kept"}`, () => {
+      const o: Record<string, number> = {};
+      for (let i = 0; i < n; i++) o[`k${i}`] = i;
+      write({ o });
+      const r = last().o;
+      expect(Object.keys(r)).toHaveLength(cut ? 201 : n);
+      if (cut) expect(r["…"]).toBe("[+1 keys]");
+    });
+  }
+
+  it("buffers and typed arrays become a binary marker", () => {
+    write({ b: Buffer.alloc(10), u: new Uint16Array(4), d: new DataView(new ArrayBuffer(3)) });
+    expect(last()).toMatchObject({ b: "[binary 10 bytes]", u: "[binary 8 bytes]", d: "[binary 3 bytes]" });
+  });
+
+  it("fallback run is coerced to a string of at most 200 chars", () => {
+    const e = sized(66000);
+    e.run = "r".repeat(1000);
+    write(e);
+    expect(last().run).toBe("r".repeat(200));
+    const f = sized(66000);
+    f.run = 5;
+    write(f);
+    expect(last().run).toBe("5");
+  });
 });
