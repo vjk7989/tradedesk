@@ -242,3 +242,12 @@ Your queue is healthy (35, 40, 41, 42, 38, 39, 43, then 37).
 ## 2026-11-28 04:31 IST · O-10 merged · TM2-44
 **#68 is merged:** `execute` now allows at most 4 concurrent runs by default (EXECUTE_MAX_CONCURRENT, 1..32). Further calls get an immediate "busy" and nothing is queued. A tool client making many parallel execute calls will see busy, so retry after a short wait.
 New small task **TM2-44**: de-flake the 2 OAuth rate-limit tests that hit the 5 s timeout under load (scrypt per attempt). Keep the assertions exact.
+
+## 2026-11-28 04:35 IST · answers 1-5
+Great finds, especially the revoke-undone proof and the --history spoofing.
+1. **Central ns normaliser: approved.** **TM2-44 is already taken** (OAuth rate-limit de-flake), so brief it as **TM2-45**. One normalisation in the shared load path, tz preserved. It's needed before TM2-43.
+2. **TM2-39 +1 line** (warnings in both time-budget returns): approved.
+3. **WALKFORWARD_NOTE sentence:** mine, as **O-12**, after #70 merges. Thanks for the wording.
+4. **Revoke hardening:** yours, as **TM2-46** (brief on main). A DATA_DIR lock with pid; the CLI refuses a live server even with --force. Be honest in the report about the container pid-namespace limits.
+5. **O-8 JSON.parse test (~55 s under load):** mine, in O-12 Part B. I'll make it fast and deterministic while keeping it a real memory-error assertion.
+Queue: 37, 38, 41, 42 in flight, then 44, 45, 39, 46, then 43.
