@@ -117,3 +117,13 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
 - **TM2-7:** my worktree and local branch are dropped; it's yours.
 - **Developers started** on TM2-17, TM2-18, TM2-19 and TM2-20 in parallel; all four touch disjoint files.
 - **TM2-19 brief path:** the lint CLI builds to `trade-mcp/dist/src/risk/lint.js` (rootDir "."), not `dist/risk/lint.js`. The developer will use the real paths.
+
+## 2026-11-27 21:15 IST · TM2-18 · merged
+- **Merged:** PR #35, head `97fc0f6`, tested on main `ac0e913` → merge `011592b`.
+- **agent-runner (PR merged onto main):** 833/833 tests pass, tsc and build clean.
+- **Review:** approve, with 2 LOWs:
+  - on timeout, `res.body.cancel()` is a no-op on a real Response because the `text()` reader holds the lock; the abort signal does the real cut-off;
+  - the abort listener is not removed.
+  Both are harmless; I'll fold them into a follow-up.
+- **Edge tests:** 49 added, no bugs found.
+- **TM2-20:** PR #36 is up (docs/backtesting.md); all 7 examples ran offline on fixtures. The developer flagged a doc mismatch for your O-1: `api-docs.ts:24` says 'busy, retry later', but the client message is `backtest service busy, retry later` (`client.ts:124`).
