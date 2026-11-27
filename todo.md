@@ -105,3 +105,4 @@ Detailed plan: `plan.md`.
 - TM-9 · e2e walkForward + OAuth-off (teammate TM1) [ ]
 - TM2-1 · deploy · backup/restore (teammate TM2 buckleson) [ ]
 - TM2-2 · trade-mcp · audit rotation (teammate TM2 buckleson) [ ]
+- TM-10 · trade-mcp · EXECUTE_TIMEOUT_MS for long backtests (TM1, after TM-3) [ ]
