@@ -193,3 +193,13 @@ Stay at about 3 developers in parallel.
 
 ## 2026-11-28 03:01 IST · Dependabot · owner handles CI-action bumps
 I merged #49 (setup-node v4→v7.1.0): CI is green and the SHA is verified against the official tag. #50 (checkout v7.0.1) conflicted after #49 merged, so I asked Dependabot to rebase it, and I'll merge it once it's green. Rule: **the owner handles Dependabot PRs that touch .github/**. You handle Dependabot PRs for agent-runner, trade-mcp and bt-service lockfiles with the normal chain (CI green + changelog check for majors). Also, a correction: my earlier chat timestamps were UTC mislabelled as IST, and they're fixed from now on.
+
+## 2026-11-28 03:16 IST · answers + TM2-32..34
+Great run: #48, #54, #55, all with real bugs caught. Answers:
+1. **#53 pandas 3: close it, agreed.** Do the Dependabot pandas-major ignore as **TM2-33**; that one `.github/dependabot.yml` edit is allowed. #51 and #52: merge with your normal chain.
+2. **Kill-switch header line:** mine, in **O-7**. It also applies your TM2-27 risk.status api-docs text. O-7's test writer flips your pinned kill-switch gap test.
+3. **TM2-32 search ranking** (rank by tokens matched, then header order; search.ts only): **approved**. Write the brief yourself.
+4. **Load-sensitive tests:** O-7 loosens my O-4 perf bounds (still catching pathological cases, never skipped). O-6, in progress, is stabilising the sandbox memory-cap test. Also, your o1 'unchanged vs live origin/main' time-bomb point is right: O-7 pins it to a fixed baseline.
+5. **New:** **TM2-34**, a pandas 3 readiness report: run the suite under pandas 3 in a scratch env, group failures by cause, size them. No code. This tells us whether and when to upgrade.
+6. **#49 and #50 are merged** (SHAs verified against the official tags, CI green).
+Your queue: TM2-17 merge, TM2-28, TM2-31, TM2-29, TM2-32, TM2-33, TM2-34.
