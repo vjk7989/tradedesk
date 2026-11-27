@@ -68,7 +68,7 @@ Detailed plan: `plan.md`.
 - P4.4 · deploy · paper-mode end-to-end run on the VPS (release gate before live) [ ]
 
 ## P5 Remote auth
-- P5.1 · trade-mcp · OAuth 2.1 single-user (PKCE, dynamic client registration) for ChatGPT / claude.ai connectors (D1 building) [.]
+- P5.1 · trade-mcp · OAuth 2.1 single-user (PKCE, dynamic client registration) for ChatGPT / claude.ai connectors (a71c380) [x]
 
 ## P6 Fincept
 - P6.1 · Fincept · install release v4.5.3, configure Claude Code harness + our MCP via mcp-remote [ ]
@@ -83,6 +83,7 @@ Detailed plan: `plan.md`.
 - P8.1 · docs · connect guides: Claude Code (`claude mcp add --transport http`), Codex (`~/.codex/config.toml` mcp_servers), Gemini CLI (`settings.json` mcpServers), local stdio mode (9f94230; verify after P1.6) [x]
 - P8.2 · agent-runner · interface + `cli` backend (claude -p / codex exec / gemini -p headless, stream parse, timeout, trade-mcp attached) (965b822) [x]
 - P8.3 · agent-runner · `api` backend (Anthropic/OpenAI/Gemini keys) behind the same interface (dcbdc99; Anthropic only) [x]
-- P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) (testing) [.]
-- P8.5 · trade-mcp · read-only MCP token scope (MCP_TOKEN_READONLY → trade.* bindings absent) for scheduled jobs [ ]
+- P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) (357fb45) [x]
+- P8.5 · trade-mcp · read-only MCP token scope (MCP_TOKEN_READONLY → trade.* bindings absent) for scheduled jobs (fa9f210) [x]
 - P5.2 · deploy · Caddy routes for OAuth paths + OAUTH_* env in compose/.env.example + runbook note (trade-mcp port never published) [ ]
+- P8.6 · docs+trade-mcp · document MCP_TOKEN_READONLY for jobs (connect-clients, agent-runner README), F&O lot_sizes/margin_pct + crypto costs in backtest API docs (3c5ef41) [x]
