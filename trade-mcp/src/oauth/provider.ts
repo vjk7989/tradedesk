@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import express from "express";
@@ -84,9 +84,10 @@ export class TradeOAuthProvider implements OAuthServerProvider {
   private codes = new Map<string, CodeRec>();
   private pending = new Map<string, Pending>();
 
-  private readonly limiter = new LoginLimiter();
+  private readonly limiter: LoginLimiter;
 
   constructor(private cfg: OAuthConfig) {
+    this.limiter = new LoginLimiter(createHmac("sha256", cfg.passwordHash).update("tradedesk:login-ratelimit:v1").digest());
     if (existsSync(cfg.stateFile)) {
       try {
         const d = JSON.parse(readFileSync(cfg.stateFile, "utf8")) as Persisted;
@@ -246,7 +247,8 @@ export class TradeOAuthProvider implements OAuthServerProvider {
     const key = sha(code);
     const rec = this.codes.get(key);
     this.codes.delete(key); // single use
-    this.persist(); // removal is durable before any tokens are returned
+    // removal is durable before any tokens are returned; unknown/expired codes change nothing durable
+    if (rec && rec.expiresAt > Date.now()) this.persist();
     if (!rec || rec.clientId !== client.client_id || rec.expiresAt <= Date.now()) {
       throw new InvalidGrantError("invalid authorization code");
     }

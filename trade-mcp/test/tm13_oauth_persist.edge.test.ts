@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { createHash, randomBytes, scryptSync } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
@@ -19,6 +19,9 @@ const PW_HEX = scryptSync(PASSWORD, salt, 64).toString("hex");
 const PW_HASH = `scrypt:${salt.toString("hex")}:${PW_HEX}`;
 const b64url = (b: Buffer) => b.toString("base64url");
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+// TM-16 (owner AC change): limiter keys are HMAC-SHA256(HMAC(passwordHash, label), ip).
+const ipKey = (ip: string) =>
+  createHmac("sha256", createHmac("sha256", PW_HASH).update("tradedesk:login-ratelimit:v1").digest()).update(ip).digest("hex");
 const T0 = new Date("2026-01-01T00:00:00Z").getTime();
 const MIN = 60_000;
 
@@ -332,12 +335,12 @@ describe("TM-13 edge: rate limit across restart", () => {
     const id = await s.register();
     const rid = await s.authorize(id, pkce().challenge);
     await s.login(rid, "bad", "5.5.5.5");
-    expect(readState(dir).loginFailures[sha("5.5.5.5")]).toHaveLength(1);
+    expect(readState(dir).loginFailures[ipKey("5.5.5.5")]).toHaveLength(1);
     await s.stop();
     vi.setSystemTime(T0 + 16 * MIN);
     s = await boot(dir);
     await s.register(); // forces a persist
-    expect(readState(dir).loginFailures[sha("5.5.5.5")]).toBeUndefined();
+    expect(readState(dir).loginFailures[ipKey("5.5.5.5")]).toBeUndefined();
   });
 });
 
