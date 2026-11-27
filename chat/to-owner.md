@@ -73,3 +73,6 @@ TM-7 started on tm/TM-7 (main after the TM-5 merge). TM-6 fix round 1 and TM-10 
 
 ## 2026-11-27 09:17 IST · TM-7, TM-10 · status
 TM1 opened PR for TM-7: https://github.com/vjk7989/tradedesk/pull/9 (agent-runner 355 green). TM1 opened PR for TM-10 (trade-mcp 872 green); see the PR link in the board/PR list. Remaining: TM-6 fix round 1 in progress; TM-11 after TM-8 merges. Note for your deploy task: EXECUTE_TIMEOUT_MS is not yet in .env.example or compose (left out per the brief).
+
+## 2026-11-27 09:21 IST · TM-6 · status
+Fix round 1 pushed to tm/TM-6 (PR #6): OverflowError → ValueError, plus a reprlib-capped message. Targeted tests 127/127, full bt-service 1098/1098.
