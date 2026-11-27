@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { validMcpSpec } from "./cli.js";
+import { notifyTelegram } from "./notify.js";
 import type { Backend, McpSpec, RunResult } from "./types.js";
 
 export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -19,6 +20,7 @@ export interface Job {
   prompt: string;
   mcp: McpSpec;
   timeoutMs?: number;
+  notify?: { telegram: { chatIdEnv: string } };
   outputDir: string;
 }
 
@@ -52,6 +54,24 @@ export function parseJobs(raw: unknown): Job[] {
     if (typeof o.prompt !== "string" || !o.prompt.trim()) bad("prompt must be a non-empty string");
     if (!validMcpSpec(o.mcp)) bad("invalid mcp {name,url,tokenEnv}");
     if (o.timeoutMs !== undefined && !(typeof o.timeoutMs === "number" && o.timeoutMs > 0)) bad("timeoutMs must be positive");
+    let notify: Job["notify"];
+    if (o.notify !== undefined) {
+      const n = o.notify;
+      const t = n && typeof n === "object" ? n.telegram : undefined;
+      if (
+        !n || typeof n !== "object" || Array.isArray(n) ||
+        Object.keys(n).some((k) => k !== "telegram") ||
+        !t || typeof t !== "object" || Array.isArray(t) ||
+        Object.keys(t).some((k) => k !== "chatIdEnv") ||
+        typeof t.chatIdEnv !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(t.chatIdEnv)
+      ) {
+        bad("invalid notify {telegram:{chatIdEnv}}; chatIdEnv is an env var NAME");
+      }
+      if (o.notify.telegram.chatIdEnv === o.mcp.tokenEnv || o.notify.telegram.chatIdEnv === "TELEGRAM_BOT_TOKEN") {
+        bad("invalid notify: chatIdEnv must not name a token env var");
+      }
+      notify = { telegram: { chatIdEnv: o.notify.telegram.chatIdEnv } };
+    }
     if (typeof o.outputDir !== "string" || !o.outputDir) bad("outputDir must be a non-empty string");
     return {
       name: o.name,
@@ -60,6 +80,7 @@ export function parseJobs(raw: unknown): Job[] {
       prompt: o.prompt,
       mcp: { name: o.mcp.name, url: o.mcp.url, tokenEnv: o.mcp.tokenEnv },
       ...(o.timeoutMs !== undefined ? { timeoutMs: o.timeoutMs } : {}),
+      ...(notify ? { notify } : {}),
       outputDir: o.outputDir,
     };
   });
@@ -69,6 +90,7 @@ export interface ExecDeps {
   run: (job: Job) => Promise<RunResult>;
   now?: () => Date;
   env?: Record<string, string | undefined>;
+  fetch?: typeof fetch;
 }
 
 /** Runs one job and writes <outputDir>/<name>/<ISO date>.md. Never writes the MCP token. Returns the file path. */
@@ -108,6 +130,16 @@ export async function executeJob(job: Job, deps: ExecDeps): Promise<string> {
     const file = join(dir, `${date}${n ? `-${n}` : ""}.md`);
     try {
       await writeFile(file, redact(body), { flag: "wx" });
+      if (job.notify?.telegram) {
+        try {
+          await notifyTelegram(job, { ok: res.ok, durationMs: t1.getTime() - t0.getTime(), text: res.text, error: res.error }, {
+            env: deps.env ?? process.env,
+            fetch: deps.fetch ?? globalThis.fetch,
+          });
+        } catch {
+          /* notify must never affect the job */
+        }
+      }
       return file;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;

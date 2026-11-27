@@ -6,6 +6,7 @@
     "prompt": "Pre-market brief. Read-only: use the tradedesk search tool to find the API, then via execute read account.holdings(), account.funds() and market.quote() for the holdings. Overnight news is NOT available; use market data only and say so. Summarise holdings, available funds and notable price moves. Do not call trade.*; never place, modify or cancel orders.",
     "mcp": { "name": "tradedesk", "url": "https://mcp.example.com/mcp", "tokenEnv": "MCP_TOKEN" },
     "timeoutMs": 600000,
+    "notify": { "telegram": { "chatIdEnv": "TELEGRAM_CHAT_ID" } },
     "outputDir": "./runs"
   },
   {

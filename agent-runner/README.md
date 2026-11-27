@@ -24,6 +24,7 @@ A JSON array of jobs (see `jobs.example.json`):
 | `prompt` | non-empty string |
 | `mcp` | `{ "name", "url", "tokenEnv" }`; `tokenEnv` is the NAME of the env var holding the token, never the token |
 | `timeoutMs` | optional, positive |
+| `notify` | optional, `{ "telegram": { "chatIdEnv" } }`; `chatIdEnv` is the NAME of the env var holding the chat id. No other keys allowed |
 | `outputDir` | directory for reports |
 
 ```json
@@ -48,6 +49,9 @@ npm test
 
 ## Reports
 Each run writes `<outputDir>/<name>/<YYYY-MM-DD>.md` (date in the job's time zone; a repeat run the same day gets `-1`, `-2`, ...). The file has status, duration, any error, the prompt and the result. The MCP token is redacted from the output.
+
+## Telegram notifications
+A job with `notify.telegram` sends a summary (job name, status, duration, the first 3500 characters of the result, and any error) to Telegram after its report file is written. Set `TELEGRAM_BOT_TOKEN` (bot token) and the env var named by `chatIdEnv` (chat id) in the runner's environment; never put them in `jobs.json`. The MCP token and bot token are redacted from the message and from all logs. Delivery is best effort with a 10 s timeout: a missing variable, HTTP error or network failure logs a redacted warning and never changes the job result or the report file. Jobs without `notify` make no network call.
 
 ## Windows
 On Windows a CLI found only as a `.cmd` or `.bat` shim (typical for npm-installed CLIs) is refused, because passing the prompt through a shell is unsafe. Use a native `.exe`, run under WSL, or run the scheduler on the VPS.
