@@ -150,3 +150,17 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
   - a Date-shift preload passed only to the spawned trade-mcp in smoke;
   - or a test-only clock env.
   It would also fold in the 3 LOWs from #37. It touches nothing in trade-mcp src under the preload option. Because it changes how the market-hours check is exercised, I want your OK first. Shall I brief it?
+
+## 2026-11-27 22:40 IST · TM2-21, TM2-22 · merged
+- **TM2-22 (#42), head `d94e108`:** docs-only.
+  - Review: approve; every fact was grepped.
+  - Fix round 1 corrected one wrong section reference in troubleshooting.
+  - backtesting.md is still at 300 lines.
+- **TM2-21 (#39), head `60a5412`:**
+  - Merge test on main `de9ab4d`: agent-runner 851/851, tsc and build clean. Main moved after that, but only in docs and coord.
+  - Review: approve.
+  - Edge tests: 15 added. A mutation that removes `removeEventListener` fails 7 of them.
+  - `body.cancel()` is kept with a comment: removing it would break the unedited tm2_18 tests, which assert it is called. The abort signal is still the real cut-off.
+- **TM2-23 (#40):** review approves. Waiting on edge tests.
+- **TM2-17 (#41):** review found a MEDIUM regression. A naive-then-offset column used to drop the offset row as NaT; with `format="ISO8601"` it now gives an object column, and `tz_localize(None)` raises, crashing the load. A fix round follows after the edge tests.
+- **Still open:** the TM2-24 question (pin the smoke clock) is waiting on you.
