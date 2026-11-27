@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import * as v8 from "node:v8";
+import * as nodeVm from "node:vm";
 import { runCode } from "../src/sandbox/quickjs.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -370,10 +372,48 @@ describe("sandbox limits", () => {
     expect(typeof r.error).toBe("string");
   });
 
-  it("50 sequential runs: fresh context each, no growth errors", async () => {
+  // TM2-37: under load (2 full suites in parallel) one run measured p50 ~28 ms, p99 ~175 ms,
+  // max ~570 ms, and a whole 50-run loop took up to ~3.9 s, so the old 5 s default flaked.
+  // The timeout is ~3x the loaded worst case. Wall time is not the leak signal: the run-to-run
+  // degradation check, the memory check and the handle check are.
+  it("50 sequential runs: fresh context each, every run ok, no leak or degradation", async () => {
+    v8.setFlagsFromString("--expose-gc");
+    const gc = nodeVm.runInNewContext("gc") as () => void;
+    const median = (xs: number[]) => {
+      const s = [...xs].sort((a, b) => a - b);
+      return (s[(s.length - 1) >> 1]! + s[s.length >> 1]!) / 2;
+    };
+    const once = (i: number) =>
+      runCode(`globalThis.counter = (globalThis.counter ?? 0) + 1; return [counter, await m.f(${i})];`, { m: { f: echo } });
+
+    // Warm-up (JIT, first WASM compile) so the baselines measure steady state.
+    for (let i = 0; i < 5; i++) expect(await once(i)).toMatchObject({ ok: true, result: [1, i] });
+    gc();
+    const base = process.memoryUsage();
+    const baseHandles = process.getActiveResourcesInfo().length;
+
+    const ms: number[] = [];
     for (let i = 0; i < 50; i++) {
-      const r = await runCode(`globalThis.counter = (globalThis.counter ?? 0) + 1; return [counter, await m.f(${i})];`, { m: { f: echo } });
-      expect(r).toMatchObject({ ok: true, result: [1, i] });
+      const t0 = performance.now();
+      const r = await once(i);
+      ms.push(performance.now() - t0);
+      // Fresh context each run: the guest global never carries over.
+      expect(r, `run ${i}`).toMatchObject({ ok: true, result: [1, i] });
     }
-  });
+
+    gc();
+    await sleep(20);
+    gc();
+    const end = process.memoryUsage();
+    const MB = 1024 * 1024;
+    // Same tolerance as the O-9 200-run RSS-flat test: a per-run leak of a context/module is several MB each.
+    expect(end.rss - base.rss, "rss growth").toBeLessThan(64 * MB);
+    expect(end.external - base.external, "external growth").toBeLessThan(32 * MB);
+    // No timers/handles left behind per run.
+    expect(process.getActiveResourcesInfo().length, "active handles").toBeLessThanOrEqual(baseHandles + 2);
+    // Degradation: the last 10 runs are not slower than 2x the first 10 (medians, robust to load spikes).
+    const first = median(ms.slice(0, 10));
+    const last = median(ms.slice(-10));
+    expect(last, `median last10 ${last.toFixed(1)} ms vs first10 ${first.toFixed(1)} ms`).toBeLessThanOrEqual(2 * first);
+  }, 12_000);
 });
