@@ -22,18 +22,31 @@ let failed = 0;
 
 function cleanup() {
   for (const c of children) {
-    if (c.exitCode !== null || !c.pid) continue;
-    if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(c.pid), "/T", "/F"], { stdio: "ignore" });
-    else c.kill("SIGKILL");
+    if (!c.pid) continue;
+    if (process.platform === "win32") {
+      if (c.exitCode === null) spawnSync("taskkill", ["/pid", String(c.pid), "/T", "/F"], { stdio: "ignore" });
+    } else {
+      // Each server leads its own process group (detached), so this also kills uv's uvicorn child.
+      try {
+        process.kill(-c.pid, "SIGKILL");
+      } catch {
+        try {
+          c.kill("SIGKILL");
+        } catch {}
+      }
+    }
   }
   try {
     rmSync(tmp, { recursive: true, force: true });
   } catch {}
 }
-process.on("SIGINT", () => {
-  cleanup();
-  process.exit(130);
-});
+for (const [sig, code] of [["SIGINT", 130], ["SIGTERM", 143]]) {
+  process.on(sig, () => {
+    cleanup();
+    process.exit(code);
+  });
+}
+process.on("exit", cleanup);
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -47,7 +60,7 @@ function freePort() {
 }
 
 function start(name, cmd, args, env) {
-  const c = spawn(cmd, args, { cwd: ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+  const c = spawn(cmd, args, { cwd: ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32" });
   c.log = "";
   for (const s of [c.stdout, c.stderr]) s.on("data", (d) => (c.log += d));
   c.on("error", (e) => (c.log += `spawn error: ${e.message}`));
