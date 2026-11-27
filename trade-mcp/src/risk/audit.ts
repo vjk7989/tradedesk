@@ -34,6 +34,8 @@ function istDate(d: Date): string {
 
 const dateToDay = (ymd: string): number => Date.parse(`${ymd}T00:00:00.000Z`) / DAY_MS;
 
+// Assumes a single writer process (no cross-process locking). A future mtime (clock skew)
+// names the rotated file with a future date, which keeps it out of retention.
 function rotateIfNeeded(file: string, now: Date): boolean {
   if (!existsSync(file)) return false;
   const st = statSync(file);
@@ -57,8 +59,10 @@ function applyRetention(file: string, now: Date): void {
   for (const name of readdirSync(dir)) {
     const m = re.exec(name);
     if (!m) continue;
-    const day = dateToDay(m[1]);
-    if (Number.isNaN(day)) continue;
+    const ms = Date.parse(`${m[1]}T00:00:00.000Z`);
+    // Skip impossible dates (e.g. 2026-02-30), which Date.parse may roll over.
+    if (Number.isNaN(ms) || new Date(ms).toISOString().slice(0, 10) !== m[1]) continue;
+    const day = ms / DAY_MS;
     if (today - day > retention) {
       try { unlinkSync(path.join(dir, name)); } catch { /* best-effort cleanup */ }
     }
