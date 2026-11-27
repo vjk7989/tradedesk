@@ -201,6 +201,7 @@ def _normalize_columns(
     col_map: dict[str, str],
     date_fmt: str | None,
     timestamp_basis: str = "utc",
+    wall_tz: str = "UTC",
 ) -> pd.DataFrame | None:
     date_col = col_map.get("date", "date")
     # Use index dates directly so a same-named column cannot shadow them.
@@ -238,7 +239,13 @@ def _normalize_columns(
             raise ValueError("session_date sources require one bar per calendar date")
     else:
         parsed_dates = pd.to_datetime(dates, format=date_fmt, errors="coerce", utc=True)
-        df["trade_date"] = parsed_dates.dt.tz_convert(None)
+        # Naive input stays as written; tz-aware input becomes the market's
+        # local wall clock (IST for Indian symbols, UTC otherwise).
+        naive = pd.to_datetime(dates, format=date_fmt, errors="coerce")
+        if getattr(naive.dtype, "tz", None) is None and pd.api.types.is_datetime64_any_dtype(naive):
+            df["trade_date"] = naive
+        else:
+            df["trade_date"] = parsed_dates.dt.tz_convert(wall_tz).dt.tz_localize(None)
     df = df.dropna(subset=["trade_date"])
     df = df.set_index("trade_date").sort_index()
 
@@ -262,27 +269,30 @@ def _normalize_columns(
 
 def _read_csv(
     path: str, col_map: dict[str, str], date_fmt: str | None, timestamp_basis: str = "utc",
+    wall_tz: str = "UTC",
 ) -> pd.DataFrame | None:
     df = pd.read_csv(path)
-    return _normalize_columns(df, col_map, date_fmt, timestamp_basis)
+    return _normalize_columns(df, col_map, date_fmt, timestamp_basis, wall_tz)
 
 
 def _read_parquet(
     path: str, col_map: dict[str, str], date_fmt: str | None, timestamp_basis: str = "utc",
+    wall_tz: str = "UTC",
 ) -> pd.DataFrame | None:
     df = pd.read_parquet(path)
-    return _normalize_columns(df, col_map, date_fmt, timestamp_basis)
+    return _normalize_columns(df, col_map, date_fmt, timestamp_basis, wall_tz)
 
 
 def _read_duckdb(
     db_path: str, query: str, col_map: dict[str, str], date_fmt: str | None,
     timestamp_basis: str = "utc",
+    wall_tz: str = "UTC",
 ) -> pd.DataFrame | None:
     import duckdb
 
     with duckdb.connect(db_path, read_only=True) as conn:
         df = conn.execute(query).df()
-    return _normalize_columns(df, col_map, date_fmt, timestamp_basis)
+    return _normalize_columns(df, col_map, date_fmt, timestamp_basis, wall_tz)
 
 
 _READERS = {
@@ -407,6 +417,9 @@ class DataLoader:
         if timestamp_basis == "session_date" and interval not in ("1D", "1d", "1W", "1M"):
             raise ValueError("session_date sources require daily or coarser bars")
 
+        from vibe_bt.backtest.engines._market_hooks import matched_market
+
+        wall_tz = "Asia/Kolkata" if matched_market(symbol) in ("india_equity", "india_fno") else "UTC"
         if src_type == "duckdb":
             db_path = str(Path(entry.get("db_path", "")).expanduser())
             query = entry.get("query", "").strip()
@@ -415,14 +428,14 @@ class DataLoader:
                     "local loader: missing db_path or query for duckdb symbol %s", symbol
                 )
                 return None
-            df = _read_duckdb(db_path, query, col_map, date_fmt, timestamp_basis)
+            df = _read_duckdb(db_path, query, col_map, date_fmt, timestamp_basis, wall_tz)
         else:
             path = entry.get("path", "").strip()
             if not path:
                 logger.warning("local loader: missing path for symbol %s", symbol)
                 return None
             expanded = str(Path(path).expanduser())
-            df = reader(expanded, col_map, date_fmt, timestamp_basis)
+            df = reader(expanded, col_map, date_fmt, timestamp_basis, wall_tz)
 
         if df is None:
             return None
