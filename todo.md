@@ -76,7 +76,7 @@ Detailed plan: `plan.md`.
 
 ## P7 Advanced backtesting
 - P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (78d038d) [x]
-- P7.2 · bt-service · intraday interval support (fixing f1: composite MIS squareoff, sparse funding, product validation) [.]
+- P7.2 · bt-service · intraday interval support (33bc2e2) [x]
 - P7.3 · bt-service · walk-forward / out-of-sample endpoint (OpenCode OC1, merged 1030290) [x]
 
 ## P8 AI drivers (ADR-7)

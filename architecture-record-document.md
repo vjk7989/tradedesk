@@ -58,3 +58,15 @@ Consequences: Same quality gates for both tool chains. The orchestrator is the s
 
 ## ADR-12: Code graph indexed for discovery  (2026-11-27, status: accepted)
 Decision: The repo is indexed in codebase-memory-mcp as project `tradedesk` (vendor/, deploy/, docs/ excluded). Briefs name the first lookup tool (search_graph / get_code_snippet), then exact file:line. Re-index after each batch of merges.
+
+## ADR-13: Intraday semantics for Indian markets  (2026-11-27, status: accepted)
+Context: P7.2 added intraday backtests for india_equity, india_fno and crypto.
+Decision:
+- Sessions are NSE/BSE/NFO/BFO 09:15–15:30 IST and MCX 09:00–23:30 IST. Bars outside the session cannot trade.
+- Products: equity CNC (default, T+1, no shorts) or MIS (shorts allowed, same-day exits, no new entries from 15:20, forced square-off at the day's last bar ≤ 15:20; MCX at 23:20). F&O NRML (default, held overnight) or MIS. `product_by_market` overrides the run-level `product`. Unknown values are an error.
+- Bars are interpreted as IST wall clock for India. Loaders convert timezone-aware input to IST (India) or UTC (others).
+- Crypto funding settles at every 8h UTC slot between bars, deduplicated, and never before entry.
+Consequences: Rates (MIS STT, F&O charges, lot sizes) are config-overridable and flagged "verify current". MIS stamp duty uses the delivery rate (open item).
+
+## ADR-14: OpenCode developers retired  (2026-11-27, status: accepted; amends ADR-11)
+Decision: At the user's request, no further tasks go to OpenCode. Two OpenCode tasks were delivered, reviewed through the Claude chain and merged (OC-P7.3, OC-P7.4). OC-P5.2 was withdrawn and done by a Claude developer. The `coord/` protocol stays in the repo for future use.

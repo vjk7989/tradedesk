@@ -1,46 +1,46 @@
-# Hand-off 2026-11-27 (late session)
-State: main @ a71c380+ pushed to https://github.com/vjk7989/tradedesk (private).
-- Done and merged: P0, P1.1–P1.6, P2.1–P2.5, P3.1, P4.1–P4.3, P5.1, P8.1–P8.3, plus the sandbox flake fix.
-- Code graph: codebase-memory project `tradedesk`. Re-index after this batch of merges.
+# Hand-off 2026-11-27 (build complete)
+State: every buildable task is done and merged to `main`, pushed to https://github.com/vjk7989/tradedesk (private). Final gate: see `reports/FINAL.md`.
+Code graph: codebase-memory project `tradedesk`, re-indexed after the last merge (3,135 nodes).
 
-## In flight
-| Work | Who / where | Status |
+## What exists
+| Package | What | Test command |
 |---|---|---|
-| P8.5 read-only MCP token | D1 (fresh Sonnet), G:\uday-demos.d1 | done; Opus edge tests running |
-| P7.1 india_fno engine + P3.2-f1 crypto fixes + P8.4-f1 scheduler fixes | D2, G:\uday-demos.d2 (branch also contains merged d3 P3.2) | done; Opus edge tests for P7.1 running; P8.4 main tests being added |
-| OC-P7.3 walk-forward endpoint | OpenCode OC1, G:\uday-demos.oc1, branch oc/OC-P7.3 | picked up |
-| OC-P5.2 Caddy OAuth routes + env + runbook | OpenCode OC2, G:\uday-demos.oc2, branch oc/OC-P5.2 | picked up |
+| `trade-mcp/` | Code Mode MCP server (`search`/`execute`), QuickJS sandbox, OpenAlgo client, risk engine (reserve/commit, kill switch, audit), backtest + walkForward bindings, bearer + read-only token + single-user OAuth 2.1 | `npx vitest run && npx tsc --noEmit && npm run build` |
+| `bt-service/` | Vibe-Trading engine extract; india_equity (CNC/MIS intraday), india_fno futures, crypto (fees, funding, -PERP/-SWAP); OpenAlgo loader; 1m–1D incl. 3m/10m; `/backtest` + `/walkforward` | `uv sync && uv run pytest -q` (~5 min) |
+| `agent-runner/` | Runs Claude/Codex/Gemini CLIs headless or the Anthropic API (MCP connector) with trade-mcp attached; scheduled jobs (IST) | `npx vitest run && npx tsc --noEmit && npm run build` |
+| `deploy/` | Compose (openalgo, trade-mcp, bt-service, caddy), Caddy routes incl. OAuth, `.env.example`, `risk.example.json` | `docker compose ... config -q && uv run --with pytest --with pyyaml pytest -q deploy/test_deploy.py` |
+| `e2e/` | Local smoke test with real processes and a fake OpenAlgo | `node e2e/smoke.mjs` |
+| `docs/` | VPS runbook, client connection guide, Fincept setup | — |
 
-Blocked: none.
+## Open (needs the user)
+- P4.4: paper-mode end-to-end run on the VPS (runbook §§1–13), before setting `MODE=live`.
+- Verify against live sources:
+  - the Delta perpetual symbol format (BTCUSDFUT vs BTCUSD.P);
+  - NSE lot sizes (`lot_sizes`);
+  - the F&O, MIS STT and stamp rates;
+  - the OpenAlgo `WEBSOCKET_URL` path;
+  - the Fincept menu names.
+- Fincept install on the PC (`docs/fincept-setup.md`).
 
-## Next steps
-1. Green → merge d2 (P7.1/P3.2/P8.4) and d1 (P8.5), push, re-index the graph.
-2. P7.2 intraday backtests (fresh Sonnet developer; bt-service runner/engines).
-3. Review the OpenCode reports when `coord/reports/*.md` appear: Sonnet review → Opus tests → Haiku run → merge.
-4. Update the docs for the new features: lot_sizes/margin_pct in the trade-mcp backtest doc; MCP_TOKEN_READONLY in deploy env, the runbook and connect-clients.
-5. Needs the user:
-   - P4.4: VPS paper end-to-end.
-   - P6.1: Fincept install plus the mcp-remote config.
-   - Verify the Delta perpetual symbol format (BTCUSDFUT vs BTCUSD.P), the NSE lot sizes and the F&O tax rates.
+## Known limits
+- MIS stamp duty uses the delivery rate.
+- 10m bar anchoring uses the first bar of the file.
+- Funding can miss one slot when a scale-in lands on a sparse gap.
+- Composite runs need `product_by_market` for mixed MIS/NRML.
+- The agent-runner signal-exit path is untested.
+- OAuth codes and the login rate limiter are in memory, so a restart resets them.
+- trade-mcp's port must never be published.
 
-## Team (ADR-11)
-- D1 and D2 are Sonnet. Old D1 and D2 agents are retired (context too large or stuck), so spawn fresh lean-developer agents with exact file:line from the graph.
-- D3 retired after P3.2.
-- OpenCode works through `coord/`.
+## Deferred
+- P3.3 ccxt spot trading (YAGNI).
+- P6.2 Fincept source build (disk).
+- OpenAI/Gemini API backends in agent-runner (CLI backends cover them).
 
-Resources: 16 CPU, ~3 GB RAM free, GTX 1650, drive G: ~6 GB free (no Docker builds, no Fincept source build).
-
-Tools: trail, graphify, headroom present; wt missing → `git worktree`; graft → trail.
+## Team / process
+- ADR-11 + ADR-14: Opus orchestrator, Sonnet developers, Opus test writer, Haiku runner. OpenCode retired; the `coord/` protocol is kept.
+- Worktrees left: `G:\uday-demos.d1`, `G:\uday-demos.d2` (both merged; safe to remove).
 
 ## Gotchas
-- Haiku runners sometimes run in G:\uday-demos instead of the worktree. Always give the absolute `cd /g/uday-demos.dN/...` path.
-- Test writers own test edits. When the AC changes, send the update to the original test writer.
-- Full bt-service suite is ~3 min (the @CRYPTO fallback test is ~65 s).
-- On Windows, npm .cmd CLI shims can't be spawned without a shell. agent-runner refuses them by design (ADR via P8.2-f1).
-- OAuth rate limiting assumes trade-mcp is reachable only through Caddy.
-
-## Commands
-- trade-mcp: `npx vitest run && npx tsc --noEmit && npm run build`
-- bt-service: `uv sync && uv run pytest -q`
-- agent-runner: `npx vitest run && npx tsc --noEmit && npm run build`
-- deploy: `docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q && uv run --with pytest --with pyyaml pytest -q deploy/test_deploy.py`
+- Haiku runners need absolute `cd /g/uday-demos.<wt>/...` paths.
+- Test writers own test edits; send AC changes to them.
+- Drive G: has ~6 GB free.
