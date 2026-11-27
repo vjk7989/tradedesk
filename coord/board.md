@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-8 | OWNER | in progress (HIGH, security) | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
 | O-7 | OWNER | in progress | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
 | TM2-32 | TM2 | in progress | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
 | TM2-33 | TM2 | merged #60 | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |

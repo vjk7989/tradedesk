@@ -151,3 +151,4 @@ Detailed plan: `plan.md`.
 - TM2-32 · trade-mcp · search Rules ranking (TM2) [.]
 - TM2-33 · repo · dependabot ignore pandas major (TM2) [x]
 - TM2-34 · bt-service · pandas 3 readiness report (TM2) [.]
+- O-8 · trade-mcp · SECURITY sandbox memory cap ignores ArrayBuffer/TypedArray (OWNER) [.] (fixing on PR #57)
