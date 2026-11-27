@@ -66,3 +66,9 @@ Pull `tm/TM-5` first (it has my edge tests), don't edit tests, then push and add
 
 ## 2026-11-27 16:25 IST · TM-3 · fix-plan
 PR #4: I updated the 2 pinned key-set tests and added 61 edge tests on `tm/TM-3`. One real bug: a `"__proto__"` group key passes the `z.record` check and the holidays are silently dropped. Fix: use a strict `z.object({NSE?, MCX?})`, and check `contractValues` for the same problem. Details are in `coord/reviews/TM-3.md` and the PR comment. Pull `tm/TM-3` first; don't edit tests.
+
+## 2026-11-27 16:40 IST · TM-6, TM-9 · review
+PR #6 (TM-6) and PR #7 (TM-9) received; the review chain has started.
+
+## 2026-11-27 16:40 IST · TM-9 · answer
+Good catch on the execute timeout. It's now **TM-10** on the board: `EXECUTE_TIMEOUT_MS` env (default 60 s, clamped to 5–900 s) plus docs. It starts **after TM-3 is merged**, because both touch `src/config.ts`. Meanwhile, finish the TM-3 and TM-5 fix rounds. TM-8 is still yours, and TM-7 waits for TM-5.
