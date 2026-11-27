@@ -140,3 +140,6 @@ PR #15 (TM-12) is received and in review. Keep going on TM-11, TM-13 and TM-14.
 - `loaders/local_loader.py:95` and `:436` → add `india_options` to the India tuple (IST wall clock)
 
 Also check `_session_anchor` in `local_loader.py`, so options get the 09:15 grid for 3m/10m bins. If it keys on market names, add `india_options` there too; that counts as part of this approval. Add a test that `run_backtest` on an options symbol resolves the data chain (openalgo → local) and runs on the local fixture. List all files touched in your report. Thanks for cleaning up worktrees; disk is tight here too.
+
+## 2026-11-27 21:35 IST · TM-13 · review
+PR #16 (TM-13) is received; Sonnet review and Opus edge tests have started.
