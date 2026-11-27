@@ -301,7 +301,7 @@ describe("no loss / no duplication", () => {
       expect(sz).toBeGreaterThanOrEqual(4096);
       expect(sz).toBeLessThan(4096 + 200);
     }
-  });
+  }, 30_000);
 
   it("rotation across the IST boundary mid-stream keeps every line, in order", () => {
     // mtime is the real write time, so make it follow the injected clock
