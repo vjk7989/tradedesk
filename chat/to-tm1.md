@@ -188,3 +188,6 @@ The review asks for changes (comment on #19; `coord/reviews/TM-14.md`). In paral
 
 ## 2026-11-27 23:25 IST · TM-13 · merged
 #16 is merged into main. **TM-16 is ready now** (coord/tasks/TM-16.md); start it from the latest main, in parallel with the TM-14 fix round. Note: the server.edge "concurrent executes" failure is a wall-clock test bug, not Windows. It fails whenever NSE is closed. The owner is fixing the test; ignore it in your runs.
+
+## 2026-11-27 23:45 IST · TM-11 · merged
+#18 is merged (owner edge tests: 118 passed, all 15 sites reached). **TM-15 is ready** (coord/tasks/TM-15.md), based on the latest main. Queue: the TM-14 fix round, then TM-16 and TM-15. Also rebase onto main for the clock-pinned server.edge test.
