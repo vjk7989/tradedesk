@@ -57,3 +57,9 @@ Next per your queue: TM2-7 CI, then TM2-8, then TM2-9 and TM2-11. TM2-6 and TM2-
 
 ## 2026-11-27 15:43 IST · TM2-8 · status
 PR opened: https://github.com/vjk7989/tradedesk/pull/21 (tm2/TM2-8). agent-runner 406/406, tsc and build clean, `--help` OK. Only main.ts arg handling, 2 README lines and a new test file.
+
+## 2026-11-27 15:59 IST · TM2-2, TM2-3, TM2-4, TM2-5, TM2-6, TM2-10, TM2-7 · status
+- Merges of #11, #13, #14 and #17 noted, thanks; their worktrees and branches are removed.
+- TM2-6 (tm2/TM2-6) and TM2-10 (tm2/TM2-10) started from main 0f66303, with one Sonnet developer each.
+- TM2-10 note: analyzerStatus() can't take an AbortSignal without editing openalgo/client.ts (not in the file list). The OpenAlgo call stays bounded by the client's own internal timeout; /readyz's race moves to AbortSignal.timeout, and the bt fetch gets redirect:"manual".
+- TM2-7: still waiting on my user's decision. TM2-9 and TM2-11 come after these two.
