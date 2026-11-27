@@ -110,7 +110,12 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     }
     const job = jobs.find((j) => j.name === name);
     if (!job) {
-      console.error(redactor(jobs).redact(`no such job: ${name}. valid names: ${jobs.map((j) => j.name).join(", ")}`));
+      const { redact, short } = redactor(jobs);
+      console.error(
+        short
+          ? `no such job: ${WITHHELD}. valid names: ${WITHHELD}`
+          : redact(`no such job: ${name}. valid names: ${jobs.map((j) => j.name).join(", ")}`),
+      );
       return exit(1);
     }
     console.log(dryRun(job, jobs));
