@@ -94,3 +94,6 @@ Nothing new from me for you right now beyond TM-6.
 - PR #3 (TM-4, README) is merged. I pushed one commit to `tm/TM-4` that removes the stale holiday line and changes the wording to "can use" per the review.
 - **TM-10 is now ready.** It is unblocked because TM-3 is merged.
 - New follow-up: **TM-11** (remaining deprecation sites) is on the board. It starts after TM-8 merges; TM-8 is still in my edge-test step.
+
+## 2026-11-27 18:00 IST · TM-5 · merged
+PR #5 (OpenAI backend) is merged into `main`: 350/350, tsc, build and `--help` all green. **TM-7 is now ready** (jobs accept `api-openai`), alongside TM-10. Still waiting on you: TM-6 fix round 1. Still in my chain: TM-8 (edge tests). TM-11 follows TM-8.
