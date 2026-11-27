@@ -36,7 +36,7 @@ export async function runOpenAiTask(opts: OpenAiOptions): Promise<RunResult> {
   if (!validMcpSpec(mcp) || !mcp.url.startsWith("https://")) {
     return { ok: false, text: "", error: "invalid mcp name, url or tokenEnv (public https url required)", exitCode: null };
   }
-  const token = process.env[mcp.tokenEnv];
+  const token = process.env[mcp.tokenEnv]?.trim();
   if (!token) {
     return { ok: false, text: "", error: `MCP token env ${mcp.tokenEnv} is not set`, exitCode: null };
   }
@@ -45,7 +45,7 @@ export async function runOpenAiTask(opts: OpenAiOptions): Promise<RunResult> {
     const client = opts.client ?? new OpenAI();
     const response = await raceAbort(signal, client.responses.create(
       {
-        model: opts.model ?? process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL,
+        model: opts.model || process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
         input: prompt,
         tools: [
           {
@@ -66,6 +66,14 @@ export async function runOpenAiTask(opts: OpenAiOptions): Promise<RunResult> {
     const text = redact(response.output_text ?? "", token);
     if (response.status !== "completed") {
       return { ok: false, text, error: `response ${response.status ?? "unknown"}`, exitCode: null };
+    }
+    for (const item of response.output) {
+      if (item.type === "mcp_call" && item.error) {
+        const e = item.error as unknown;
+        const detail = typeof e === "string" ? e : (e as { message?: unknown }).message ?? (e as { content?: unknown }).content ?? e;
+        const raw = typeof detail === "string" ? detail : JSON.stringify(detail);
+        return { ok: false, text, error: `tool error: ${redact(raw, token).slice(0, 300)}`, exitCode: null };
+      }
     }
     return { ok: true, text, exitCode: null };
   } catch (e) {
