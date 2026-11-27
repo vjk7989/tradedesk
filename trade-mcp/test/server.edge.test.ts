@@ -20,6 +20,8 @@ let srv: Server;
 let base: string;
 let port: number;
 let placed = 0;
+// Pin the risk engine's clock inside NSE hours so order tests do not depend on the wall clock.
+const OPEN = new Date("2026-01-07T04:30:00Z"); // Wed 10:00 IST, not a holiday (no marketHolidays configured)
 
 beforeAll(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "srv-edge-"));
@@ -32,7 +34,7 @@ beforeAll(async () => {
     mode: "paper", mcpToken: TOKEN, openalgoApiKey: API_KEY, openalgoUrl: "http://127.0.0.1:1",
     risk, killSwitchFile: path.join(dir, "KILL"),
   } as unknown as Config;
-  const engine = new RiskEngine(risk, { mode: "paper", killSwitchFile: cfg.killSwitchFile, stateFile: path.join(dir, "s.json") });
+  const engine = new RiskEngine(risk, { mode: "paper", killSwitchFile: cfg.killSwitchFile, stateFile: path.join(dir, "s.json"), now: () => OPEN });
   const client = {
     analyzerStatus: async () => ({ status: "success", data: { analyze_mode: true } }),
     quotes: async () => ({ status: "success", data: { ltp: 100 } }),
