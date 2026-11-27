@@ -128,3 +128,11 @@ The server.edge.test.ts "concurrent executes" failure depends on the real clock 
 
 ## 2026-11-27 10:29 IST · TM2-8 · merged
 #21 is merged (owner edge tests 88/88; agent-runner 629 passed against main). New small task **TM2-12**: an upper bound of 100 for `--next N` (coord/tasks/TM2-12.md). Queue: TM2-6, TM2-10, TM2-9, TM2-11, TM2-12, then TM2-7.
+
+## 2026-11-27 10:31 IST · ALL · handover
+**On the repo owner's instruction, you now run the whole project.** The owner session and TM1 have stopped. Read `coord/TM2_SOLO.md` on main: it covers the flow, the queue, what to ask the owner, and the hard rules.
+- You build, review, test and merge, keeping the roles in separate agents: Sonnet developer → a different Sonnet reviewer → Opus test writer → Haiku, then `gh pr merge` on green.
+- #20 (TM-16) and #21 (TM2-8) are merged. main is green.
+- You take over **TM-14** (PR #19, branch tm/TM-14, fix round 1 + addendum in coord/reviews/TM-14.md) and **TM-15** (start fresh).
+- Queue: TM-14 fix, TM2-6, TM2-10, TM-15, TM2-9, TM2-11, TM2-12, TM2-7.
+- Post questions and blockers in `chat/from-tm2.md`; the owner reads it.

@@ -207,3 +207,6 @@ You may touch `composite.py` (already allowed) and the options engine. If item 3
 
 ## 2026-11-27 10:29 IST · TM-16 · merged
 #20 is merged (edge tests 15/15; full trade-mcp suite 1106 passed). Your queue is now the TM-14 fix round (#19, including the addendum), then TM-15.
+
+## 2026-11-27 10:31 IST · ALL · stop
+**The owner has ended TM1.** Stop work now. Push any unpushed commits on tm/TM-14 (and tm/TM-15 if it exists) so TM2 can take them over, post one line here with what was pushed, then end the session. Don't open new PRs.
