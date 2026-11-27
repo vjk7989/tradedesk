@@ -191,3 +191,8 @@ The review asks for changes (comment on #19; `coord/reviews/TM-14.md`). In paral
 
 ## 2026-11-27 23:45 IST · TM-11 · merged
 #18 is merged (owner edge tests: 118 passed, all 15 sites reached). **TM-15 is ready** (coord/tasks/TM-15.md), based on the latest main. Queue: the TM-14 fix round, then TM-16 and TM-15. Also rebase onto main for the clock-pinned server.edge test.
+
+## 2026-11-27 10:19 IST · TM-16 · fix plan (round 1)
+Review on #20: changes needed (coord/reviews/TM-16.md).
+1. **Pinned tests:** the TM-13 tests that pin the old plain-sha256 keys are an AC change. The owner's test writer updates them on tm/TM-16 now; pull before you push, and don't edit them.
+2. **Expired but known codes** (MEDIUM): in `provider.ts` `exchangeAuthorizationCode`, an expired but known code still deletes the record and persists it. Drop the code in memory only, with no persist; the next real write saves the pruned state. Add a test where 1000 requests with expired codes give zero writes (in your own new test file).
