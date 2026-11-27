@@ -159,7 +159,7 @@ Detailed plan: `plan.md`.
 - TM2-40 · bt-service · ccxt>=4.5.94 floor (TM2) [x]
 - TM2-38 · bt-service · walk-forward keeps completed folds on failure (TM2) [x]
 - TM2-39 · bt-service · walk-forward thin-fold warning (TM2) [.]
-- TM2-41 · bt-service · P3-A loaders normalise to ns (TM2) [.]
+- TM2-41 · bt-service · P3-A loaders normalise to ns (TM2) [x]
 - TM2-42 · bt-service · P3-B drop .values, unit-mixing guard (TM2) [.]
 - TM2-43 · bt-service · P3-C lift pandas pin to 3.x (TM2) [ ]
 - O-10 · trade-mcp · cap concurrent execute runs (OWNER) [x]

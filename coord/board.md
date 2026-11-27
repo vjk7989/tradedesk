@@ -20,7 +20,7 @@
 | TM2-40 | TM2 | merged #67 | coord/tasks/TM2-40.md | ccxt>=4.5.94 floor (after #52 downgrade) |
 | TM2-38 | TM2 | merged #70 | coord/tasks/TM2-38.md | walk-forward keeps completed folds on failure |
 | TM2-39 | TM2 | in progress | coord/tasks/TM2-39.md | walk-forward thin-fold warning |
-| TM2-41 | TM2 | in progress | coord/tasks/TM2-41.md | P3-A loaders normalise to ns |
+| TM2-41 | TM2 | merged #69 | coord/tasks/TM2-41.md | P3-A loaders normalise to ns |
 | TM2-42 | TM2 | in progress | coord/tasks/TM2-42.md | P3-B drop .values, unit-mixing guard |
 | TM2-43 | TM2 | ready (after 41, 42; needs CI leg) | coord/tasks/TM2-43.md | P3-C lift pandas pin to 3.x |
 | O-8 | OWNER | done | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
