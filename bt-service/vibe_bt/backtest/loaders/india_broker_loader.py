@@ -115,12 +115,17 @@ def _bars_to_frame(bars: list[dict], start_date: str, end_date: str) -> Optional
         # Explicit ISO8601 (pandas>=2.0; uv.lock pins 2.3.3): same values as the
         # inferred parse for these strings, without the "could not infer format" warning.
         raw = frame["time"].map(lambda v: v.strip() if isinstance(v, str) else v)
-        # Rows whose tz-awareness differs from the first non-null row become NaT
-        # (matches the old inferred parse; avoids ValueError / silent offset stamping).
+        # Rows whose tz-awareness differs from the first row that parses on its own
+        # become NaT (matches the old inferred parse; avoids ValueError / silent
+        # offset stamping). Junk rows ("", whitespace, "garbage") don't vote.
         aware = raw.map(lambda v: bool(_TZ_SUFFIX.search(v)) if isinstance(v, str) else None)
-        first = aware.dropna()
-        if not first.empty:
-            raw = raw.where(aware.isna() | (aware == first.iloc[0]), None)
+        ref = None
+        for v in raw[aware.notna()]:
+            if v and not pd.isna(pd.to_datetime(v, format="ISO8601", errors="coerce")):
+                ref = bool(_TZ_SUFFIX.search(v))
+                break
+        if ref is not None:
+            raw = raw.where(aware.isna() | (aware == ref), None)
         index = pd.to_datetime(raw, format="ISO8601", errors="coerce")
     frame = frame.drop(columns=["time"])
     frame.index = pd.DatetimeIndex(index).tz_localize(None)
