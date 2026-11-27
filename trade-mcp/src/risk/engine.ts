@@ -104,6 +104,19 @@ export class RiskEngine {
     if (!Number.isInteger(o.quantity) || o.quantity <= 0) r.push("quantity must be a positive integer");
     else if (o.quantity > c.maxQtyPerOrder) r.push(`quantity ${o.quantity} exceeds maxQtyPerOrder ${c.maxQtyPerOrder}`);
 
+    // Optional, off by default: cap quantity on SELLs of NFO/BFO options (...CE / ...PE).
+    // Cannot tell whether the SELL closes a long position, so closing sells are capped too.
+    if (
+      c.maxShortOptionQtyPerOrder !== undefined &&
+      String(o.side).trim().toUpperCase() === "SELL" &&
+      (ex === "NFO" || ex === "BFO") &&
+      /(CE|PE)$/.test(sym) &&
+      Number.isFinite(o.quantity) &&
+      o.quantity > c.maxShortOptionQtyPerOrder
+    ) {
+      r.push(`short option qty ${o.quantity} exceeds maxShortOptionQtyPerOrder ${c.maxShortOptionQtyPerOrder}`);
+    }
+
     if (o.price === undefined || !Number.isFinite(o.price) || o.price <= 0) {
       r.push("price required for notional check");
     } else if (Number.isFinite(o.quantity)) {

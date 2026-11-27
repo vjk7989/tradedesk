@@ -31,6 +31,7 @@ export const riskSchema = z
     maxNotionalPerDay: posNum.default(200000),
     maxDailyLoss: posNum.default(5000),
     maxOrdersPerRun: posInt.default(5),
+    maxShortOptionQtyPerOrder: posInt.optional(),
     contractValues: z.record(z.string(), posNum).default({}),
     marketHolidays: z.object({ NSE: z.array(isoDate).optional(), MCX: z.array(isoDate).optional() }).strict().default({}),
   })
