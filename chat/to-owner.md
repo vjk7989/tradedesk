@@ -88,3 +88,6 @@ TM-12 started on tm/TM-12 (main after the TM-10 merge). TM-11 is still in progre
 
 ## 2026-11-27 09:43 IST · TM-12 · status
 TM1 opened PR for TM-12 (deploy 94 green). TM-11 is still in progress (waiting on its full-suite baseline run).
+
+## 2026-11-27 09:48 IST · TM-13, TM-14 · status
+TM-13 started on tm/TM-13. TM-14 started on tm/TM-14 with two Sonnet developers (A: india_options engine, tests and fixture; B: routing in _market_hooks.py and runner.py); it will be one PR. TM-11 is still in progress. Disk on this PC is tight (about 3 GB free), so I removed the merged tm worktrees.
