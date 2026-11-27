@@ -43,6 +43,12 @@ const BACKTEST_NOTE = [
   "        return out",
 ].join("\n");
 
+const WALKFORWARD_NOTE = [
+  "Walk-forward validation: signal parameters are tuned on each train window only and frozen for the following out-of-sample test window. Never touches the broker or risk engine; each call is audited with code length and sha256 only. Throws 'backtest service not configured' if unavailable; 'busy, retry later' when the service is saturated.",
+  "trainDays >= 20 and testDays >= 5 are calendar days. candidates is 1-10 parameter objects (passed to the engine as signal_parameters); at most 60 backtest runs in total; the server enforces a 10-minute budget. metric is one of sharpe, total_return, calmar (default sharpe).",
+  "Result: metric, folds (train/test dates, chosen params, trainScore, testMetrics), oosEquity (chained out-of-sample equity, downsampled to <=100 points), summary (folds, scored_folds, mean_test_<metric>, positive_folds), warnings, error (null on success).",
+].join("\n");
+
 const ORDER =
   "symbol: string; exchange: string; side: 'BUY'|'SELL'; quantity: number; product: 'CNC'|'NRML'|'MIS'; priceType: 'MARKET'|'LIMIT'|'SL'|'SL-M'; price?: number; triggerPrice?: number";
 
@@ -62,5 +68,6 @@ export const API_DOCS: ApiDoc[] = [
   { ns: "trade", name: "cancel", signature: "cancel(args: { orderId: string }): Promise<unknown>", doc: "Cancel an order. Allowed even when the kill switch is on." },
   { ns: "trade", name: "closePosition", signature: "closePosition(args?: {}): Promise<unknown>", doc: "Square off all open positions. Allowed even when the kill switch is on." },
   { ns: "backtest", name: "run", signature: "run(args: { code: string; symbols: string[]; start: string; end: string; interval?: string; capital?: number; costs?: object; source?: string; params?: object }): Promise<{ ok: boolean; metrics: object; equity: { date: string; value: number | null }[]; trades: object[]; tradeCount: number; warnings: string[]; error: string | null }>", doc: BACKTEST_NOTE },
+  { ns: "backtest", name: "walkForward", signature: "walkForward(args: { code: string; symbols: string[]; start: string; end: string; trainDays: number; testDays: number; candidates: object[]; metric?: 'sharpe' | 'total_return' | 'calmar'; interval?: string; capital?: number; costs?: object; source?: string }): Promise<{ ok: boolean; metric: string | null; folds: { train: string[]; test: string[]; chosen: object; trainScore: number | null; testMetrics: object }[]; oosEquity: { date: string; value: number | null }[]; summary: object; warnings: string[]; error: string | null }>", doc: WALKFORWARD_NOTE },
   { ns: "risk", name: "status", signature: "status(): Promise<{ mode: string; killSwitch: boolean; limits: object; today: { date: string; orders: number; notional: number } }>", doc: "Current risk limits, kill switch and today's counters." },
 ];

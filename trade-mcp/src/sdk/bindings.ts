@@ -5,7 +5,7 @@ import type { Bindings } from "../sandbox/quickjs.js";
 import { closeSync, existsSync, mkdirSync, openSync, statSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import type { BacktestClient, BacktestRequest } from "../backtest/client.js";
+import type { BacktestClient, BacktestRequest, WalkForwardRequest } from "../backtest/client.js";
 import { appendAudit } from "../risk/audit.js";
 
 export interface BindingDeps {
@@ -327,6 +327,70 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
             equity: downsample(r.equity ?? [], 100),
             trades: trades.slice(0, 20),
             tradeCount: trades.length,
+            warnings: r.warnings ?? [],
+            error: r.error ?? null,
+          };
+          audit({ action: w, args: auditArgs, decision: "allowed", ok: r.ok, error: out.error });
+          return out;
+        } catch (e) {
+          audit({ action: w, args: auditArgs, decision: "error", error: e instanceof Error ? e.message : String(e) });
+          throw e;
+        }
+      },
+      walkForward: async (args) => {
+        const w = "backtest.walkForward";
+        // audit args never include the code body, even when validation fails
+        let auditArgs: unknown = "<non-object args>";
+        if (args && typeof args === "object" && !Array.isArray(args)) {
+          const { code: c, ...rest } = args as Record<string, unknown>;
+          auditArgs = typeof c === "string"
+            ? { ...rest, codeLength: c.length, codeSha256: createHash("sha256").update(c).digest("hex") }
+            : rest;
+        }
+        try {
+          const a = check(args, w, ["code", "symbols", "start", "end", "trainDays", "testDays", "candidates"], [
+            "metric", "interval", "capital", "costs", "source",
+          ]);
+          const code = str(a, "code", w);
+          if (!deps.bt) throw new Error("backtest service not configured");
+          if (!Array.isArray(a.symbols) || a.symbols.some((x) => typeof x !== "string")) {
+            throw new Error(w + ': "symbols" must be an array of strings');
+          }
+          if (!Array.isArray(a.candidates) || a.candidates.some((c) => !c || typeof c !== "object" || Array.isArray(c))) {
+            throw new Error(w + ': "candidates" must be an array of objects');
+          }
+          const metric = a.metric !== undefined ? str(a, "metric", w) : undefined;
+          if (metric !== undefined && !["sharpe", "total_return", "calmar"].includes(metric)) {
+            throw new Error(w + ": metric must be one of sharpe, total_return, calmar");
+          }
+          const body: WalkForwardRequest = {
+            code,
+            symbols: a.symbols as string[],
+            start: str(a, "start", w),
+            end: str(a, "end", w),
+            train_days: num(a, "trainDays", w),
+            test_days: num(a, "testDays", w),
+            candidates: a.candidates as Record<string, unknown>[],
+            ...(metric !== undefined ? { metric: metric as WalkForwardRequest["metric"] } : {}),
+            ...(a.interval !== undefined ? { interval: str(a, "interval", w) } : {}),
+            ...(a.capital !== undefined ? { capital: num(a, "capital", w) } : {}),
+            ...(a.costs !== undefined ? { costs: obj(a.costs, w + " costs") } : {}),
+            ...(a.source !== undefined ? { source: str(a, "source", w) } : {}),
+          };
+          const r = await deps.bt.walkForward(body);
+          const folds = (r.folds ?? []).map((f) => ({
+            train: f.train ?? [],
+            test: f.test ?? [],
+            chosen: f.chosen ?? {},
+            trainScore: f.train_score ?? null,
+            testMetrics: f.test_metrics ?? {},
+          }));
+          const out = {
+            ok: r.ok,
+            metric: r.metric ?? null,
+            folds,
+            oosEquity: downsample(r.oos_equity ?? [], 100),
+            summary: r.summary ?? {},
             warnings: r.warnings ?? [],
             error: r.error ?? null,
           };
