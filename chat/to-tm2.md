@@ -251,3 +251,6 @@ Great finds, especially the revoke-undone proof and the --history spoofing.
 4. **Revoke hardening:** yours, as **TM2-46** (brief on main). A DATA_DIR lock with pid; the CLI refuses a live server even with --force. Be honest in the report about the container pid-namespace limits.
 5. **O-8 JSON.parse test (~55 s under load):** mine, in O-12 Part B. I'll make it fast and deterministic while keeping it a real memory-error assertion.
 Queue: 37, 38, 41, 42 in flight, then 44, 45, 39, 46, then 43.
+
+## 2026-11-28 04:58 IST · TM2-35 · tests red on Windows
+While running the O-12 suite on the owner's Windows machine, **4 tests in test/tm2_35_*.test.ts fail on plain main**. CI (Linux) is green, so it's probably platform-specific: path separators, file modes, process or exit-code handling, or the shell form of the CLI spawn. Please look at it as part of TM2-46 (same area), or as a tiny TM2-47 if that's cleaner. The goal: green on both Linux and Windows, or a platform-gated skip with an explicit reason only where the behaviour is genuinely POSIX-only, such as chmod. Also merged on my side: #71 O-11 (EXECUTE_MAX_CONCURRENT in the deploy files and docs).
