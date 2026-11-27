@@ -12,12 +12,13 @@ import pytest
 
 from bt_service import run_backtest
 from vibe_bt.backtest.engines._market_hooks import code_currency, matched_market
-from vibe_bt.backtest.engines.india_fno import IndiaFnoEngine, fno_root
+from vibe_bt.backtest.engines.india_fno import _FALLBACK_LOT_SIZES, IndiaFnoEngine, fno_root
 from vibe_bt.backtest.runner import _detect_market, _select_market_engine
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SYM = "NIFTY25DECFUT@NFO"
 FIN = "FINNIFTY25DECFUT@NFO"
+NXT = "NIFTYNXT5025DECFUT@NFO"  # NIFTY-prefixed root with no fallback lot
 CAP = 1_000_000
 ZERO = {
     "in_fno_brokerage": 0, "in_fno_stt": 0, "in_fno_exchange_txn": 0,
@@ -25,9 +26,9 @@ ZERO = {
 }
 NO_SLIP = {"slippage": 0}
 
-# Default tariff (AC): brokerage INR 20/order, STT 0.02% sell, exchange 0.00183%,
+# Default tariff (AC): brokerage INR 20/order, STT 0.05% sell (Finance Act 2026), exchange 0.00183%,
 # SEBI 0.0001%, stamp 0.002% buy, GST 18% on brokerage + exchange + SEBI.
-BROK, STT, TXN, SEBI, STAMP, GST = 20.0, 0.0002, 0.0000183, 0.000001, 0.00002, 0.18
+BROK, STT, TXN, SEBI, STAMP, GST = 20.0, 0.0005, 0.0000183, 0.000001, 0.00002, 0.18
 
 
 def hand_cost(notional: float, is_buy: bool) -> float:
@@ -53,7 +54,7 @@ def env(tmp_path, monkeypatch):
         "sources:\n"
         + "".join(
             f'  - symbol: "{s}"\n    type: csv\n    path: "{csv}"\n    date_format: "%Y-%m-%d"\n'
-            for s in (SYM, FIN)
+            for s in (SYM, FIN, NXT)
         ),
         encoding="utf-8",
     )
@@ -152,14 +153,48 @@ def test_fno_root(sym, root):
     assert fno_root(sym) == root
 
 
-@pytest.mark.parametrize("sym", [
-    "FINNIFTY25DECFUT@NFO", "NIFTYNXT5025DECFUT@NFO", "MIDCPNIFTY25DECFUT@NFO",
-])
-def test_nifty_prefix_roots_do_not_inherit_nifty_lot(sym):
+def test_fallback_lot_table_is_exactly_the_four_nse_index_roots():
+    # NSE circular NSE/FAOP/70616 (Jan 2026 series, verified Nov 2026).
+    assert _FALLBACK_LOT_SIZES == {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "MIDCPNIFTY": 120}
     e = IndiaFnoEngine({})
-    assert e.get_contract_multiplier(sym) == 1  # unknown root -> lot 1, never NIFTY's 75
-    assert e.get_contract_multiplier("BANKNIFTY25DECFUT@NFO") == 35
-    assert e.get_contract_multiplier("NIFTY28NOV25FUT@NFO") == 75
+    for root, lot in _FALLBACK_LOT_SIZES.items():
+        assert e.get_contract_multiplier(f"{root}25DECFUT@NFO") == lot
+    assert e._engine_diagnostics() == {}
+
+
+@pytest.mark.parametrize("sym, lot", [
+    ("FINNIFTY25DECFUT@NFO", 60),
+    ("FINNIFTY28NOV25FUT@NFO", 60),
+    ("finnifty25decfut@nfo", 60),
+    ("MIDCPNIFTY25DECFUT@NFO", 120),
+    ("MIDCPNIFTY28NOV25FUT@NFO", 120),
+])
+def test_nifty_prefix_roots_in_table_get_their_own_lot(sym, lot, caplog):
+    e = IndiaFnoEngine({})
+    with caplog.at_level(logging.WARNING, logger="vibe_bt.backtest.engines.india_fno"):
+        assert e.get_contract_multiplier(sym) == lot  # its own lot, never NIFTY's 65
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert e._engine_diagnostics() == {}
+    assert e.get_contract_multiplier("BANKNIFTY25DECFUT@NFO") == 30
+    assert e.get_contract_multiplier("NIFTY28NOV25FUT@NFO") == 65
+
+
+@pytest.mark.parametrize("sym, root", [
+    ("NIFTYNXT5025DECFUT@NFO", "NIFTYNXT50"),
+    ("NIFTYIT25DECFUT@NFO", "NIFTYIT"),
+    ("NIFTY5025DECFUT@NFO", "NIFTY50"),
+])
+def test_nifty_prefix_roots_not_in_table_do_not_inherit_nifty_lot(sym, root, caplog):
+    e = IndiaFnoEngine({})
+    with caplog.at_level(logging.WARNING, logger="vibe_bt.backtest.engines.india_fno"):
+        assert e.get_contract_multiplier(sym) == 1  # unknown root -> lot 1, never NIFTY's 65
+    msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(msgs) == 1 and root in msgs[0]
+    assert e._engine_diagnostics()["pricing_assumptions"] == [
+        {"product": root, "field": "lot_size", "value": 1}
+    ]
+    assert e.get_contract_multiplier("BANKNIFTY25DECFUT@NFO") == 30
+    assert e.get_contract_multiplier("NIFTY28NOV25FUT@NFO") == 65
 
 
 def test_unknown_root_warns_once_and_is_listed(caplog):
@@ -167,19 +202,24 @@ def test_unknown_root_warns_once_and_is_listed(caplog):
     assert e._engine_diagnostics() == {}
     with caplog.at_level(logging.WARNING, logger="vibe_bt.backtest.engines.india_fno"):
         for _ in range(3):
-            e.get_contract_multiplier(FIN)
+            e.get_contract_multiplier(NXT)
         e.get_contract_multiplier("CRUDEOIL25DECFUT@MCX")
+        e.get_contract_multiplier(FIN)  # in the fallback table: no warning
     msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert sum("FINNIFTY" in m for m in msgs) == 1
+    assert sum("NIFTYNXT50" in m for m in msgs) == 1
     assert sum("CRUDEOIL" in m for m in msgs) == 1
+    assert not any("FINNIFTY" in m for m in msgs)
+    assert len(msgs) == 2
     products = [a["product"] for a in e._engine_diagnostics()["pricing_assumptions"]]
-    assert products == ["CRUDEOIL", "FINNIFTY"]
+    assert products == ["CRUDEOIL", "NIFTYNXT50"]
 
 
 def test_known_roots_not_listed_in_pricing_assumptions():
-    e = IndiaFnoEngine({"lot_sizes": {"FINNIFTY": 65}})
-    assert e.get_contract_multiplier(FIN) == 65
-    assert e.get_contract_multiplier(SYM) == 75
+    e = IndiaFnoEngine({"lot_sizes": {"FINNIFTY": 65, "NIFTYNXT50": 25}})
+    assert e.get_contract_multiplier(FIN) == 65  # config beats the 60 fallback
+    assert e.get_contract_multiplier(NXT) == 25
+    assert e.get_contract_multiplier(SYM) == 65
+    assert e.get_contract_multiplier("MIDCPNIFTY25DECFUT@NFO") == 120
     assert e._engine_diagnostics() == {}
 
 
@@ -188,7 +228,9 @@ def test_known_roots_not_listed_in_pricing_assumptions():
 def test_lot_sizes_override_fallback_and_case_insensitive_key():
     e = IndiaFnoEngine({"lot_sizes": {"nifty": 50}})
     assert e.get_contract_multiplier(SYM) == 50
-    assert e.get_contract_multiplier("BANKNIFTY25DECFUT@NFO") == 35  # fallback kept
+    assert e.get_contract_multiplier("BANKNIFTY25DECFUT@NFO") == 30  # fallback kept
+    assert e.get_contract_multiplier(FIN) == 60
+    assert e.get_contract_multiplier("MIDCPNIFTY25DECFUT@NFO") == 120
 
 
 @pytest.mark.parametrize("lot", [0, -1, -75])
@@ -214,8 +256,12 @@ def test_lot_sizes_numeric_str_not_silently_coerced():
 
 
 def test_lot_sizes_none_or_empty_uses_fallback():
-    assert IndiaFnoEngine({"lot_sizes": None}).get_contract_multiplier(SYM) == 75
-    assert IndiaFnoEngine({"lot_sizes": {}}).get_contract_multiplier(SYM) == 75
+    for cfg in ({"lot_sizes": None}, {"lot_sizes": {}}):
+        e = IndiaFnoEngine(cfg)
+        assert e.get_contract_multiplier(SYM) == 65
+        assert e.get_contract_multiplier("BANKNIFTY25DECFUT@NFO") == 30
+        assert e.get_contract_multiplier(FIN) == 60
+        assert e.get_contract_multiplier("MIDCPNIFTY25DECFUT@NFO") == 120
 
 
 # ── margin_pct ───────────────────────────────────────────────────────────────
@@ -251,13 +297,13 @@ def test_round_size_floors_to_whole_lots(raw, lots):
     assert IndiaFnoEngine({}).round_size(raw, 20000.0) == lots
 
 
-@pytest.mark.parametrize("equity, lots", [(900_000, 4), (899_999, 3), (225_000, 1), (224_999, 0)])
+@pytest.mark.parametrize("equity, lots", [(780_000, 4), (779_999, 3), (195_000, 1), (194_999, 0)])
 def test_sizing_formula_boundaries(equity, lots):
-    # floor(equity * 1 * (1/0.15) / (20000 * 75)); 1 lot needs 225000 margin.
+    # floor(equity * 1 * (1/0.15) / (20000 * 65)); 1 lot needs 195000 margin.
     e = IndiaFnoEngine({})
     raw = e._calc_raw_size(SYM, equity * e.default_leverage, 20000.0)
     assert e.round_size(raw, 20000.0) == lots
-    assert math.floor(equity / 0.15 / (20000 * 75)) == lots
+    assert math.floor(equity / 0.15 / (20000 * 65)) == lots
 
 
 # ── costs (unit) ─────────────────────────────────────────────────────────────
@@ -271,33 +317,36 @@ def _eng(**over):
 def test_default_costs_buy_and_sell_one_lot_by_hand():
     e = IndiaFnoEngine({})
     e._active_symbol = SYM
-    n = 1 * 75 * 20000.0  # 1.5M notional
-    # buy: 20 + 27.45 + 1.5 + 18% * 48.95 + stamp 30 = 87.761
-    assert e.calc_commission(1, 20000.0, 1, True) == pytest.approx(87.761, abs=0.01)
-    assert e.calc_commission(1, 20000.0, 1, True) == pytest.approx(hand_cost(n, True), abs=0.01)
-    # sell: 20 + 27.45 + 1.5 + 8.811 + STT 300 = 357.761
-    assert e.calc_commission(1, 20000.0, 1, False) == pytest.approx(357.761, abs=0.01)
+    n = 1 * 65 * 20000.0  # 1.3M notional
+    assert (e.in_fno_stt, e.in_fno_stamp_duty) == (0.0005, 0.00002)
+    # buy: 20 + 23.79 + 1.3 + 18% * 45.09 (8.1162) + stamp 26 = 79.2062
+    assert e.calc_commission(1, 20000.0, 1, True) == pytest.approx(79.2062, abs=0.001)
+    assert e.calc_commission(1, 20000.0, 1, True) == pytest.approx(hand_cost(n, True), abs=0.001)
+    # sell: 20 + 23.79 + 1.3 + 8.1162 + STT 650 = 703.2062
+    assert e.calc_commission(1, 20000.0, 1, False) == pytest.approx(703.2062, abs=0.001)
+    assert e.calc_commission(1, 20000.0, 1, False) == pytest.approx(hand_cost(n, False), abs=0.001)
 
 
 def test_stt_not_on_buy_stamp_not_on_sell():
-    stt = _eng(in_fno_stt=0.0002)
+    stt = _eng(in_fno_stt=0.0005)
     assert stt.calc_commission(1, 20000, 1, True) == 0       # open long = buy
     assert stt.calc_commission(1, 20000, -1, False) == 0     # close short = buy
-    assert stt.calc_commission(1, 20000, 1, False) == pytest.approx(300)   # close long = sell
-    assert stt.calc_commission(1, 20000, -1, True) == pytest.approx(300)   # open short = sell
+    assert stt.calc_commission(1, 20000, 1, False) == pytest.approx(650)   # close long = sell
+    assert stt.calc_commission(1, 20000, -1, True) == pytest.approx(650)   # open short = sell
     stamp = _eng(in_fno_stamp_duty=0.00002)
-    assert stamp.calc_commission(1, 20000, 1, True) == pytest.approx(30)
-    assert stamp.calc_commission(1, 20000, -1, False) == pytest.approx(30)
+    assert stamp.calc_commission(1, 20000, 1, True) == pytest.approx(26)
+    assert stamp.calc_commission(1, 20000, -1, False) == pytest.approx(26)
     assert stamp.calc_commission(1, 20000, 1, False) == 0
     assert stamp.calc_commission(1, 20000, -1, True) == 0
 
 
 def test_gst_base_excludes_stt_and_stamp():
-    e = _eng(in_fno_stt=0.0002, in_fno_stamp_duty=0.00002, in_fno_gst=0.18)
-    assert e.calc_commission(1, 20000, 1, False) == pytest.approx(300)  # no GST on STT
-    assert e.calc_commission(1, 20000, 1, True) == pytest.approx(30)    # no GST on stamp
+    e = _eng(in_fno_stt=0.0005, in_fno_stamp_duty=0.00002, in_fno_gst=0.18)
+    assert e.calc_commission(1, 20000, 1, False) == pytest.approx(650)  # no GST on STT
+    assert e.calc_commission(1, 20000, 1, True) == pytest.approx(26)    # no GST on stamp
     g = _eng(in_fno_brokerage=20, in_fno_exchange_txn=0.0000183, in_fno_sebi_fee=0.000001)
-    assert g.calc_commission(1, 20000, 1, True) == pytest.approx(48.95 * 1.18)
+    # 20 + 23.79 + 1.3 = 45.09, plus 18% GST = 53.2062
+    assert g.calc_commission(1, 20000, 1, True) == pytest.approx(53.2062)
 
 
 def test_brokerage_flat_per_order_not_per_lot():
@@ -307,9 +356,13 @@ def test_brokerage_flat_per_order_not_per_lot():
 
 
 def test_cost_notional_uses_lot_size_of_active_symbol():
-    e = _eng(in_fno_stt=0.0002)
+    e = _eng(in_fno_stt=0.0005)
     e._active_symbol = "BANKNIFTY25DECFUT@NFO"
-    assert e.calc_commission(2, 50000, 1, False) == pytest.approx(2 * 35 * 50000 * 0.0002)
+    assert e.calc_commission(2, 50000, 1, False) == pytest.approx(1500)  # 2 * 30 * 50000 * 0.05%
+    e._active_symbol = FIN
+    assert e.calc_commission(2, 20000, 1, False) == pytest.approx(1200)  # 2 * 60 * 20000 * 0.05%
+    e._active_symbol = "MIDCPNIFTY25DECFUT@NFO"
+    assert e.calc_commission(1, 10000, 1, False) == pytest.approx(600)   # 1 * 120 * 10000 * 0.05%
 
 
 def test_cost_override_keys():
@@ -332,10 +385,10 @@ def test_round_trip_costs_match_hand_calculation(env):
     assert (buy["side"], sell["side"]) == ("buy", "sell")
     lots = buy["qty"]
     assert lots == 4
-    n_buy = lots * 75 * buy["price"]
-    n_sell = lots * 75 * sell["price"]
+    n_buy = lots * 65 * buy["price"]
+    n_sell = lots * 65 * sell["price"]
     costs = hand_cost(n_buy, True) + hand_cost(n_sell, False)
-    assert sell["pnl"] == pytest.approx(lots * 75 * (sell["price"] - buy["price"]), abs=0.01)
+    assert sell["pnl"] == pytest.approx(lots * 65 * (sell["price"] - buy["price"]), abs=0.01)
     assert final(r) == pytest.approx(CAP + sell["pnl"] - costs, abs=0.01)
 
 
@@ -344,7 +397,8 @@ def test_short_round_trip_costs_flip_sides(env):
     sell, buy = r["trades"][0], r["trades"][-1]
     assert (sell["side"], buy["side"]) == ("sell", "buy")
     lots = sell["qty"]
-    costs = hand_cost(lots * 75 * sell["price"], False) + hand_cost(lots * 75 * buy["price"], True)
+    assert lots == 4
+    costs = hand_cost(lots * 65 * sell["price"], False) + hand_cost(lots * 65 * buy["price"], True)
     assert final(r) == pytest.approx(CAP + buy["pnl"] - costs, abs=0.01)
 
 
@@ -354,7 +408,7 @@ def test_cost_override_keys_end_to_end(env):
     assert final(run(1.0, {**NO_SLIP, "in_fno_brokerage": 100})) == pytest.approx(base - 2 * 80 * 1.18, abs=0.01)
     r = run(1.0, {**NO_SLIP, "in_fno_stt": 0})
     sell = r["trades"][-1]
-    assert final(r) == pytest.approx(base + 4 * 75 * sell["price"] * STT, abs=0.01)
+    assert final(r) == pytest.approx(base + 4 * 65 * sell["price"] * 0.0005, abs=0.01)
 
 
 def test_zero_cost_equity_at_least_default(env):
@@ -362,12 +416,17 @@ def test_zero_cost_equity_at_least_default(env):
 
 
 def test_lot_rounding_399_lots_floors_to_3(env):
-    # weight 0.99: 0.99 * 1M / 0.15 / (22044.77 * 75) = 3.99 lots -> 3
-    assert entry(run(0.99, NO_SLIP))["qty"] == 3
+    # weight 0.857: 0.857 * 1M / 0.15 / (22044.77 * 65) = 3.987 lots -> 3
+    assert entry(run(0.857, NO_SLIP))["qty"] == 3
+
+
+def test_lot_rounding_just_over_4_lots_is_4(env):
+    # weight 0.86: 0.86 * 1M / 0.15 / (22044.77 * 65) = 4.001 lots -> 4 (other side of the floor)
+    assert entry(run(0.86, NO_SLIP))["qty"] == 4
 
 
 def test_half_a_lot_is_no_trade(env):
-    # weight 0.124: 0.124 * 4.032 = 0.5 lots -> 0, nothing opens, no crash
+    # weight 0.124: 0.124 * 4.653 = 0.58 lots -> 0, nothing opens, no crash
     r = run(0.124, NO_SLIP)
     assert r["trades"] == []
     assert final(r) == pytest.approx(CAP)
@@ -388,12 +447,12 @@ def test_short_allowed_and_pnl_sign(env):
     assert entry(r)["side"] == "sell" and entry(r)["qty"] == 4
     exit_ = r["trades"][-1]
     assert exit_["price"] > entry(r)["price"]  # fixture trends up
-    assert exit_["pnl"] == pytest.approx(-4 * 75 * (exit_["price"] - entry(r)["price"]))
+    assert exit_["pnl"] == pytest.approx(-4 * 65 * (exit_["price"] - entry(r)["price"]))
     assert final(r) < CAP
 
 
 def test_margin_pct_one_sizes_unlevered(env):
-    # leverage 1: 5M / (22044.77 * 75) = 3.02 -> 3 lots
+    # leverage 1: 5M / (22044.77 * 65) = 3.49 -> 3 lots
     assert entry(run(1.0, {**NO_SLIP, "margin_pct": 1}, capital=5_000_000))["qty"] == 3
 
 
@@ -404,15 +463,29 @@ def test_invalid_margin_pct_fails_run(env):
 
 
 def test_capital_too_small_for_one_lot(env):
-    # one lot needs ~22044.77*75*0.15 = 248k margin
+    # one lot needs 22044.77*65*0.15 = 214,937 margin
     r = run(1.0, NO_SLIP, capital=200_000)
     assert r["trades"] == []
     assert final(r) == pytest.approx(200_000)
     assert r["metrics"]["unfilled_plan_rejections"] > 0  # the "warning" surfaced in metrics
 
 
+def test_capital_one_lot_boundary_includes_entry_commission(env):
+    # One lot at 22044.77: margin 214,936.51 + buy cost 84.89 (20 + txn 26.22 + SEBI 1.43
+    # + GST 8.58 + stamp 28.66) = 215,021.40 cash needed.
+    assert entry(run(1.0, NO_SLIP, capital=215_100))["qty"] == 1
+    assert run(1.0, NO_SLIP, capital=215_000)["trades"] == []
+
+
 def test_unknown_root_run_lists_pricing_assumption(env):
-    r = run(1.0, NO_SLIP, sym=FIN)
-    assert "FINNIFTY" in str(r["metrics"].get("pricing_assumptions"))
+    r = run(1.0, NO_SLIP, sym=NXT)
+    assert "NIFTYNXT50" in str(r["metrics"].get("pricing_assumptions"))
     # lot 1: floor(1M / 0.15 / 22044.77) = 302 contracts, not NIFTY's 4 lots
     assert entry(r)["qty"] == 302
+
+
+def test_finnifty_run_uses_its_fallback_lot(env):
+    r = run(1.0, NO_SLIP, sym=FIN)
+    assert not r["metrics"].get("pricing_assumptions")
+    # lot 60: floor(1M / 0.15 / (22044.77 * 60)) = floor(5.04) = 5 lots
+    assert entry(r)["qty"] == 5

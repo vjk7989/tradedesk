@@ -26,7 +26,8 @@ under ``pricing_assumptions`` in the run metrics.
 Costs, all overridable through ``in_fno_*`` config keys. VERIFY CURRENT RATES;
 tariffs change:
   - Brokerage: flat per order, default INR 20                   [in_fno_brokerage]
-  - STT: 0.02% of notional, sell side only                      [in_fno_stt]
+  - STT: 0.05% of notional, sell side only                      [in_fno_stt]
+    (Finance Act 2026, effective 1 Apr 2026; verify current)
   - Exchange transaction charge: 0.00183% of notional           [in_fno_exchange_txn]
   - SEBI turnover fee: INR 10/crore = 0.0001% of notional       [in_fno_sebi_fee]
   - Stamp duty: 0.002% of notional, buy side only               [in_fno_stamp_duty]
@@ -53,7 +54,8 @@ from vibe_bt.backtest.engines.india_session import (
 logger = logging.getLogger(__name__)
 
 # VERIFY CURRENT NSE LOT SIZES before relying on results; override via config["lot_sizes"].
-_FALLBACK_LOT_SIZES = {"NIFTY": 75, "BANKNIFTY": 35}
+# Per NSE circular NSE/FAOP/70616, effective Jan 2026 series (verified Nov 2026).
+_FALLBACK_LOT_SIZES = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "MIDCPNIFTY": 120}
 
 _EXPIRY_RE = re.compile(r"\d{2}[A-Z]{3}(?:\d{2})?$")
 
@@ -67,7 +69,7 @@ def fno_root(symbol: str) -> str:
 
 
 def _lot_size(root: Any, value: Any) -> int:
-    """Lot sizes are positive integers (an exact-integer float such as 75.0 is accepted)."""
+    """Lot sizes are positive integers (an exact-integer float such as 65.0 is accepted)."""
     if isinstance(value, float) and value.is_integer():
         value = int(value)
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -94,7 +96,7 @@ class IndiaFnoEngine(FuturesBaseEngine):
         self.product: str = resolve_product(config, "india_fno")  # validates even at 1D
         self.mis: bool = self.intraday and self.product == "MIS"
         self.in_fno_brokerage: float = config.get("in_fno_brokerage", 20.0)
-        self.in_fno_stt: float = config.get("in_fno_stt", 0.0002)
+        self.in_fno_stt: float = config.get("in_fno_stt", 0.0005)  # Finance Act 2026, effective 1 Apr 2026
         self.in_fno_exchange_txn: float = config.get("in_fno_exchange_txn", 0.0000183)
         self.in_fno_sebi_fee: float = config.get("in_fno_sebi_fee", 0.000001)
         self.in_fno_stamp_duty: float = config.get("in_fno_stamp_duty", 0.00002)
