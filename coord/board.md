@@ -10,8 +10,8 @@
 | TM-5 | TM1 | done | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
 | TM2-3 | TM2 | ready | coord/tasks/TM2-3.md | agent-runner Gemini API backend |
 | TM2-4 | TM2 | ready | coord/tasks/TM2-4.md | sync OpenAlgo holidays into risk.json |
-| TM2-1 | TM2 | review | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
-| TM2-2 | TM2 | review | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
+| TM2-1 | TM2 | fix | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
+| TM2-2 | TM2 | fix | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
 | TM-12 | TM1 | ready (after TM-10 merged) | coord/tasks/TM-12.md | EXECUTE_TIMEOUT_MS in compose/.env.example/runbook |
 | TM-11 | TM1 | ready | coord/tasks/TM-11.md | remaining deprecation-warning sites |
 | TM-10 | TM1 | fix | coord/tasks/TM-10.md | EXECUTE_TIMEOUT_MS so walkForward can finish in execute |
