@@ -8,3 +8,12 @@ Verdict: approve
 4. tm6_once_exit.test.ts (nit): the test relies on a single `await Promise.resolve()` so that the handlers are registered before the signals fire. It works today but could be fragile if main gains an await before the registration. Use vi.waitFor on handlers.size.
 
 Scope matches the brief. No blockers.
+
+## Edge tests (Opus)
+92 new tests on `tm/TM-6` (dca0835). agent-runner: 283/283 pass. bt-service: 122 pass, 5 fail, two real defects.
+
+## Fix plan (Opus), fix round 1
+Pull `tm/TM-6` first. Do not edit tests. Change only the `in_mis_stamp_duty` validation in `bt-service/vibe_bt/backtest/engines/india_equity.py`.
+1. Huge values (`10**400`, `-(10**400)`, `Fraction(10**400, 3)`) raise `OverflowError` from `math.isfinite` instead of `ValueError`. Wrap the finiteness check: convert with `float(x)` inside a try, and turn `OverflowError` into the same `ValueError` message.
+2. The error message must not echo huge input. Use `reprlib.repr(value)` (stdlib), capped at about 80 chars, in the message.
+Verify: `cd bt-service && uv run pytest -q tests/test_tm6_edge.py tests/test_tm6_numbers.py tests/test_tm1_edge.py` → all green, then the full `uv run pytest -q`. Push to `tm/TM-6` and append `## Fix round 1` to `coord/reports/TM-6.md`.
