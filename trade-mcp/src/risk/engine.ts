@@ -121,7 +121,7 @@ export class RiskEngine {
       if (!Number.isFinite(dayPnl)) r.push("day P&L unavailable/invalid");
       else if (dayPnl <= -c.maxDailyLoss) r.push(`daily loss limit ${c.maxDailyLoss} hit`);
     }
-    if (!isMarketOpen(ex, this.now())) r.push(`market closed for ${o.exchange}`);
+    if (!isMarketOpen(ex, this.now(), c.marketHolidays)) r.push(`market closed for ${o.exchange}`);
 
     return { allow: r.length === 0, reasons: r };
   }

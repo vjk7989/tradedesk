@@ -10,5 +10,6 @@
   "maxNotionalPerDay": 200000,
   "maxDailyLoss": 5000,
   "maxOrdersPerRun": 5,
-  "contractValues": {}
+  "contractValues": {},
+  "marketHolidays": {}
 }
