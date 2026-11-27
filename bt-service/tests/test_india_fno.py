@@ -56,8 +56,8 @@ def test_routing():
     assert _detect_market("CRUDEOIL25DECFUT@MCX") == "india_fno"
     assert _detect_market("RELIANCE.NS") == "india_equity"
     assert _detect_market("RELIANCE@NSE") == "india_equity"
-    # options stay out of scope (still routed to india_equity)
-    assert _detect_market("NIFTY28NOV2524000CE@NFO") == "india_equity"
+    # TM-14: options (CE/PE on NFO/BFO) route to the india_options engine
+    assert _detect_market("NIFTY28NOV2524000CE@NFO") == "india_options"
 
 
 def test_fno_root():

@@ -131,7 +131,8 @@ _MARKET_PATTERNS = [
     # Local addition: OpenAlgo explicit-exchange symbols (SYMBOL@EXCHANGE).
     (re.compile(r"^[A-Z0-9&_\-]+@CRYPTO$", re.I), "crypto"),
     # Local addition: India F&O futures (NIFTY25DECFUT@NFO) have their own engine.
-    # Options (CE/PE) stay on india_equity; an options engine is out of scope.
+    # Options (CE/PE@NFO|BFO) route to the india_options engine.
+    (re.compile(r"^[A-Z0-9&_\-]+(CE|PE)@(NFO|BFO)$", re.I), "india_options"),
     (re.compile(r"^[A-Z0-9&_\-]+FUT@(NFO|BFO|MCX)$", re.I), "india_fno"),
     (re.compile(r"^[A-Z0-9&_\-]+@(NSE|BSE|NFO|BFO|CDS|BCD|MCX)$", re.I), "india_equity"),
     (re.compile(r"^[A-Z0-9]{4}\.T$", re.I), "jp_equity"),
@@ -296,6 +297,7 @@ _MARKET_CURRENCY = {
     "hk_equity": "HKD",
     "india_equity": "INR",
     "india_fno": "INR",
+    "india_options": "INR",
     "kr_equity": "KRW",
     "jp_equity": "JPY",
     "ca_equity": "CAD",

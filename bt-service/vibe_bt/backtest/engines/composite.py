@@ -54,6 +54,9 @@ def _build_rule_engines(config: dict, codes: List[str]) -> Dict[str, BaseEngine]
         elif market == "india_fno":
             from vibe_bt.backtest.engines.india_fno import IndiaFnoEngine
             engines["india_fno"] = IndiaFnoEngine(config)
+        elif market == "india_options":
+            from vibe_bt.backtest.engines.india_options import IndiaOptionsEngine
+            engines["india_options"] = IndiaOptionsEngine(config)
         elif market == "kr_equity":
             from vibe_bt.backtest.engines.korea_equity import KoreaEquityEngine
             engines["kr_equity"] = KoreaEquityEngine(config)
@@ -157,6 +160,9 @@ class CompositeEngine(BaseEngine):
 
         # Build sub-engines (one per market type)
         self._rule_engines = _build_rule_engines(config, codes)
+        # The options sub-engine reads the pooled book (margin direction, expiry).
+        if "india_options" in self._rule_engines:
+            self._rule_engines["india_options"].positions = self.positions
 
         # Crypto dedup state (owned by CompositeEngine, not sub-engine)
         self._funding_applied: set = set()
@@ -352,9 +358,29 @@ class CompositeEngine(BaseEngine):
 
     # ── Stateful hooks (implemented directly, NO delegation) ──
 
+    def before_rebalance_bar(self, timestamp, data_map, codes) -> bool:
+        opt = self._rule_engines.get("india_options")
+        if opt is not None:
+            opt.before_rebalance_bar(timestamp, data_map, codes)
+        return super().before_rebalance_bar(timestamp, data_map, codes)
+
+    def _plan_open_order(self, symbol, target_weight, df, ts, *args, **kwargs):
+        sub = self._rule_for(symbol)
+        if hasattr(sub, "note_plan"):
+            sub.note_plan(symbol, target_weight, ts)
+        return super()._plan_open_order(symbol, target_weight, df, ts, *args, **kwargs)
+
     def after_rebalance_bar(self, timestamp, data_map, codes) -> bool:
         stop = super().after_rebalance_bar(timestamp, data_map, codes)
         from vibe_bt.backtest.engines.india_session import squareoff_all
+
+        opt = self._rule_engines.get("india_options")
+        if opt is not None:
+            # Options have no MIS/intraday product: only expiry settlement here.
+            opt.settle_expired(
+                self, data_map, timestamp,
+                [c for c in codes if self._symbol_market.get(c) == "india_options"],
+            )
 
         for market in ("india_equity", "india_fno"):
             sub = self._rule_engines.get(market)
