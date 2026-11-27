@@ -65,8 +65,8 @@ class WalkForwardRequest(BaseModel):
     symbols: list[str]
     start: str
     end: str
-    train_days: int
-    test_days: int
+    train_days: int = Field(le=3650)
+    test_days: int = Field(le=3650)
     candidates: list[dict[str, Any]]
     metric: Literal["sharpe", "total_return", "calmar"] = "sharpe"
     interval: str = "1D"
