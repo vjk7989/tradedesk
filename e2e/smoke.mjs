@@ -240,6 +240,37 @@ async function main() {
       await ro.close();
     }
   });
+  await step("12 GET /readyz -> 200, openalgo ok, bt ok", async () => {
+    const r = await fetch(`http://127.0.0.1:${mcpPort}/readyz`);
+    const body = await r.json();
+    assert(r.status === 200, `/readyz status ${r.status} ${JSON.stringify(body)}`);
+    assert(body.checks?.openalgo === "ok", JSON.stringify(body));
+    assert(["ok", "not_configured"].includes(body.checks?.bt), JSON.stringify(body));
+  });
+  await step("13 risk:lint deploy/risk.example.json exits 0", async () => {
+    const r = spawnSync(process.execPath, [path.join(MCP_DIR, "dist", "src", "risk", "lint.js"), path.join(ROOT, "deploy", "risk.example.json")], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    assert(r.status === 0, `exit ${r.status}: ${(r.stdout + r.stderr).slice(-500)}`);
+  });
+  await step("14 agent-runner --check: fake env exits 0, unset env exits 1 'missing', no value leaked", async () => {
+    const runner = path.join(ROOT, "agent-runner", "dist", "main.js");
+    const jobs = path.join(ROOT, "agent-runner", "jobs.example.json");
+    const FAKE = "fake-e2e-not-a-real-token-" + "z".repeat(12);
+    const run = (env) => {
+      const e = { ...process.env };
+      for (const k of ["MCP_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]) delete e[k];
+      const r = spawnSync(process.execPath, [runner, "--jobs", jobs, "--check"], { cwd: ROOT, encoding: "utf8", env: { ...e, ...env } });
+      return { status: r.status, out: r.stdout + r.stderr };
+    };
+    const ok = run({ MCP_TOKEN: FAKE });
+    assert(ok.status === 0, `with env: exit ${ok.status}: ${ok.out.slice(-500)}`);
+    assert(!ok.out.includes(FAKE), "fake token value appeared in output");
+    const bad = run({});
+    assert(bad.status === 1, `unset env: exit ${bad.status}: ${bad.out.slice(-500)}`);
+    assert(/missing/.test(bad.out), `no 'missing' in output: ${bad.out.slice(-500)}`);
+  });
   await full.close();
 }
 
