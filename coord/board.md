@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-5 | OWNER | in progress | coord/tasks/O-5.md | api-docs: short-option qty cap |
 | O-4 | OWNER | in progress | coord/tasks/O-4.md | bound size of audited entries |
 | TM2-24 | TM2 | in progress | coord/tasks/TM2-24.md | e2e smoke: pin clock via preload + #37 LOWs |
 | O-3 | OWNER | done | coord/tasks/O-3.md | audit.recent binding + exact busy text |

@@ -138,3 +138,4 @@ Detailed plan: `plan.md`.
 - TM2-23 · trade-mcp · short-option qty cap (TM2) [x]
 - O-4 · trade-mcp · bound audited entry size (OWNER) [.] (building)
 - TM2-24 · e2e · smoke clock pinned via preload (TM2) [.]
+- O-5 · trade-mcp · api-docs short-option cap (OWNER) [.] (building)
