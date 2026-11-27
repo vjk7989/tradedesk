@@ -12,13 +12,17 @@ const MAX_LINE_BYTES = 64 * 1024;
 const MAX_KEYS = 200;
 const UNREADABLE = "[unreadable]";
 
+/** Cut index for `max` UTF-16 units that never splits a surrogate pair. */
+function safeEnd(s: string, max: number): number {
+  const hi = s.charCodeAt(max - 1);
+  const lo = s.charCodeAt(max);
+  return hi >= 0xd800 && hi <= 0xdbff && lo >= 0xdc00 && lo <= 0xdfff ? max - 1 : max;
+}
+
 /** Cut to MAX_STR UTF-16 units without splitting a surrogate pair; the marker counts characters. */
 function cutString(s: string): string {
   if (s.length <= MAX_STR) return s;
-  let end = MAX_STR;
-  const hi = s.charCodeAt(end - 1);
-  const lo = s.charCodeAt(end);
-  if (hi >= 0xd800 && hi <= 0xdbff && lo >= 0xdc00 && lo <= 0xdfff) end--;
+  const end = safeEnd(s, MAX_STR);
   let dropped = 0;
   for (const _ of s.slice(end)) dropped++;
   return `${s.slice(0, end)}…[+${dropped} chars]`;
@@ -115,7 +119,7 @@ function applyRetention(file: string, now: Date): void {
 
 function fallbackRun(run: unknown): string | undefined {
   if (run === undefined) return undefined;
-  try { return String(run).slice(0, 200); } catch { return undefined; }
+  try { const r = String(run); return r.length > 200 ? r.slice(0, safeEnd(r, 200)) : r; } catch { return undefined; }
 }
 
 export function appendAudit(file: string, entry: object, now: () => Date = () => new Date()): void {
