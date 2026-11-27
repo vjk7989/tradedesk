@@ -191,6 +191,13 @@ class BacktestConfigSchema(BaseModel):
     @classmethod
     def valid_interval(cls, v: str) -> str:
         if v not in _VALID_INTERVALS:
+            # Case-insensitive only for the unambiguous hour/day/week suffixes
+            # (``1h`` -> ``1H``). ``m`` (minute) vs ``M`` (month) are
+            # case-distinct, so they are never folded: ``5M`` stays rejected.
+            if isinstance(v, str) and v[-1:] in {"h", "d", "w"}:
+                canon = v[:-1] + v[-1].upper()
+                if canon in _VALID_INTERVALS:
+                    return canon
             raise ValueError(f"unsupported interval {v!r}, must be one of {_VALID_INTERVALS}")
         return v
 
@@ -1556,12 +1563,14 @@ def main(run_dir: Path) -> None:
 
     # Validate config schema
     try:
-        BacktestConfigSchema(**raw_config)
+        schema = BacktestConfigSchema(**raw_config)
     except Exception as exc:
         errors = str(exc)
         print(json.dumps({"error": f"Invalid config: {errors}"}))
         sys.exit(1)
 
+    # Hand downstream the canonical interval (e.g. "1h" -> "1H"), not the raw one.
+    raw_config["interval"] = schema.interval
     config = raw_config
     if keys_warning := _unrecognized_config_warning(config):
         config["_run_card_unrecognized_config_warning"] = keys_warning
