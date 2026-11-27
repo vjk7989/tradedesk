@@ -54,6 +54,9 @@ def fetch_holidays(base_url: str, api_key: str, year: int | None):
     parsed = urllib.parse.urlsplit(base_url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise SyncError("OPENALGO_URL must be an http(s) URL")
+    if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1", "openalgo"):
+        print("warning: OPENALGO_URL uses plain http to a non-local host; "
+              "the API key is sent unencrypted", file=sys.stderr)
     url = base_url.rstrip("/") + "/api/v1/market/holidays"
     body = {"apikey": api_key}
     if year is not None:
@@ -79,7 +82,7 @@ def fetch_holidays(base_url: str, api_key: str, year: int | None):
         raise SyncError("OpenAlgo status is not 'success'")
     if not isinstance(doc.get("data"), list):
         raise SyncError("OpenAlgo response has no 'data' array")
-    return doc["data"]
+    return doc["data"], doc.get("year")
 
 
 def map_holidays(entries) -> dict[str, set[str]]:
@@ -206,7 +209,13 @@ def run(args) -> int:
         raise SyncError("OPENALGO_URL and OPENALGO_API_KEY must be set")
     path = Path(args.risk)
     text, _doc, cur = load_risk(path)
-    mapped = map_holidays(fetch_holidays(url, key, args.year))
+    entries, resp_year = fetch_holidays(url, key, args.year)
+    if not entries:
+        label = resp_year if isinstance(resp_year, int) and not isinstance(resp_year, bool) \
+            else (args.year if args.year is not None else "current year")
+        print(f"no holidays returned for {label}; risk.json unchanged")
+        return 0
+    mapped = map_holidays(entries)
 
     new = dict(cur)
     added: dict[str, list[str]] = {}
@@ -229,6 +238,7 @@ def run(args) -> int:
     json.loads(out)  # sanity: result must still be valid JSON
     atomic_write(path, out.encode("utf-8"), text.encode("utf-8"))
     print(f"updated {path}: added NSE={len(added['NSE'])} MCX={len(added['MCX'])}")
+    print("restart trade-mcp to load: docker compose restart trade-mcp")
     return 0
 
 
@@ -238,6 +248,14 @@ def main(argv=None) -> int:
     p.add_argument("--year", type=int, default=None, help="year (2020-2050); default: OpenAlgo's current year")
     p.add_argument("--dry-run", action="store_true", help="print additions, write nothing")
     args = p.parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError, OSError):
+            pass
+    if args.year is not None and not 2020 <= args.year <= 2050:
+        print("error: --year must be between 2020 and 2050", file=sys.stderr)
+        return 2
     raw_key = os.environ.get("OPENALGO_API_KEY", "")
     secrets = {k for k in (raw_key, raw_key.strip()) if k}
     try:

@@ -1,8 +1,7 @@
 # Syncing exchange holidays
 
 `deploy/sync_holidays.py` copies exchange holidays from OpenAlgo into the
-`marketHolidays` key of `deploy/risk.json` (schema: `trade-mcp/src/config.ts`,
-`{ NSE?: date[], MCX?: date[] }`, dates `YYYY-MM-DD` and real calendar dates).
+`marketHolidays` key of `deploy/risk.json` (schema `trade-mcp/src/config.ts`: `{ NSE?: date[], MCX?: date[] }`, real `YYYY-MM-DD` dates).
 
 ```
 export OPENALGO_URL=http://127.0.0.1:5000
@@ -38,3 +37,4 @@ counts as a closure for that exchange.
   copied to `risk.json.bak` first. If nothing changes, nothing is written
   (idempotent, no `.bak` churn).
 - `--dry-run` prints the dates that would be added per group and writes nothing.
+- After a real write, run `docker compose restart trade-mcp` (bind mount keeps old inode).
