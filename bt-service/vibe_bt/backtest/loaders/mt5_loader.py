@@ -181,7 +181,7 @@ def _rates_to_frame(rates: Any, start_date: str, end_date: str) -> pd.DataFrame 
     frame["volume"] = frame.get("tick_volume", 0)
     # Bars carry intraday timestamps; the end date is inclusive of its whole day.
     start = pd.Timestamp(start_date)
-    end = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+    end = pd.Timestamp(end_date) + pd.Timedelta(1, "D")
     frame = frame[(frame.index >= start) & (frame.index < end)]
     frame = frame[["open", "high", "low", "close", "volume"]].dropna()
     frame = validate_ohlc(frame)

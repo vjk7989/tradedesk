@@ -106,7 +106,7 @@ Detailed plan: `plan.md`.
 - TM2-1 · deploy · backup/restore (teammate TM2 buckleson) (PR #12 merged 104eb3c) [x]
 - TM2-2 · trade-mcp · audit rotation (teammate TM2 buckleson) [.] (fix round 2, PR #11)
 - TM-10 · trade-mcp · EXECUTE_TIMEOUT_MS for long backtests (TM1, after TM-3) (PR #10 merged 1bdb551) [x]
-- TM-11 · bt-service · remaining deprecation sites (TM1, after TM-8) [.] (PR #18 approved; owner edge tests running)
+- TM-11 · bt-service · remaining deprecation sites (TM1, after TM-8) [x]
 - TM-12 · deploy · EXECUTE_TIMEOUT_MS in deploy files (TM1, after TM-10) [x]
 - TM2-3 · agent-runner · Gemini API backend (TM2) [.] (fix round 1, PR #13)
 - TM2-4 · deploy · OpenAlgo holiday sync script (TM2) [.] (fix round 1, PR #14)

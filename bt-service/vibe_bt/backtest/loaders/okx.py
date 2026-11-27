@@ -175,7 +175,7 @@ class DataLoader:
         codes = [c.replace("/", "-").upper() for c in codes]
 
         start_ts = int(pd.Timestamp(start_date).timestamp() * 1000)
-        end_ts = int((pd.Timestamp(end_date) + pd.Timedelta(days=1)).timestamp() * 1000)
+        end_ts = int((pd.Timestamp(end_date) + pd.Timedelta(1, "D")).timestamp() * 1000)
 
         # More pages for minute bars; history endpoint still needs walk-back.
         if interval in ("1m", "5m"):

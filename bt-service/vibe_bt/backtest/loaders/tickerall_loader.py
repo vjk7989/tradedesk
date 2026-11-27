@@ -450,7 +450,7 @@ def _parse_candles(
     # The endpoint answers the exact [from, to] window; trim defensively to the
     # inclusive window (end inclusive of its whole day) in case an edge bar slips in.
     start_ts = pd.Timestamp(start_date)
-    end_ts = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+    end_ts = pd.Timestamp(end_date) + pd.Timedelta(1, "D")
     df = df[(df.index >= start_ts) & (df.index < end_ts)]
     if df.empty:
         return None
