@@ -44,6 +44,7 @@ MCP_TOKEN_READONLY=... node dist/main.js --jobs jobs.json --once eod-review   # 
 node dist/main.js --jobs jobs.json --check        # list jobs; report set/missing token and API key env vars (never values); exit 1 if any missing
 node dist/main.js --jobs jobs.json --dry-run eod-review   # show what a job would do (backend, model, MCP url, token env set/missing, timeout, next run, prompt); runs nothing, no network; secret values redacted
 node dist/main.js --jobs jobs.json --next [N]     # print each job's next N (default 5) run times in its tz and UTC; runs nothing
+node dist/main.js --jobs jobs.json --history [N]  # last N (default 20, max 200) runs across jobs, newest first: job, date[-n], status, duration, path (header fields only); skips unreadable reports; runs nothing, no network
 npm test
 ```
 `--jobs` defaults to `jobs.json`.
