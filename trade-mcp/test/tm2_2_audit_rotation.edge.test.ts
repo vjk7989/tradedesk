@@ -327,8 +327,13 @@ describe("fail-closed: unwritable targets still throw", () => {
   });
 
   it("target is a directory -> throws", () => {
+    // Clock and the directory's mtime must share an IST day; otherwise rotation renames
+    // the directory away and the append succeeds (this used to depend on the real date).
     mkdirSync(file);
-    expect(() => appendAudit(file, {}, at("2026-11-27T05:00:00Z"))).toThrow();
+    const now = new Date();
+    setMtime(file, now);
+    expect(() => appendAudit(file, {}, () => now)).toThrow();
+    expect(statSync(file).isDirectory()).toBe(true);
   });
 
   it.skipIf(isRoot)("read-only active file on the same IST day -> throws", () => {

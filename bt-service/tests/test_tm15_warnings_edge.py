@@ -297,8 +297,22 @@ def _with_warning_capture(monkeypatch):
     return captured
 
 
+def _numpy_version() -> tuple[int, int]:
+    import numpy as np
+
+    major, minor = (int(re.match(r"\d+", p).group()) for p in np.__version__.split(".")[:2])
+    return major, minor
+
+
+# The 'generic' unit DeprecationWarning only exists in NumPy >= 2.5. uv.lock pins
+# numpy 2.4.6 for Python < 3.12 (CI runs 3.11), where pd.Timedelta('3min') is silent.
+@pytest.mark.skipif(_numpy_version() < (2, 5),
+                    reason="NumPy < 2.5 does not emit the 'generic' unit DeprecationWarning")
 def test_capture_mechanism_sees_generic_timedelta_warning():
-    """Positive control: the same flags/isolation do surface the old warning text."""
+    """Positive control: the same flags/isolation do surface the old warning text.
+
+    Runs in a fresh `-I` child, so the parent's warnings registry / test order cannot hide it.
+    """
     proc = subprocess.run(
         [sys.executable, "-I", "-W", "always::DeprecationWarning", "-c",
          "import pandas as pd; pd.Timedelta('3min')"],
