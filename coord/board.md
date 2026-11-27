@@ -5,9 +5,9 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | O-7 | OWNER | in progress | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
-| TM2-32 | TM2 | ready | (TM2 writes brief) | search: rank Rules lines by tokens matched |
-| TM2-33 | TM2 | ready | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |
-| TM2-34 | TM2 | ready | coord/tasks/TM2-34.md | pandas 3 readiness report (no upgrade) |
+| TM2-32 | TM2 | in progress | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
+| TM2-33 | TM2 | in progress | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |
+| TM2-34 | TM2 | in progress | coord/tasks/TM2-34.md | pandas 3 readiness report (no upgrade) |
 | O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
 | TM2-28 | TM2 | merged #56 | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
 | TM2-29 | TM2 | merged #58 | coord/tasks/TM2-29.md | docs: connect-clients refresh |
