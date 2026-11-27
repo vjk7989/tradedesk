@@ -22,6 +22,9 @@ const MIN_MEMORY = 1024 * 1024;
 // runtime.setMemoryLimit does not count ArrayBuffer/TypedArray backing stores, so the WASM linear
 // memory itself is also capped: memoryBytes + this headroom (absolute WASM size).
 const WASM_HEADROOM = 16 * 1024 * 1024;
+// Unawaited binding calls keep a host copy of their argument until they settle: bound them.
+const MAX_ARG_BYTES = 1024 * 1024;
+const MAX_IN_FLIGHT = 64;
 const MEMORY_ERROR = "memory limit exceeded";
 // Binary-buffer surface that trading scripts never need (shared memory, raw views, wasm).
 const REMOVED_GLOBALS = [
@@ -135,6 +138,8 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     vm.setProp(vm.global, "console", consoleObj);
     consoleObj.dispose();
 
+    let inFlight = 0;
+    let pendingBytes = 0;
     // host bindings: each call returns a QuickJS promise settled from the host
     const pump = () => {
       if (!disposed) runtime.executePendingJobs();
@@ -149,9 +154,34 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
             deferred.reject(err);
             err.dispose();
           };
-          const arg = argHandle === undefined ? undefined : vm.dump(argHandle);
+          let arg = argHandle === undefined ? undefined : vm.dump(argHandle);
+          let argBytes = 0;
+          try {
+            argBytes = arg === undefined ? 0 : Buffer.byteLength(JSON.stringify(arg) ?? "");
+          } catch {
+            argBytes = Infinity;
+          }
+          if (argBytes > MAX_ARG_BYTES) {
+            arg = undefined;
+            rejectWith("binding argument too large");
+            return deferred.handle;
+          }
+          if (inFlight >= MAX_IN_FLIGHT) {
+            arg = undefined;
+            rejectWith("too many pending binding calls");
+            return deferred.handle;
+          }
+          if (pendingBytes + argBytes > memoryBytes) {
+            arg = undefined;
+            rejectWith("too many pending binding calls: pending argument bytes exceed the memory limit");
+            return deferred.handle;
+          }
+          inFlight++;
+          pendingBytes += argBytes;
+          const callArg = arg;
+          arg = undefined;
           Promise.resolve()
-            .then(() => hostFn(arg))
+            .then(() => hostFn(callArg))
             .then(
               (value) => {
                 if (disposed) return;
@@ -169,7 +199,11 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
                 if (!disposed) rejectWith(errMessage(e));
               },
             )
-            .finally(pump);
+            .finally(() => {
+              inFlight--;
+              pendingBytes -= argBytes;
+              pump();
+            });
           return deferred.handle;
         });
         vm.setProp(nsObj, name, fn);
