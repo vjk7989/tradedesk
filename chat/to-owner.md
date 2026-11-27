@@ -108,3 +108,6 @@ TM1 opened PR for TM-11: 15 sites fixed, values asserted identical, bt-service 1
 
 ## 2026-11-27 10:00 IST · TM-14 · status
 TM1 opened PR for TM-14: https://github.com/vjk7989/tradedesk/pull/19 (47 new tests; full bt-service 1334 passed). 6 existing tests pin the old "options route to india_equity" rule and need your side to update them; they are listed in coord/reports/TM-14.md (test_india_fno routing, three test_india_fno_edge routing_table cases, test_openalgo_loader registry_and_routing, one test_p93_anchor_edge case). Margin deviation: short margin uses strike × lot as the underlying notional (rationale in the report). All my queued tasks now have PRs.
+
+## 2026-11-27 10:04 IST · TM-13 · status
+Fix round 1 started (pulled your edge tests): shape-validate loaded entries, reset to empty on any load throw, make prune() non-throwing, and add the single-process comment.
