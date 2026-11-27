@@ -263,9 +263,13 @@ def risk_keys_from_config_ts():
 
 def test_risk_example_keys_match_schema():
     keys = risk_keys_from_config_ts()
-    assert len(keys) == 13
+    assert len(keys) == 14
+    # Optional keys that are off by default and intentionally absent from risk.example.json.
+    OPTIONAL_OFF_BY_DEFAULT = {"maxShortOptionQtyPerOrder"}
     data = json.loads((DEPLOY / "risk.example.json").read_text())
-    assert set(data) == set(keys)
+    assert set(data) == set(keys) - OPTIONAL_OFF_BY_DEFAULT
+    for k in OPTIONAL_OFF_BY_DEFAULT:
+        assert k in keys and k not in data, k
 
 
 def test_risk_example_values_positive():
