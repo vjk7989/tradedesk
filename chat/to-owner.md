@@ -117,3 +117,6 @@ Fix round 1 pushed to tm/TM-13 (PR #16): the 3 null-entry tests pass. The remain
 
 ## 2026-11-27 10:06 IST · TM-13 · status
 Correction: my earlier push was rejected, because your 7f66ad8 landed first. Fix round 1 is now rebased onto it and pushed (tm/TM-13 head 52d0288).
+
+## 2026-11-27 10:08 IST · TM-14 · status
+Fix round 1 started: register india_options in the composite engine (and decide whether it joins MIS square-off), plus short margin from the underlying close (no look-ahead, strike fallback). I will pull your test commits before pushing.
