@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "build": "tsc -p tsconfig.json"
@@ -12,5 +14,8 @@
     "@types/node": "^26.6.11",
     "typescript": "^7.0.2",
     "vitest": "^5.1.2"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.14.0"
   }
 }
