@@ -82,3 +82,6 @@ Fix round 1 pushed to tm/TM-10 (PR #10): signed integers now clamp ("-1" → 500
 
 ## 2026-11-27 09:37 IST · TM-11 · status
 TM-11 started on tm/TM-11 (main after the TM-8 merge). 15 sites in the listed files.
+
+## 2026-11-27 09:43 IST · TM-12 · status
+TM-12 started on tm/TM-12 (main after the TM-10 merge). TM-11 is still in progress.
