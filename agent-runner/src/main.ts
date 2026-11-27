@@ -123,7 +123,9 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
       return exit(1);
     }
     const { rows, skipped } = collectHistory(jobs, n);
-    for (const l of formatHistory(rows, skipped)) console.log(l);
+    const { redact, short } = redactor(jobs);
+    const safe = (t: string) => (short ? WITHHELD : redact(t));
+    for (const l of formatHistory(rows.map((r) => ({ ...r, job: safe(r.job), file: safe(r.file) })), skipped)) console.log(l);
     return exit(0);
   }
   const dryIdx = args.findIndex((a) => a === "--dry-run" || a.startsWith("--dry-run="));

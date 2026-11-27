@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { closeSync, lstatSync, openSync, readdirSync, readSync } from "node:fs";
 import { join } from "node:path";
 import type { Job } from "./jobs.js";
 
@@ -15,7 +15,26 @@ export interface HistoryRow {
 const FILE_RE = /^(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$/;
 
 /** Parses only the header block (title, status, duration) of a report; the body is never kept. Null if malformed. */
-export function parseReportHeader(text: string): { at: number; status: string; durationMs?: number } | null {
+const HEAD_BYTES = 4096;
+
+/** Reads at most HEAD_BYTES of a regular file. Null for anything else or on error. */
+function readHead(file: string): { text: string; truncated: boolean } | null {
+  try {
+    if (!lstatSync(file).isFile()) return null;
+    const fd = openSync(file, "r");
+    try {
+      const buf = Buffer.alloc(HEAD_BYTES);
+      const got = readSync(fd, buf, 0, HEAD_BYTES, 0);
+      return { text: buf.subarray(0, got).toString("utf8"), truncated: got === HEAD_BYTES };
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return null;
+  }
+}
+
+export function parseReportHeader(text: string, truncated = false): { at: number; status: string; durationMs?: number } | null {
   const head = text.split(/\r?\n/);
   const title = /^# .+ - (\d{4}-\d{2}-\d{2}T[\d:.]+Z)$/.exec(head[0] ?? "");
   if (!title) return null;
@@ -24,14 +43,24 @@ export function parseReportHeader(text: string): { at: number; status: string; d
   let status: string | undefined;
   let durationMs: number | undefined;
   let refused = false;
+  let ended = false;
   for (const line of head.slice(2)) {
-    if (line.trim() === "") break;
+    if (line.trim() === "") {
+      ended = true;
+      break;
+    }
+    // The error text is arbitrary (it may contain "- status: ok"), so nothing after "- error:" is trusted.
+    if (line.startsWith("- error:")) {
+      refused = line === "- error: refused";
+      ended = true;
+      break;
+    }
     const s = /^- status: ([a-z]{1,20})$/.exec(line);
-    if (s) status = s[1];
-    if (line === "- error: refused") refused = true;
+    if (s && status === undefined) status = s[1];
     const d = /^- duration: (\d+) ms$/.exec(line);
-    if (d) durationMs = Number(d[1]);
+    if (d && durationMs === undefined) durationMs = Number(d[1]);
   }
+  if (truncated && !ended) return null;
   if (status !== "ok" && status !== "error") return null;
   // The runner writes "ok" or "error"; a backend refusal is "- error: refused".
   return { at, status: status === "ok" ? "ok" : refused ? "refused" : "failed", durationMs };
@@ -56,12 +85,8 @@ export function collectHistory(jobs: Job[], n: number): { rows: HistoryRow[]; sk
       const m = FILE_RE.exec(f);
       if (!m) continue;
       const file = join(dir, f);
-      let h: ReturnType<typeof parseReportHeader> = null;
-      try {
-        h = parseReportHeader(readFileSync(file, "utf8"));
-      } catch {
-        /* unreadable */
-      }
+      const head = readHead(file);
+      const h = head ? parseReportHeader(head.text, head.truncated) : null;
       if (!h) {
         skipped++;
         continue;
