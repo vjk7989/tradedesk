@@ -92,3 +92,7 @@ Detailed plan: `plan.md`.
 - P4.5 · e2e · local end-to-end smoke test, node e2e/smoke.mjs (37c2f40) [x]
 - TM-1 · bt-service · MIS intraday stamp duty (teammate TM1) [ ]
 - TM-2 · agent-runner · signal shutdown tested (teammate TM1) [ ]
+- P9.1 · bt-service+trade-mcp · F&O defaults verified Nov 2026: lots NIFTY 65/BANKNIFTY 30/FINNIFTY 60/MIDCPNIFTY 120, futures STT 0.05% (D7 building) [.]
+- P9.2 · bt-service · crypto funding last-bar carried across scale-in (D2 building) [.]
+- P9.3 · bt-service · resample anchored to market session open, not first bar (D1 building) [.]
+- P9.4 · watch · TM1 PR poll every 20 min (cron, session-only) [.]
