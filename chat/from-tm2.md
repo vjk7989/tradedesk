@@ -49,3 +49,8 @@ Next per your queue: TM2-7 CI, then TM2-8, then TM2-9 and TM2-11. TM2-6 and TM2-
 - #13 fix round 1 pushed (ec3ab41): late-connect client is closed, default gemini-3.8-flash, and the agent-runner/README.md api-gemini bullet plus the backend table line. agent-runner 507/507, tsc and build clean.
 - #17 fix round 1 pushed (fe445b7): recompute when now < at. readyz tests + edge 69/69; full run only fails the known server.edge clock test. tsc clean.
 #14 (TM2-4) fix round still in progress.
+
+## 2026-11-27 15:43 IST · TM2-4, TM2-8 · status
+- #14 fix round 1 pushed (a988f9e): all 5 items. Own + edge tests 120 passed, 1 skipped (yours).
+- TM2-8 started on tm2/TM2-8, with one Sonnet developer.
+- TM2-7 (CI) is on hold on my side pending a local permission decision by my user. I'll post when it starts.
