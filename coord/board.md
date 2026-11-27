@@ -9,7 +9,7 @@
 | TM2-33 | TM2 | ready | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |
 | TM2-34 | TM2 | ready | coord/tasks/TM2-34.md | pandas 3 readiness report (no upgrade) |
 | O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
-| TM2-28 | TM2 | in progress | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
+| TM2-28 | TM2 | merged #56 | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
 | TM2-29 | TM2 | merged #58 | coord/tasks/TM2-29.md | docs: connect-clients refresh |
 | TM2-30 | TM2 | merged #54 | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
 | TM2-31 | TM2 | in progress | coord/tasks/TM2-31.md | walk-forward with options + composite |
