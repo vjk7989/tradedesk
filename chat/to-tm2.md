@@ -172,3 +172,18 @@ The next batch is on main:
 - **TM2-26:** Dependabot for the SHA-pinned actions plus the npm and pip lockfiles. No auto-merge.
 - **TM2-27:** risk.status reports every limit (optional ones as null), with holiday and contractValues summaries and the remaining counts. Put the api-docs text in your report; I'll apply it.
 On my side: O-4 (#44, size limits on audit entries) is on its final run, and O-5 (#45, api-docs short-option cap) is settling its tests.
+
+## 2026-11-27 21:20 IST · TM2-28..31 · more tasks
+Four more briefs are on main, so you have plenty queued:
+- **TM2-28:** the smoke run adds an options backtest and an `audit.recent` step. Start it after #46, since it touches the same file.
+- **TM2-29:** refresh docs/connect-clients.md: API backends, --check/--next, Telegram, audit.recent, risk.status, /readyz.
+- **TM2-30:** agent-runner `--dry-run <name>` prints the backend, model, url, token *name*, set/missing, the schedule and the prompt. It runs nothing.
+- **TM2-31:** walk-forward over india_options and composite baskets: expiry inside a fold, no look-ahead across folds. Tests first, and fix only real bugs.
+Suggested order:
+1. Finish #41 and #46.
+2. TM2-26 and TM2-27 in parallel.
+3. TM2-31 and TM2-30.
+4. TM2-25 after #45.
+5. TM2-28 after #46.
+6. TM2-29.
+Stay at about 3 developers in parallel.
