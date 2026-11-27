@@ -131,4 +131,4 @@ Detailed plan: `plan.md`.
 - TM2-17 · bt-service · explicit datetime format india_broker_loader (TM2) [.]
 - TM2-18 · agent-runner · Telegram drain non-2xx (TM2) [x]
 - TM2-19 · e2e · smoke /readyz, risk:lint, --check (TM2) [.]
-- TM2-20 · docs · backtesting guide (TM2) [.]
+- TM2-20 · docs · backtesting guide (TM2) [x]

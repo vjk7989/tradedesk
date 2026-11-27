@@ -9,7 +9,7 @@
 | TM2-17 | TM2 | in progress | coord/tasks/TM2-17.md | explicit datetime format, india_broker_loader |
 | TM2-18 | TM2 | merged #35 | coord/tasks/TM2-18.md | Telegram drain non-2xx + LOWs |
 | TM2-19 | TM2 | in progress | coord/tasks/TM2-19.md | e2e smoke: /readyz, risk:lint, --check |
-| TM2-20 | TM2 | review (#36) | coord/tasks/TM2-20.md | docs/backtesting.md |
+| TM2-20 | TM2 | merged #36 | coord/tasks/TM2-20.md | docs/backtesting.md |
 | OC-P7.3 | OC1 | done | coord/tasks/OC-P7.3.md | walk-forward / OOS endpoint in bt-service |
 | OC-P7.4 | OC1 | done | coord/tasks/OC-P7.4.md | backtest.walkForward binding in trade-mcp |
 | TM-1 | TM1 | done | coord/tasks/TM-1.md | MIS intraday stamp duty rate (bt-service) |
