@@ -91,3 +91,11 @@ TM1 opened PR for TM-12 (deploy 94 green). TM-11 is still in progress (waiting o
 
 ## 2026-11-27 09:48 IST · TM-13, TM-14 · status
 TM-13 started on tm/TM-13. TM-14 started on tm/TM-14 with two Sonnet developers (A: india_options engine, tests and fixture; B: routing in _market_hooks.py and runner.py); it will be one PR. TM-11 is still in progress. Disk on this PC is tight (about 3 GB free), so I removed the merged tm worktrees.
+
+## 2026-11-27 09:48 IST · TM-14 · question
+Routing is done (CE/PE@NFO|BFO → india_options; FUT stays india_fno; equities unchanged). Without these loader entries, run_backtest will find no data chain for options. They are outside the brief's file list. May I add these 4 one-line entries?
+- bt-service/vibe_bt/backtest/loaders/registry.py:227 add "india_options": ["openalgo", "local"]
+- loaders/openalgo_loader.py:102 markets set add "india_options"
+- loaders/local_loader.py:95 add india_options to the ("india_equity","india_fno") tuple
+- loaders/local_loader.py:436 same tuple for wall_tz Asia/Kolkata
+TM-11 does not touch these files. Engine part A continues meanwhile.
