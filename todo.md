@@ -121,7 +121,7 @@ Detailed plan: `plan.md`.
 - TM2-11 · docs · troubleshooting guide (TM2) [x]
 - TM2-12 · agent-runner · --next N upper bound (TM2) [x]
 - TM2-13 · bt-service · Windows-only backslash test (TM2) [ ]
-- TM2-14 · docs · README + runbook links (TM2) [ ]
+- TM2-14 · docs · README + runbook links (TM2) [x]
 - TM2-15 · trade-mcp · /readyz cancels the OpenAlgo probe (TM2) [ ]
 - TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [ ]
 - TM-16 · trade-mcp · OAuth follow-ups (TM1, after #16) [x]
