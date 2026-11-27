@@ -58,9 +58,14 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     error: memoryExceeded ? MEMORY_ERROR : Date.now() > deadline ? timeoutMsg : error,
     ...(truncated ? { truncated } : {}),
   });
+  // Total: hostile errors (throwing message getters, toString, Symbol.toPrimitive, Proxies) never throw.
   const errMessage = (e: unknown): string => {
-    if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
-    return String(e);
+    try {
+      if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
+      return String(e);
+    } catch {
+      return "binding failed";
+    }
   };
 
   if (memoryBytes < MIN_MEMORY) {
@@ -198,6 +203,14 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
             deferred.reject(err);
             err.dispose();
           };
+          // Defence in depth: whatever goes wrong while settling, the guest promise still settles.
+          const settleFailed = () => {
+            try {
+              if (!disposed) rejectWith("binding failed");
+            } catch {
+              /* nothing left to do */
+            }
+          };
           let arg: unknown;
           let argBytes = 0;
           if (argHandle !== undefined) {
@@ -257,6 +270,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
             .then(() => hostFn(callArg))
             .then(
               (value) => {
+                try {
                 if (disposed) return;
                 checkCeiling();
                 if (memoryExceeded) return abortRun();
@@ -276,17 +290,28 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
                 }
                 deferred.resolve(h);
                 if (h !== vm.undefined) h.dispose();
+                } catch {
+                  settleFailed();
+                }
               },
               (e) => {
-                checkCeiling();
-                if (memoryExceeded) return abortRun();
-                if (!disposed) rejectWith(errMessage(e));
+                try {
+                  checkCeiling();
+                  if (memoryExceeded) return abortRun();
+                  if (!disposed) rejectWith(errMessage(e));
+                } catch {
+                  settleFailed();
+                }
               },
             )
             .finally(() => {
               inFlight--;
               pendingBytes -= argBytes;
-              pump();
+              try {
+                pump();
+              } catch {
+                /* never an unhandled rejection */
+              }
             });
           return deferred.handle;
         });
