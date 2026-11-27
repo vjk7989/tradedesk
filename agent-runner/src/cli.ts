@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { runApiTask } from "./api.js";
+import { runOpenAiTask } from "./openai.js";
 import type { Backend, RunOptions, RunResult } from "./types.js";
 
 export type { Backend, RunOptions, RunResult } from "./types.js";
@@ -158,7 +159,8 @@ async function plan(opts: RunOptions, dir: string): Promise<Plan> {
         parse: parseCodex,
       };
     case "api":
-      throw new Error("api backend is handled by runApiTask");
+    case "api-openai":
+      throw new Error(`${opts.backend} backend is handled by its own runner`);
     case "gemini": {
       const file = join(dir, "settings.json");
       // (verify) GEMINI_CLI_SYSTEM_SETTINGS_PATH overrides system settings, and "$VAR" is expanded in headers.
@@ -192,6 +194,7 @@ function killTree(child: ReturnType<typeof spawn>, spawnImpl: typeof spawn) {
  */
 export async function runTask(opts: RunOptions): Promise<RunResult> {
   if (opts.backend === "api") return runApiTask(opts);
+  if (opts.backend === "api-openai") return runOpenAiTask(opts);
   const spawnImpl = opts.spawnImpl ?? spawn;
   const timeoutMs = opts.timeoutMs ?? 600000;
   const bin: Backend = opts.backend;

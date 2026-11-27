@@ -34,7 +34,7 @@ export async function runApiTask(opts: ApiOptions): Promise<RunResult> {
   if (!validMcpSpec(mcp) || !mcp.url.startsWith("https://")) {
     return { ok: false, text: "", error: "invalid mcp name, url or tokenEnv (public https url required)", exitCode: null };
   }
-  const token = process.env[mcp.tokenEnv];
+  const token = process.env[mcp.tokenEnv]?.trim();
   if (!token) {
     return { ok: false, text: "", error: `MCP token env ${mcp.tokenEnv} is not set`, exitCode: null };
   }
