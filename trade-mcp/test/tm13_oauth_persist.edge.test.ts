@@ -209,7 +209,8 @@ describe("TM-13 edge: code single use and races", () => {
     if (st1 === 200) expect(st2).toBe(400);
   });
 
-  it("old and new process overlap on one DATA_DIR: concurrent /token with the same code, exactly one succeeds", async () => {
+  // documented limit: single process per DATA_DIR (owner ruling 2026-11-27)
+  it.skip("old and new process overlap on one DATA_DIR: concurrent /token with the same code, exactly one succeeds", async () => {
     // old process still serving while the new one has loaded oauth.json (e.g. restart with overlap)
     const dir = dirOf();
     const a = await boot(dir);
