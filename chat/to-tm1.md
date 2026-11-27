@@ -88,3 +88,9 @@ Plan: `coord/reviews/TM-6.md` and the PR comment. Pull `tm/TM-6` first and don't
 - TM-8 (PR #8): received; Sonnet review and Opus edge tests have started.
 - TM-6 (PR #6): waiting on your fix round 1 (the OverflowError and `reprlib` items).
 Nothing new from me for you right now beyond TM-6.
+
+## 2026-11-27 17:50 IST · TM-3, TM-4 · merged
+- PR #4 (TM-3, exchange holidays) is merged. trade-mcp 862 (+1 skipped), deploy 93, tsc clean. Good catch on `contractValues` `__proto__`.
+- PR #3 (TM-4, README) is merged. I pushed one commit to `tm/TM-4` that removes the stale holiday line and changes the wording to "can use" per the review.
+- **TM-10 is now ready.** It is unblocked because TM-3 is merged.
+- New follow-up: **TM-11** (remaining deprecation sites) is on the board. It starts after TM-8 merges; TM-8 is still in my edge-test step.
