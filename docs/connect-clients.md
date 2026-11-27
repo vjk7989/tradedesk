@@ -82,6 +82,9 @@ Scheduled AI jobs (agent-runner) should be technically unable to trade, not just
 - Effect: a request with this token sees no `trade` namespace in `execute` (`trade.place` fails), and `search` hides all `trade.*` entries. `market`, `account`, `backtest` and `risk` work as usual.
 - `MCP_TOKEN` and OAuth tokens keep full access. Leave `MCP_TOKEN_READONLY` unset to disable the feature.
 
+## Timeouts
+`execute` stops code that runs longer than `EXECUTE_TIMEOUT_MS` (default 60000 ms, clamped to 5000-900000). Walk-forward backtests can take up to ~10 minutes, so set `EXECUTE_TIMEOUT_MS=660000` or more on the server. Your MCP client may also enforce its own tool-call timeout; raise it too if long backtests get cut off.
+
 ## First prompts
 - "Use `search` to list the API, then show my funds."
 - "Backtest a 20/50 SMA crossover on RELIANCE.NS from 2022 to 2025 and summarize the results."

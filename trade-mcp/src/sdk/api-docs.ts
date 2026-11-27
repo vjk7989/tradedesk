@@ -41,11 +41,13 @@ const BACKTEST_NOTE = [
   "            s = df['close'].rolling(self.slow).mean()",
   "            out[sym] = (f > s).astype(float).where(s.notna(), 0.0)",
   "        return out",
+  "Long backtests also count against EXECUTE_TIMEOUT_MS (default 60 s); raise it if they time out.",
 ].join("\n");
 
 const WALKFORWARD_NOTE = [
   "Walk-forward validation: signal parameters are tuned on each train window only and frozen for the following out-of-sample test window. Never touches the broker or risk engine; each call is audited with code length and sha256 only. Throws 'backtest service not configured' if unavailable; 'busy, retry later' when the service is saturated.",
   "trainDays >= 20 and testDays >= 5 are calendar days. candidates is 1-10 parameter objects (passed to the engine as signal_parameters); at most 60 backtest runs in total; the server enforces a 10-minute budget. metric is one of sharpe, total_return, calmar (default sharpe).",
+  "Note: execute has a time limit (EXECUTE_TIMEOUT_MS, default 60 s); for walk-forward the operator should set EXECUTE_TIMEOUT_MS >= 660000, and your MCP client may have its own tool-call timeout.",
   "Result: metric, folds (train/test dates, chosen params, trainScore, testMetrics), oosEquity (chained out-of-sample equity, downsampled to <=100 points), summary (folds, scored_folds, mean_test_<metric>, positive_folds), warnings, error (null on success).",
 ].join("\n");
 
