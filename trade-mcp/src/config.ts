@@ -18,7 +18,7 @@ const isoDate = z.string().refine((v) => {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
 });
 
-const riskSchema = z
+export const riskSchema = z
   .object({
     allowedExchanges: z.array(z.string()).default(["NSE", "BSE", "NFO", "CRYPTO"]),
     allowedProducts: z.array(z.string()).default(["CNC", "MIS", "NRML"]),
