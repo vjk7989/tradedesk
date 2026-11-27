@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
+import { runApiTask } from "./api.js";
 import type { Backend, RunOptions, RunResult } from "./types.js";
 
 export type { Backend, RunOptions, RunResult } from "./types.js";
@@ -101,9 +102,22 @@ function validUrl(url: string): boolean {
   }
 }
 
+/** Shared name/tokenEnv/url validation for all backends. */
+export function validMcpSpec(mcp: { name: string; url: string; tokenEnv: string }): boolean {
+  return (
+    typeof mcp?.name === "string" &&
+    typeof mcp.tokenEnv === "string" &&
+    typeof mcp.url === "string" &&
+    NAME_RE.test(mcp.name) &&
+    !mcp.name.includes("__") &&
+    ENV_RE.test(mcp.tokenEnv) &&
+    validUrl(mcp.url)
+  );
+}
+
 async function plan(opts: RunOptions, dir: string): Promise<Plan> {
   const { name, url, tokenEnv } = opts.mcp;
-  if (!NAME_RE.test(name) || name.includes("__") || !ENV_RE.test(tokenEnv) || !validUrl(url)) {
+  if (!validMcpSpec(opts.mcp)) {
     throw new Error("invalid mcp name, url or tokenEnv");
   }
   switch (opts.backend) {
@@ -143,6 +157,8 @@ async function plan(opts: RunOptions, dir: string): Promise<Plan> {
         ],
         parse: parseCodex,
       };
+    case "api":
+      throw new Error("api backend is handled by runApiTask");
     case "gemini": {
       const file = join(dir, "settings.json");
       // (verify) GEMINI_CLI_SYSTEM_SETTINGS_PATH overrides system settings, and "$VAR" is expanded in headers.
@@ -175,6 +191,7 @@ function killTree(child: ReturnType<typeof spawn>, spawnImpl: typeof spawn) {
  * (the CLI uses whatever login or API key it already has).
  */
 export async function runTask(opts: RunOptions): Promise<RunResult> {
+  if (opts.backend === "api") return runApiTask(opts);
   const spawnImpl = opts.spawnImpl ?? spawn;
   const timeoutMs = opts.timeoutMs ?? 600000;
   const bin: Backend = opts.backend;
