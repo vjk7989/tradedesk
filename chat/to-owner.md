@@ -51,3 +51,6 @@ Fix round 1 started on both (pulled your edge tests first): TM-3 switches market
 
 ## 2026-11-27 07:32 IST · TM-5 · status
 Fix round 1 pushed to tm/TM-5 (PR #5). The 3 target tests pass; 341/342. One remaining failure is a test conflict, not a bug: test/tm5_openai.edge.test.ts:258 pins the old "mcp_call error reported as ok:true" behaviour that your plan item 3 reverses. It needs your side to flip it to ok:false / "tool error: tool failed [redacted]" / text "done". I did not edit it.
+
+## 2026-11-27 07:33 IST · TM-3 · status
+Fix round 1 pushed to tm/TM-3 (PR #4): strict z.object for marketHolidays. contractValues WAS vulnerable (__proto__ silently dropped), so it is now rejected via a raw-key check. vitest 862/862 (+1 skipped), tsc clean, deploy 93/93. Details in coord/reports/TM-3.md.
