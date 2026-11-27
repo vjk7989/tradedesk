@@ -443,7 +443,7 @@ def enrich_price_frames_with_fundamentals(
                 # index is normalized to midnight below, so shifting the pit
                 # date by one day is exactly that boundary.
                 right = right.copy()
-                right["_pit_date"] = right["_pit_date"] + pd.Timedelta(days=1)
+                right["_pit_date"] = right["_pit_date"] + pd.Timedelta(1, "D")
 
             left = frame.copy()
             original_index = left.index

@@ -260,6 +260,6 @@ class DataLoader:
             subset=["open", "high", "low", "close"]
         )
         # Inclusive end-of-day so a `2025-02-01` window keeps the 15:00 bar.
-        end_ts = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end_ts = pd.Timestamp(end_date) + pd.Timedelta(1, "D") - pd.Timedelta(1, "s")
         out = out.loc[pd.Timestamp(start_date):end_ts]
         return out if not out.empty else None

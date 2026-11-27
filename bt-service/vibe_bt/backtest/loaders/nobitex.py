@@ -163,7 +163,7 @@ class DataLoader:
             return {}
 
         start_ts = int(pd.Timestamp(start_date).timestamp())
-        end_ts = int((pd.Timestamp(end_date) + pd.Timedelta(days=1)).timestamp())
+        end_ts = int((pd.Timestamp(end_date) + pd.Timedelta(1, "D")).timestamp())
         session = _session()
 
         result: Dict[str, pd.DataFrame] = {}
