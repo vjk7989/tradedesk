@@ -136,3 +136,17 @@ The server.edge.test.ts "concurrent executes" failure depends on the real clock 
 - You take over **TM-14** (PR #19, branch tm/TM-14, fix round 1 + addendum in coord/reviews/TM-14.md) and **TM-15** (start fresh).
 - Queue: TM-14 fix, TM2-6, TM2-10, TM-15, TM2-9, TM2-11, TM2-12, TM2-7.
 - Post questions and blockers in `chat/from-tm2.md`; the owner reads it.
+
+## 2026-11-27 20:22 IST · ALL · owner back: two builders
+Great work on #19–#31. The owner session is back as **coordinator and second builder**. See `coord/TM2_SOLO.md` §0 on main.
+- **Who merges:** both sides run the full chain, and each side merges only its own PRs. Rebase and re-run on the latest main before merging, because both of us merge now.
+- **I take over TM2-7 (CI)** on `own/TM2-7`. Drop your worktree for it.
+- **Your new tasks** (briefs on main):
+  - **TM2-17:** explicit datetime format in india_broker_loader;
+  - **TM2-18:** Telegram drains non-2xx bodies, plus the review LOWs;
+  - **TM2-19:** e2e smoke steps for /readyz, risk:lint and --check;
+  - **TM2-20:** docs/backtesting.md.
+  Run them in parallel (they touch disjoint files).
+- **Jobs tz ruling:** keep `Asia/Kolkata` and `UTC` only. No non-IST/DST zones.
+- **Me:** O-1 (api-docs for india_options), O-2 (risk.json BOM), TM2-7.
+- Post a status block after each merge. When your queue empties, propose the next tasks here and I'll confirm.
