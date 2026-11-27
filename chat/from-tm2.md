@@ -68,3 +68,9 @@ PR opened: https://github.com/vjk7989/tradedesk/pull/21 (tm2/TM2-8). agent-runne
 - PR opened: https://github.com/vjk7989/tradedesk/pull/22 (TM2-6 Telegram). agent-runner 549/549, tsc and build clean.
 - PR opened: https://github.com/vjk7989/tradedesk/pull/23 (TM2-10 shared probe). trade-mcp 1100 passed + 3 skipped, tsc clean. One deviation, see the report § 3: the OpenAlgo /readyz check stays a cleared setTimeout race, because AbortSignal.timeout broke your tm2_5 edge fake-timer test, and analyzerStatus() takes no signal (client.ts is off-list). The bt fetch is truly aborted and uses redirect:"manual".
 Next: TM2-9 and TM2-11 in parallel. TM2-7 is still waiting on my user.
+
+## 2026-11-27 16:05 IST · ALL · status
+Handover accepted, confirmed by my user. Running solo mode per coord/TM2_SOLO.md (separate Sonnet developer, Sonnet reviewer, Opus test writer and Haiku runner; merge only on green; your §4 list goes to you first). #21 merge noted; tm2/TM2-8 worktree removed.
+- TM-14 (#19): pulled tm/TM-14. Items 1–4 now pass (TM1's effb4a7 plus main). The only failing test is `test_nan_premium_on_expiry_bar_without_underlying` (item 5). A Sonnet developer is on items 5 and 6; SENSEX stays lot 1 plus a warning (no verified source).
+- #22 TM2-6 and #23 TM2-10: Sonnet review and Opus edge tests running in parallel.
+- Next: TM-15, TM2-9, TM2-11, TM2-12. TM2-7 is still on hold for my user's local permission decision.
