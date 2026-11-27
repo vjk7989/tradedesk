@@ -21,10 +21,14 @@ const TIMEOUT = Symbol("timeout");
 const MIN_MEMORY = 1024 * 1024;
 // runtime.setMemoryLimit does not count ArrayBuffer/TypedArray backing stores, so the WASM linear
 // memory itself is also capped: memoryBytes + this headroom (absolute WASM size).
+// 16 MB (the O-8 brief said 32 MB): measured to be enough for the runtime's own overhead plus string
+// marshalling at the largest allowed binding payloads, and it is the tighter bound.
 const WASM_HEADROOM = 16 * 1024 * 1024;
 // Unawaited binding calls keep a host copy of their argument until they settle: bound them.
 const MAX_ARG_BYTES = 1024 * 1024;
 const MAX_IN_FLIGHT = 64;
+// Binding results are copied into the guest: cap them (also bounded by memoryBytes/4, see resultCap).
+const MAX_RESULT_BYTES = 4 * 1024 * 1024;
 const MEMORY_ERROR = "memory limit exceeded";
 // Binary-buffer surface that trading scripts never need (shared memory, raw views, wasm).
 const REMOVED_GLOBALS = [
@@ -74,6 +78,14 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
 
   let runtime: QuickJSRuntime | undefined;
   let vm: QuickJSContext | undefined;
+  let jsonParse: QuickJSHandle | undefined;
+  let guestSize: QuickJSHandle | undefined;
+  let wasmMemory: { buffer: { byteLength: number } } | undefined;
+  let wasmCeiling = Infinity;
+  const resultCap = Math.min(MAX_RESULT_BYTES, Math.floor(memoryBytes / 4));
+  const checkCeiling = () => {
+    if (wasmMemory && wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
+  };
   try {
     const QuickJS = await newQuickJSWASMModule();
     runtime = QuickJS.newRuntime();
@@ -83,31 +95,53 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     for (const g of REMOVED_GLOBALS) {
       vm.unwrapResult(vm.evalCode(`delete globalThis[${JSON.stringify(g)}]`)).dispose();
     }
-    const wasmMemory = QuickJS.getWasmMemory();
-    const wasmCeiling = memoryBytes + WASM_HEADROOM;
+    // Fail closed: a non-configurable property would survive the delete above.
+    const survivors = vm.dump(
+      vm.unwrapResult(
+        vm.evalCode(`${JSON.stringify(REMOVED_GLOBALS)}.filter((g) => globalThis[g] !== undefined).join(",")`),
+      ),
+    );
+    if (survivors !== "") return fail("sandbox init failed");
+    wasmMemory = QuickJS.getWasmMemory();
+    wasmCeiling = memoryBytes + WASM_HEADROOM;
     runtime.setInterruptHandler(() => {
-      if (wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
+      checkCeiling();
       return memoryExceeded || Date.now() > deadline;
     });
     const res = await execute(vm, runtime);
     // Short runs may finish between interrupt checks; linear memory never shrinks, so check the peak.
-    if (wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
+    checkCeiling();
     return memoryExceeded ? fail(MEMORY_ERROR) : res;
   } catch (e) {
     return fail(errMessage(e));
   } finally {
     if (timer) clearTimeout(timer);
     disposed = true;
+    // Handles must go before the context, or context/runtime disposal asserts on leaked objects.
+    for (const h of [jsonParse, guestSize]) {
+      try {
+        h?.dispose();
+      } catch {
+        /* ignore */
+      }
+    }
     disposeQuietly(vm, runtime);
   }
 
   async function execute(vm: QuickJSContext, runtime: QuickJSRuntime): Promise<RunResult> {
-    const jsonParse = vm.unwrapResult(vm.evalCode("JSON.parse"));
+    jsonParse = vm.unwrapResult(vm.evalCode("JSON.parse"));
+    const parseFn = jsonParse;
+    // Measured inside the guest (under the guest memory limit) so no host copy of a huge argument is built.
+    // Returns the JSON length in UTF-16 units (a lower bound of the byte size), -1 for undefined.
+    guestSize = vm.unwrapResult(
+      vm.evalCode(`(a) => { const s = JSON.stringify(a); return s === undefined ? -1 : s.length; }`),
+    );
+    const sizeFn = guestSize;
     const fromJson = (json: string | undefined): QuickJSHandle => {
       if (json === undefined) return vm.undefined;
       const s = vm.newString(json);
       try {
-        return vm.unwrapResult(vm.callFunction(jsonParse, vm.undefined, s));
+        return vm.unwrapResult(vm.callFunction(parseFn, vm.undefined, s));
       } finally {
         s.dispose();
       }
@@ -142,6 +176,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     let pendingBytes = 0;
     // host bindings: each call returns a QuickJS promise settled from the host
     const pump = () => {
+      checkCeiling();
       if (!disposed) runtime.executePendingJobs();
     };
     for (const [ns, fns] of Object.entries(bindings)) {
@@ -154,6 +189,26 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
             deferred.reject(err);
             err.dispose();
           };
+          let guestLen = 0;
+          if (argHandle !== undefined) {
+            try {
+              const r = vm.callFunction(sizeFn, vm.undefined, argHandle);
+              if (r.error) {
+                r.error.dispose();
+                guestLen = Infinity; // unserializable or out of guest memory
+              } else {
+                guestLen = Math.max(0, vm.getNumber(r.value));
+                r.value.dispose();
+              }
+            } catch {
+              guestLen = Infinity;
+            }
+          }
+          if (guestLen > MAX_ARG_BYTES) {
+            rejectWith("binding argument too large");
+            return deferred.handle;
+          }
+          // Second check, on the host bytes, now that the guest has vouched for the size.
           let arg = argHandle === undefined ? undefined : vm.dump(argHandle);
           let argBytes = 0;
           try {
@@ -185,9 +240,17 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
             .then(
               (value) => {
                 if (disposed) return;
+                checkCeiling();
                 let h: QuickJSHandle;
                 try {
-                  h = fromJson(value === undefined ? undefined : JSON.stringify(value));
+                  const json = value === undefined ? undefined : JSON.stringify(value);
+                  if (json !== undefined && json.length > resultCap) {
+                    rejectWith(
+                      `binding result too large (${json.length} chars, max ${resultCap}): narrow the query, e.g. fewer bars or a shorter date range`,
+                    );
+                    return;
+                  }
+                  h = fromJson(json);
                 } catch (e) {
                   rejectWith(errMessage(e));
                   return;
@@ -196,6 +259,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
                 if (h !== vm.undefined) h.dispose();
               },
               (e) => {
+                checkCeiling();
                 if (!disposed) rejectWith(errMessage(e));
               },
             )
@@ -265,10 +329,11 @@ function disposeQuietly(vm?: QuickJSContext, runtime?: QuickJSRuntime): void {
     vm?.dispose();
   } catch {
     /* ignore */
-  }
-  try {
-    runtime?.dispose();
-  } catch {
-    /* ignore */
+  } finally {
+    try {
+      runtime?.dispose();
+    } catch {
+      /* ignore */
+    }
   }
 }
