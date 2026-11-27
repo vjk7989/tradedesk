@@ -9,7 +9,7 @@ dependencies = [
     "scipy",
     "pydantic",
     "yfinance",
-    "ccxt",
+    "ccxt>=4.5.94",
     "fastapi",
     "uvicorn",
     "httpx",
