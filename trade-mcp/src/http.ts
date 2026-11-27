@@ -100,7 +100,7 @@ export function createHttpServer(
   let readyCache: { at: number; p: Promise<ReadyResult> } | undefined;
   function readyz(): Promise<ReadyResult> {
     const now = Date.now();
-    if (!readyCache || now - readyCache.at >= READYZ_TTL_MS) {
+    if (!readyCache || now < readyCache.at || now - readyCache.at >= READYZ_TTL_MS) {
       readyCache = { at: now, p: computeReadyz() };
     }
     return readyCache.p;
