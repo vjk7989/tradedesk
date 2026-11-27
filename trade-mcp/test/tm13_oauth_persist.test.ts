@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash, randomBytes, scryptSync } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
@@ -86,6 +86,9 @@ const pkce = () => {
 const dirOf = () => mkdtempSync(path.join(tmpdir(), "tm13-"));
 const codeOf = (r: Response) => new URL(r.headers.get("location")!).searchParams.get("code")!;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+// TM-16 (owner AC change): limiter keys are HMAC-SHA256(HMAC(passwordHash, label), ip).
+const ipKey = (ip: string) =>
+  createHmac("sha256", createHmac("sha256", PW_HASH).update("tradedesk:login-ratelimit:v1").digest()).update(ip).digest("hex");
 
 async function failN(s: Srv, n: number) {
   const rid = await s.authorize(await s.register(), pkce().challenge);
@@ -160,7 +163,7 @@ describe("TM-13 oauth persistence", () => {
     }
     await s.login(await s.authorize(id, challenge), "bad");
     const d2 = JSON.parse(readFileSync(path.join(dir, "oauth.json"), "utf8"));
-    expect(Object.keys(d2.loginFailures)).toEqual([sha(IP)]);
+    expect(Object.keys(d2.loginFailures)).toEqual([ipKey(IP)]);
   });
 
   it("corrupt file starts empty and the static MCP_TOKEN still works", async () => {
