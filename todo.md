@@ -101,7 +101,7 @@ Detailed plan: `plan.md`.
 - TM-5 · agent-runner · OpenAI API backend (teammate TM1) (PR #5 merged 0293cf7) [x]
 - TM-6 · review follow-ups (teammate TM1) [ ]
 - TM-7 · agent-runner jobs api-openai (teammate TM1, after TM-5) (PR #9 merged e5f9c49) [x]
-- TM-8 · bt-service deprecation warnings (teammate TM1) [ ]
+- TM-8 · bt-service deprecation warnings (teammate TM1) (PR #8 merged 5c6a424) [x]
 - TM-9 · e2e walkForward + OAuth-off (teammate TM1) (PR #7 merged 737402d) [x]
 - TM2-1 · deploy · backup/restore (teammate TM2 buckleson) [ ]
 - TM2-2 · trade-mcp · audit rotation (teammate TM2 buckleson) [ ]
