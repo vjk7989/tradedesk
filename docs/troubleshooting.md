@@ -1,8 +1,9 @@
 # Troubleshooting
 
 Symptom, cause, fix. Error text is quoted exactly as the code emits it. Risk
-limits live in `risk.json` (path in the `RISK_CONFIG` env var; example:
-`deploy/risk.example.json`). Changing `risk.json` or `.env` needs
+limits live in `risk.json` (the server reads the path in `RISK_CONFIG`; in
+compose that is fixed to `/config/risk.json`, and the host file mounted there is
+chosen by `RISK_CONFIG_FILE` in `deploy/.env`, default `./risk.example.json`). Changing `risk.json` or `.env` needs
 `docker compose up -d trade-mcp` to take effect.
 
 ## 1. Orders refused by risk
@@ -122,6 +123,7 @@ Switching to live is a server-side change only (see `docs/vps-runbook.md`).
 | Client connects but there is no `trade` API / orders fail | You used the read-only token. With `MCP_TOKEN_READONLY` the `trade` namespace is removed from the sandbox, so it does not exist for that client | Use `MCP_TOKEN` for trading clients; keep the read-only token for viewers |
 | `redirect_uri not allowed` when adding a connector over OAuth | The client's redirect host is not allowed | Add the host to `OAUTH_ALLOWED_REDIRECT_HOSTS` (comma separated; default `chatgpt.com,claude.ai,claude.com`), restart `trade-mcp` |
 | `OAUTH_ISSUER_URL must be https` | OAuth enabled (`OAUTH_ENABLED=1`) with a non-https issuer | Use `https://mcp.<DOMAIN>` |
+| `OAUTH_PASSWORD_HASH must be scrypt:<32 hex salt>:<128 hex hash>` | OAuth enabled but `OAUTH_PASSWORD_HASH` is missing or malformed (it is required with `OAUTH_ENABLED=1`) | Generate the hash with the `node -e` snippet in `trade-mcp/src/oauth/config.ts` |
 | `invalid authorization code` | Authorization code expired or reused | Start the connection again |
 | `timeout: execution exceeded <N>ms` | Code ran longer than `EXECUTE_TIMEOUT_MS` | Shorten the script, or raise `EXECUTE_TIMEOUT_MS` (default 60000, clamped to 5000-900000) |
 | `code exceeds 100KB limit` | `execute` code too large | Send less code |
@@ -165,7 +167,7 @@ cannot be combined with `--check`, prints `--check and --next cannot be combined
 | Windows | `<bin> on Windows: run under WSL/VPS or install the native binary (.exe)` | Run on WSL or the VPS |
 | Missing API key | `--check` shows `ANTHROPIC_API_KEY: missing` (backend `api`), `OPENAI_API_KEY: missing` (`api-openai`), `GEMINI_API_KEY: missing` (`api-gemini`) | Export the key in the agent-runner environment. CLI backends do not need these |
 | Missing MCP token | `MCP token env <NAME> is not set` | Export the env var named in the job's `mcp.tokenEnv` |
-| Bad `jobs.json` | `jobs must be an array`, `jobs[<i>]: <message>`, e.g. `duplicate name`, `schedule.time must be HH:MM`, `invalid mcp {name,url,tokenEnv}` | Fix the named job; the MCP `url` must be public https |
+| Bad `jobs.json` | `jobs must be an array`, `jobs[<i>]: <message>`, e.g. `duplicate name`, `schedule.time must be HH:MM`, `invalid mcp {name,url,tokenEnv}` | Fix the named job. The MCP `url` must be http(s) for CLI backends; for `api`, `api-openai` and `api-gemini` it must be a public https URL (error `invalid mcp name, url or tokenEnv (public https url required)`) |
 | Job timed out | `timeout` | Raise the job's `timeoutMs` |
 | Telegram notice missing | `notify <job>: telegram skipped, TELEGRAM_BOT_TOKEN or <chatIdEnv> is missing or blank` | Set both env vars. Also seen: `notify <job>: telegram responded HTTP <N>` (bad token or chat id), `notify <job>: telegram failed: ...` (network) |
 
