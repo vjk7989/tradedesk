@@ -123,5 +123,6 @@ Detailed plan: `plan.md`.
 - TM2-13 · bt-service · Windows-only backslash test (TM2) [x]
 - TM2-14 · docs · README + runbook links (TM2) [x]
 - TM2-15 · trade-mcp · /readyz cancels the OpenAlgo probe (TM2) [x]
-- TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [.] measured 210 (not ~570); 167 from local_loader.py:128, fixing now that TM-14 merged
+- TM2-16 · bt-service · lowercase "1h" interval (TM2) [ ]
+- TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [x] (210 → 43; rest test-origin/third-party)
 - TM-16 · trade-mcp · OAuth follow-ups (TM1, after #16) [x]
