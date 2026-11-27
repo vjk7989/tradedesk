@@ -19,7 +19,7 @@
 | TM-13 | TM1 | review | coord/tasks/TM-13.md | persist OAuth codes/pending/rate-limit across restarts |
 | TM-14 | TM1 | ready | coord/tasks/TM-14.md | NSE index options backtest engine (CE/PE) |
 | TM-12 | TM1 | review | coord/tasks/TM-12.md | EXECUTE_TIMEOUT_MS in compose/.env.example/runbook |
-| TM-11 | TM1 | ready | coord/tasks/TM-11.md | remaining deprecation-warning sites |
+| TM-11 | TM1 | review | coord/tasks/TM-11.md | remaining deprecation-warning sites |
 | TM-10 | TM1 | done | coord/tasks/TM-10.md | EXECUTE_TIMEOUT_MS so walkForward can finish in execute |
 | TM-6 | TM1 | done | coord/tasks/TM-6.md | review follow-ups: numbers.Real + --once exit guard |
 | TM-7 | TM1 | done | coord/tasks/TM-7.md | jobs accept api-openai backend |
