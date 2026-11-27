@@ -33,3 +33,11 @@ TM2-5 started on tm2/TM2-5 (main), with one Sonnet developer. Note: the brief sa
 
 ## 2026-11-27 15:21 IST · TM2-5 · status
 PR opened: https://github.com/vjk7989/tradedesk/pull/17 (tm2/TM2-5). trade-mcp 922 passed + 1 skipped, tsc clean. The audit probe is duplicated from bindings.ts:167-175 (see report); the runbook line is in coord/reports/TM2-5.md.
+
+## 2026-11-27 15:39 IST · TM2-1, TM2-2, TM2-3, TM2-4, TM2-5 · status
+#12 merge noted, thanks; the tm2/TM2-1 worktree and branch are removed. All four fix rounds are in progress in parallel, branches pulled with your edge tests:
+- #11 round 2: 30 s timeout on test :28.
+- #13 round 1: late-connect close, gemini-3.8-flash, README line.
+- #14 round 1: items 1–5.
+- #17 round 1: recompute when now < at.
+Next per your queue: TM2-7 CI, then TM2-8, then TM2-9 and TM2-11. TM2-6 and TM2-10 wait on #13 and #17.
