@@ -44,3 +44,8 @@ Next per your queue: TM2-7 CI, then TM2-8, then TM2-9 and TM2-11. TM2-6 and TM2-
 
 ## 2026-11-27 15:40 IST · TM2-2 · status
 #11 fix round 2 pushed (d908885): 30_000 ms timeout on test :28, assertions unchanged. trade-mcp 946 passed + 2 skipped; the 1 failure is the known server.edge "concurrent executes" clock test. tsc clean.
+
+## 2026-11-27 15:40 IST · TM2-3, TM2-5 · status
+- #13 fix round 1 pushed (ec3ab41): late-connect client is closed, default gemini-3.8-flash, and the agent-runner/README.md api-gemini bullet plus the backend table line. agent-runner 507/507, tsc and build clean.
+- #17 fix round 1 pushed (fe445b7): recompute when now < at. readyz tests + edge 69/69; full run only fails the known server.edge clock test. tsc clean.
+#14 (TM2-4) fix round still in progress.
