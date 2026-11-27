@@ -67,7 +67,7 @@ def historical_volatility(
         # prices: n prices contain n - 1 returns. Preserve fractional days.
         spacing = pd.Series(close.index, index=close.index).diff().dt.total_seconds()
         mean_spacing = spacing.expanding().mean()
-        bars_per_year = pd.Timedelta(days=365.25).total_seconds() / mean_spacing.where(mean_spacing > 0)
+        bars_per_year = pd.Timedelta(31557600, "s").total_seconds() / mean_spacing.where(mean_spacing > 0)
     log_ret = np.log(close / close.shift(1))
     hv = log_ret.rolling(window=window).std() * np.sqrt(bars_per_year)
     return hv.fillna(default_iv)

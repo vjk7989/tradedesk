@@ -188,7 +188,7 @@ def _rows_to_frame(
     frame = frame.dropna(subset=["open", "high", "low", "close"])
 
     lower = pd.Timestamp(start_date).normalize()
-    upper = pd.Timestamp(end_date).normalize() + pd.Timedelta(days=1)
+    upper = pd.Timestamp(end_date).normalize() + pd.Timedelta(1, "D")
     frame = frame[(frame.index >= lower) & (frame.index < upper)]
     frame = frame.astype(float).sort_index()
     frame.attrs.update(timezone="UTC", timestamp_basis="bar_open" if _is_intraday_interval(interval) else "session_date")

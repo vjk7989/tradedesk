@@ -335,7 +335,7 @@ class DataLoader:
             if len(page) < _PAGE_SIZE:
                 break
             first = page.index.min()
-            next_end = (first - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+            next_end = (first - pd.Timedelta(1, "D")).strftime("%Y-%m-%d")
             if next_end < start_date:
                 break
             cursor_end = next_end

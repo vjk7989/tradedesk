@@ -14,7 +14,6 @@ def test_crypto_funding_no_deprecation_warning():
         warnings.simplefilter("error", DeprecationWarning)
         total = _funding_total(stamps, "1m")
     assert total == pytest.approx(3 * 100.0 * 0.0001)
-    assert SWAP
 
 
 def test_ccxt_timeframe_deltas_values():

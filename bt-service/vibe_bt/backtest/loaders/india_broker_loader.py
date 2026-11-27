@@ -122,7 +122,7 @@ def _bars_to_frame(bars: list[dict], start_date: str, end_date: str) -> Optional
     frame = frame.dropna(subset=["open", "high", "low", "close"]).sort_index()
 
     lower = pd.Timestamp(start_date).normalize()
-    upper = pd.Timestamp(end_date).normalize() + pd.Timedelta(days=1)
+    upper = pd.Timestamp(end_date).normalize() + pd.Timedelta(1, "D")
     frame = frame[(frame.index >= lower) & (frame.index < upper)]
     return frame.astype(float) if not frame.empty else None
 
