@@ -129,6 +129,7 @@ describe("RISK_CONFIG", () => {
       maxDailyLoss: 5000,
       maxOrdersPerRun: 5,
       contractValues: {},
+      marketHolidays: {},
     });
   });
   it("partial merge over defaults", () => {

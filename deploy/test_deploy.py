@@ -1,4 +1,5 @@
 """Static checks for the deploy bundle (P4.1). No network, no image builds."""
+import datetime
 import fnmatch
 import json
 import math
@@ -256,13 +257,13 @@ def test_nothing_routes_to_bt_service():
 # --- risk.example.json ---
 def risk_keys_from_config_ts():
     src = (ROOT / "trade-mcp" / "src" / "config.ts").read_text()
-    body = re.search(r"riskSchema\s*=\s*z\s*\.object\(\{(.*?)\}\)", src, re.S).group(1)
+    body = re.search(r"riskSchema\s*=\s*z\s*\.object\(\{(.*?)\}\)\s*\.strict\(\)", src, re.S).group(1)
     return re.findall(r"^\s*(\w+)\s*:", body, re.M)
 
 
 def test_risk_example_keys_match_schema():
     keys = risk_keys_from_config_ts()
-    assert len(keys) == 12
+    assert len(keys) == 13
     data = json.loads((DEPLOY / "risk.example.json").read_text())
     assert set(data) == set(keys)
 
@@ -272,6 +273,14 @@ def test_risk_example_values_positive():
     for k, v in data.items():
         if isinstance(v, list):
             assert all(isinstance(x, str) for x in v), k
+        elif k == "marketHolidays":
+            assert isinstance(v, dict), k
+            for g, dates in v.items():
+                assert g in {"NSE", "MCX"}, k
+                assert isinstance(dates, list), k
+                for d in dates:
+                    assert isinstance(d, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", d), k
+                    datetime.date.fromisoformat(d)
         elif isinstance(v, dict):
             for ck, cv in v.items():
                 assert isinstance(ck, str) and ck.strip() != "", k
