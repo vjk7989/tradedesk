@@ -4,10 +4,13 @@ import type { Config } from "../config.js";
 import type { Bindings } from "../sandbox/quickjs.js";
 import { closeSync, existsSync, mkdirSync, openSync, statSync } from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import type { BacktestClient, BacktestRequest } from "../backtest/client.js";
 import { appendAudit } from "../risk/audit.js";
 
 export interface BindingDeps {
   client: OpenAlgoClient;
+  bt?: BacktestClient;
   risk: RiskEngine;
   cfg: Config;
   auditFile: string;
@@ -84,6 +87,12 @@ function parseOrder(args: unknown, what: string, extraReq: string[] = []): { o: 
 }
 
 type LooseBindings = Record<string, Record<string, (args?: unknown) => Promise<unknown>>>;
+
+function downsample<T>(a: T[], max: number): T[] {
+  if (a.length <= max) return a;
+  const step = (a.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => a[Math.round(i * step)]);
+}
 
 export function createBindings(deps: BindingDeps, run: { id: string }): LooseBindings & Bindings {
   const { client, risk, cfg, auditFile } = deps;
@@ -278,6 +287,55 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
           check(args ?? {}, "trade.closePosition", []);
           return client.closePosition({ strategy: STRATEGY });
         }),
+    },
+    backtest: {
+      // Never touches the risk engine or the broker; audited without the code body.
+      run: async (args) => {
+        const w = "backtest.run";
+        // audit args never include the code body, even when validation fails
+        let auditArgs: unknown = "<non-object args>";
+        if (args && typeof args === "object" && !Array.isArray(args)) {
+          const { code: c, ...rest } = args as Record<string, unknown>;
+          auditArgs = typeof c === "string"
+            ? { ...rest, codeLength: c.length, codeSha256: createHash("sha256").update(c).digest("hex") }
+            : rest;
+        }
+        try {
+          const a = check(args, w, ["code", "symbols", "start", "end"], ["interval", "capital", "costs", "source", "params"]);
+          const code = str(a, "code", w);
+          if (!deps.bt) throw new Error("backtest service not configured");
+          if (!Array.isArray(a.symbols) || a.symbols.some((x) => typeof x !== "string")) {
+            throw new Error(w + ': "symbols" must be an array of strings');
+          }
+          const body: BacktestRequest = {
+            code,
+            symbols: a.symbols as string[],
+            start: str(a, "start", w),
+            end: str(a, "end", w),
+            ...(a.interval !== undefined ? { interval: str(a, "interval", w) } : {}),
+            ...(a.capital !== undefined ? { capital: num(a, "capital", w) } : {}),
+            ...(a.costs !== undefined ? { costs: obj(a.costs, w + " costs") } : {}),
+            ...(a.source !== undefined ? { source: str(a, "source", w) } : {}),
+            ...(a.params !== undefined ? { signal_parameters: obj(a.params, w + " params") } : {}),
+          };
+          const r = await deps.bt.run(body);
+          const trades = r.trades ?? [];
+          const out = {
+            ok: r.ok,
+            metrics: r.metrics ?? {},
+            equity: downsample(r.equity ?? [], 100),
+            trades: trades.slice(0, 20),
+            tradeCount: trades.length,
+            warnings: r.warnings ?? [],
+            error: r.error ?? null,
+          };
+          audit({ action: w, args: auditArgs, decision: "allowed", ok: r.ok, error: out.error });
+          return out;
+        } catch (e) {
+          audit({ action: w, args: auditArgs, decision: "error", error: e instanceof Error ? e.message : String(e) });
+          throw e;
+        }
+      },
     },
     risk: {
       status: async () => risk.status(),

@@ -20,6 +20,27 @@ export const API_HEADER = [
   "Risk violations are thrown as Error('risk denied: ...'); nothing is placed in that case.",
 ].join("\n");
 
+const BACKTEST_NOTE = [
+  "Backtest a strategy in the isolated backtest service (never touches the broker or risk engine; each call is audited with code length and sha256 only). Throws 'backtest service not configured' if unavailable; 'busy, retry later' when the service is saturated.",
+  "Strategy contract: python code defining `class SignalEngine` with a no-argument constructor and `def generate(self, data_map: dict[str, pd.DataFrame]) -> dict[str, pd.Series]`. data_map maps each symbol to an OHLCV DataFrame (open, high, low, close, volume; datetime index). Return, per symbol, a Series of target weights in [-1, 1] (negative = short). Signals are executed at the next bar's open.",
+  "Code rules (static AST check; a denylist, not an allowlist): use pandas, numpy, math and similar pure-compute libraries. Rejected: importing or using socket, subprocess, urllib, http, requests, httpx, aiohttp, ftplib, smtplib, multiprocessing, ctypes, importlib, builtins, sys, pickle, shutil, gc; eval/exec/compile/__import__/globals/locals/vars/breakpoint; os.system/popen and file writes; dunder attribute escapes (__class__, __subclasses__, __globals__ ...). Top-level code may only be imports, constants, functions and classes (no executable statements). Max 100KB, 1-20 symbols, start < end (YYYY-MM-DD).",
+  "Symbols: Indian equities RELIANCE.NS (NSE) / 500325.BO (BSE); explicit OpenAlgo form SYMBOL@EXCHANGE, e.g. NIFTY28NOV2524000CE@NFO or BTC28FEB2580000CE@CRYPTO; crypto spot/perp via the binance/okx loaders, e.g. BTCUSDT. interval: 1m,3m,5m,10m,15m,30m,1H,1D (default 1D). source: 'auto' (default) or a loader name. capital defaults to 1,000,000. params are passed to the engine as signal_parameters.",
+  "Result: metrics, equity (downsampled to <=100 points), first 20 trades plus tradeCount, warnings, error (null on success).",
+  "Example code:",
+  "import pandas as pd",
+  "class SignalEngine:",
+  "    def __init__(self, fast=20, slow=50):",
+  "        self.fast = fast",
+  "        self.slow = slow",
+  "    def generate(self, data_map):",
+  "        out = {}",
+  "        for sym, df in data_map.items():",
+  "            f = df['close'].rolling(self.fast).mean()",
+  "            s = df['close'].rolling(self.slow).mean()",
+  "            out[sym] = (f > s).astype(float).where(s.notna(), 0.0)",
+  "        return out",
+].join("\n");
+
 const ORDER =
   "symbol: string; exchange: string; side: 'BUY'|'SELL'; quantity: number; product: 'CNC'|'NRML'|'MIS'; priceType: 'MARKET'|'LIMIT'|'SL'|'SL-M'; price?: number; triggerPrice?: number";
 
@@ -38,5 +59,6 @@ export const API_DOCS: ApiDoc[] = [
   { ns: "trade", name: "modify", signature: `modify(args: { orderId: string; ${ORDER} }): Promise<unknown>`, doc: "Modify an open order; same risk checks, does not count as a new order." },
   { ns: "trade", name: "cancel", signature: "cancel(args: { orderId: string }): Promise<unknown>", doc: "Cancel an order. Allowed even when the kill switch is on." },
   { ns: "trade", name: "closePosition", signature: "closePosition(args?: {}): Promise<unknown>", doc: "Square off all open positions. Allowed even when the kill switch is on." },
+  { ns: "backtest", name: "run", signature: "run(args: { code: string; symbols: string[]; start: string; end: string; interval?: string; capital?: number; costs?: object; source?: string; params?: object }): Promise<{ ok: boolean; metrics: object; equity: { date: string; value: number | null }[]; trades: object[]; tradeCount: number; warnings: string[]; error: string | null }>", doc: BACKTEST_NOTE },
   { ns: "risk", name: "status", signature: "status(): Promise<{ mode: string; killSwitch: boolean; limits: object; today: { date: string; orders: number; notional: number } }>", doc: "Current risk limits, kill switch and today's counters." },
 ];

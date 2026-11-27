@@ -2,6 +2,7 @@ import path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
 import { OpenAlgoClient } from "./openalgo/client.js";
+import { BacktestClient } from "./backtest/client.js";
 import { RiskEngine } from "./risk/engine.js";
 import { createMcpServer } from "./server.js";
 import { createHttpServer } from "./http.js";
@@ -19,7 +20,8 @@ async function main(): Promise<void> {
     killSwitchFile: cfg.killSwitchFile,
     stateFile: path.join(cfg.dataDir, "risk-state.json"),
   });
-  const deps = { cfg, client, risk, auditFile: path.join(cfg.dataDir, "audit.jsonl") };
+  const bt = cfg.btUrl && cfg.btToken ? new BacktestClient({ baseUrl: cfg.btUrl, token: cfg.btToken }) : undefined;
+  const deps = { cfg, client, bt, risk, auditFile: path.join(cfg.dataDir, "audit.jsonl") };
 
   if (args.includes("--stdio")) {
     await createMcpServer(deps).connect(new StdioServerTransport());

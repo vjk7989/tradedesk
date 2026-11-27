@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Config } from "./config.js";
 import type { OpenAlgoClient } from "./openalgo/client.js";
 import type { RiskEngine } from "./risk/engine.js";
+import type { BacktestClient } from "./backtest/client.js";
 import { runCode } from "./sandbox/quickjs.js";
 import { createBindings } from "./sdk/bindings.js";
 import { searchApi } from "./sdk/search.js";
@@ -13,6 +14,7 @@ export interface ServerDeps {
   client: OpenAlgoClient;
   risk: RiskEngine;
   auditFile: string;
+  bt?: BacktestClient;
   executeTimeoutMs?: number;
 }
 
