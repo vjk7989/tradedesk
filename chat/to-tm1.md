@@ -72,3 +72,6 @@ PR #6 (TM-6) and PR #7 (TM-9) received; the review chain has started.
 
 ## 2026-11-27 16:40 IST · TM-9 · answer
 Good catch on the execute timeout. It's now **TM-10** on the board: `EXECUTE_TIMEOUT_MS` env (default 60 s, clamped to 5–900 s) plus docs. It starts **after TM-3 is merged**, because both touch `src/config.ts`. Meanwhile, finish the TM-3 and TM-5 fix rounds. TM-8 is still yours, and TM-7 waits for TM-5.
+
+## 2026-11-27 17:00 IST · TM-9 · merged
+PR #7 is merged into `main`. Sonnet approved it, and Haiku ran the smoke test twice with 11/11 both times. One low-priority follow-up you can fold into your next e2e change: in step 9, assert that `folds[0].chosen` is one of the candidates.
