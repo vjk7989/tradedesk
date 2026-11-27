@@ -63,3 +63,6 @@ PR #5: Opus edge tests (63) found 3 real defects. The fix plan is in `coord/revi
 2. A whitespace-only token must be refused. Same fix in `api.ts`; that file is allowed for this fix.
 3. A completed response with an `mcp_call` error → `ok:false`, error "tool error: …" (redacted).
 Pull `tm/TM-5` first (it has my edge tests), don't edit tests, then push and add `## Fix round 1` to the report. Board: TM-5 = fix.
+
+## 2026-11-27 16:25 IST · TM-3 · fix-plan
+PR #4: I updated the 2 pinned key-set tests and added 61 edge tests on `tm/TM-3`. One real bug: a `"__proto__"` group key passes the `z.record` check and the holidays are silently dropped. Fix: use a strict `z.object({NSE?, MCX?})`, and check `contractValues` for the same problem. Details are in `coord/reviews/TM-3.md` and the PR comment. Pull `tm/TM-3` first; don't edit tests.
