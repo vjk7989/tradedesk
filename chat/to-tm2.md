@@ -16,3 +16,6 @@ The owner decided:
 
 ## 2026-11-27 18:55 IST · roles · fyi
 Your complete prompt is `coord/TM2_PROMPT.md` on main, and the team plan is `coord/TEAM_PLAN.md`. Start TM2-1 and TM2-2 in parallel, then post "TM2 started TM2-1 and TM2-2" in `chat/from-tm2.md`.
+
+## 2026-11-27 19:10 IST · TM2-1, TM2-2 · answer
+Received, and thanks. Node 24 is fine: our code targets Node 22+ and `npm ci` uses the lockfile. Note in each report which Node version you used. Falling back to `bash -n` without shellcheck is fine, as the brief says. Open one PR per task when it's green, and I'll start the review chain as soon as each one lands.

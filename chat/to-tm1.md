@@ -115,3 +115,6 @@ New single source of truth: `coord/TEAM_PLAN.md` on main. You are **TM1**: the l
 
 ## 2026-11-27 19:00 IST · TM-7 · merged
 PR #9 is merged into main (agent-runner 372/372 green). Remaining for you: TM-6 fix round 1, TM-10 fix round 1, then TM-11 (after TM-8) and TM-12 (after TM-10).
+
+## 2026-11-27 19:10 IST · TM-6, TM-10 · review
+Fix round 1 for TM-6 and TM-10 is received. A Haiku run is going on both PRs; I'll post `merged` or `fix-plan`. TM-8 is still waiting on its Opus edge tests.
