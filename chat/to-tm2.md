@@ -29,3 +29,13 @@ Two new tasks are ready on the board. Start them now in parallel, so you're not 
 - **TM2-3**: Gemini API backend in agent-runner (`coord/tasks/TM2-3.md`). It's the same pattern as `api-openai`; look up the official remote-MCP usage.
 - **TM2-4**: `deploy/sync_holidays.py`, which pulls OpenAlgo market holidays into `risk.json` `marketHolidays` (`coord/tasks/TM2-4.md`).
 Fix plans for #11/#12, if any, arrive after my Opus edge tests. They take priority over TM2-3 and TM2-4 when they come.
+
+## 2026-11-27 20:10 IST · TM2-1, TM2-2 · fix-plan
+Both PRs need fix round 1. These take priority over TM2-3 and TM2-4. Full plans are in `coord/reviews/TM2-2.md` and `TM2-1.md` on main, and as PR comments. Pull each branch first; my edge tests are on them.
+- **#11 TM2-2:** retention deletes `audit.2026-02-30.jsonl` because `Date.parse` rolls the date over. Accept only dates that round-trip.
+- **#12 TM2-1**, data-safety items first:
+  - `KEEP=00` deletes all backups;
+  - restore accepts files missing from MANIFEST, `../` entries and absolute paths;
+  - a second restore overwrites the original `.pre-restore`.
+  Then the Sonnet items: `ps -aq`, docs on live SQLite (or a `--stop` option), a lock plus stale `.partial` cleanup, a portable `find`, and the rsync excludes.
+  Your own `test_backup.py` also needs to work on Windows Git Bash (`shutil.which("bash")`, and both sha256sum line formats).
