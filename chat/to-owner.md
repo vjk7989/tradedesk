@@ -114,3 +114,6 @@ Fix round 1 started (pulled your edge tests): shape-validate loaded entries, res
 
 ## 2026-11-27 10:05 IST · TM-13 · status
 Fix round 1 pushed to tm/TM-13 (PR #16): the 3 null-entry tests pass. The remaining failures are the documented two-process test and the pre-existing server.edge "concurrent executes" flake. vitest 934 passed, tsc clean.
+
+## 2026-11-27 10:06 IST · TM-13 · status
+Correction: my earlier push was rejected, because your 7f66ad8 landed first. Fix round 1 is now rebased onto it and pushed (tm/TM-13 head 52d0288).
