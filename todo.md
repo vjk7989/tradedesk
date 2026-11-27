@@ -58,7 +58,7 @@ Detailed plan: `plan.md`.
 
 ## P3 Crypto
 - P3.1 · trade-mcp · Delta Exchange via OpenAlgo: CRYPTO exchange in risk config (USD notional), symbol docs in `search` (97402ae) [x]
-- P3.2 · bt-service · crypto backtest path verified (binance/okx loaders, funding, fees) with offline fixtures (fix f1 queued to D2 after P7.1: -SWAP route, negative fees, leverage≤0) [.]
+- P3.2 · bt-service · crypto backtest path verified (binance/okx loaders, funding, fees) with offline fixtures (78d038d) [x]
 - P3.3 · trade-mcp · (optional) ccxt spot trading binding [ ]
 
 ## P4 Deploy (VPS)
@@ -75,7 +75,7 @@ Detailed plan: `plan.md`.
 - P6.2 · Fincept · (optional, source build) OpenAlgoBroker : IBroker + remote backtest provider [ ]
 
 ## P7 Advanced backtesting
-- P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (D2 building) [.]
+- P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (78d038d) [x]
 - P7.2 · bt-service · intraday interval support [ ]
 - P7.3 · bt-service · walk-forward / out-of-sample endpoint [ ]
 
