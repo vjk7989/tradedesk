@@ -3,7 +3,7 @@
 }
 
 mcp.{$DOMAIN} {
-	@allowed path /mcp /mcp/* /healthz
+	@allowed path /mcp /mcp/* /healthz /authorize /token /register /revoke /login /.well-known/*
 	handle @allowed {
 		reverse_proxy trade-mcp:8787 {
 			flush_interval -1
