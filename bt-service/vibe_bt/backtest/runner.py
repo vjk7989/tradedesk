@@ -867,6 +867,34 @@ def _validate_signal_engine_source(file_path: Path) -> None:
     # Deep pass: the structural loop above only guards import-time execution;
     # this walks the code that runs on SignalEngine().generate() (VT-001).
     _scan_runtime_reachable(tree)
+    _reject_dunder_escapes(tree)
+
+
+_FORBIDDEN_NAMES = frozenset({
+    "__builtins__", "__import__", "__loader__", "__spec__", "builtins",
+    "vars", "locals", "globals", "breakpoint",
+})
+_ALLOWED_DUNDER_ATTRS = frozenset({"__init__", "__name__", "__len__", "__getitem__"})
+
+
+def _reject_dunder_escapes(tree: ast.AST) -> None:
+    """Local hardening (not upstream): block builtins/dunder sandbox escapes."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in _FORBIDDEN_NAMES:
+            raise ValueError(f"Use of {node.id!r} is not allowed in signal_engine.py")
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr.startswith("__") and node.attr.endswith("__")
+            and node.attr not in _ALLOWED_DUNDER_ATTRS
+        ):
+            raise ValueError(f"Access to dunder attribute {node.attr!r} is not allowed")
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+            and node.slice.value.startswith("__") and node.slice.value.endswith("__")
+        ):
+            raise ValueError(f"Subscript with dunder key {node.slice.value!r} is not allowed")
 
 
 def _validate_signal_engine_class(engine_cls) -> None:
