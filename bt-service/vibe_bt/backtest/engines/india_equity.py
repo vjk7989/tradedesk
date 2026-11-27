@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import math
 import numbers
+import reprlib
 
 import pandas as pd
 
@@ -81,13 +82,17 @@ class IndiaEquityEngine(BaseEngine):
         self.in_dp_charge: float = config.get("in_dp_charge", 0.0)
         self.in_mis_stt: float = config.get("in_mis_stt", 0.00025)  # verify current rate
         self.in_mis_stamp_duty: float = config.get("in_mis_stamp_duty", 0.00003)  # verify current rate
-        if (isinstance(self.in_mis_stamp_duty, bool)
-                or not isinstance(self.in_mis_stamp_duty, numbers.Real)
-                or not math.isfinite(self.in_mis_stamp_duty)
-                or self.in_mis_stamp_duty < 0):
-            raise ValueError(
-                f"in_mis_stamp_duty must be a finite number >= 0, got {self.in_mis_stamp_duty!r}"
-            )
+        v = self.in_mis_stamp_duty
+        ok = not isinstance(v, bool) and isinstance(v, numbers.Real)
+        if ok:
+            try:
+                ok = math.isfinite(float(v)) and v >= 0
+            except OverflowError:  # int/Fraction beyond float range
+                ok = False
+        if not ok:
+            r = reprlib.Repr()
+            r.maxlong = r.maxstring = r.maxother = 80
+            raise ValueError(f"in_mis_stamp_duty must be a finite number >= 0, got {r.repr(v)}")
         self.intraday: bool = is_intraday(config.get("interval", "1D"))
         self.product: str = resolve_product(config, "india_equity")  # validates even at 1D
         self.mis: bool = self.intraday and self.product == "MIS"
