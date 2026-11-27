@@ -26,12 +26,17 @@ export function searchApi(query: string, scope: "full" | "readonly" = "full"): s
     const hay = `${d.ns} ${d.name} ${d.doc}`.toLowerCase();
     return tokens.some((t) => hay.includes(t));
   }).slice(0, MAX);
+  const distinct = [...new Set(tokens)];
   const rules = API_HEADER.split("\n")
-    .filter((l) => {
-      const low = l.toLowerCase();
-      return tokens.some((t) => low.includes(t));
+    .map((line, idx) => {
+      const low = line.toLowerCase();
+      return { line, idx, score: distinct.filter((t) => low.includes(t)).length };
     })
-    .slice(0, MAX_RULES);
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
+    .slice(0, MAX_RULES)
+    .sort((a, b) => a.idx - b.idx)
+    .map((x) => x.line);
   const rulesBlock = rules.length ? `// Rules:\n${rules.join("\n")}` : "";
   if (!hits.length) return rulesBlock || `No API entries match "${query}".`;
   return rulesBlock ? `${rulesBlock}\n\n${render(hits)}` : render(hits);
