@@ -246,13 +246,25 @@ describe("TM2-8 edge: --next N parsing", () => {
     const r = await run(["--jobs", file, "--next"]);
     expect(lines(r.out)).toHaveLength(5);
   });
-  it.each(["0", "-1", "-0", "abc", "1.5", "1e3", "", " 3", "+3", "0x10", "Infinity", "NaN", "3abc"])(
+  it.each(["0", "-1", "-0", "abc", "1.5", "", " 3", "+3", "0x10", "NaN", "3abc"])(
     "N=%j -> clear error, exit 1, nothing printed",
     async (n) => {
       const r = await run(["--jobs", writeJobs([{ name: "a" }]), "--next", n]);
       expect(r.exit).toHaveBeenCalledTimes(1);
       expect(r.exit).toHaveBeenCalledWith(1);
       expect(r.err).toContain("--next N must be a positive integer");
+      expect(lines(r.out)).toHaveLength(0);
+      nothingRan(r);
+    },
+  );
+  // TM2-12: "1e3" and "Infinity" are above the 1..100 bound and now get the bound message.
+  it.each(["1e3", "Infinity"])(
+    "N=%j -> bound error (1..100), exit 1, nothing printed",
+    async (n) => {
+      const r = await run(["--jobs", writeJobs([{ name: "a" }]), "--next", n]);
+      expect(r.exit).toHaveBeenCalledTimes(1);
+      expect(r.exit).toHaveBeenCalledWith(1);
+      expect(r.err).toContain("--next N must be between 1 and 100");
       expect(lines(r.out)).toHaveLength(0);
       nothingRan(r);
     },
@@ -266,14 +278,13 @@ describe("TM2-8 edge: --next N parsing", () => {
     const r = await run(["--jobs", writeJobs([{ name: "a" }]), "--next", "007"]);
     expect(lines(r.out)).toHaveLength(7);
   });
-  it("large N (1000): no upper bound enforced; 1000 strictly increasing, daily-spaced times", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-11-27T04:00:00Z"));
+  it("large N (1000): rejected by the TM2-12 upper bound -> bound error, exit 1, nothing printed", async () => {
     const r = await run(["--jobs", writeJobs([{ name: "a" }]), "--next", "1000"]);
-    expect(r.exit).toHaveBeenCalledWith(0);
-    const ts = lines(r.out).map((l) => Date.parse(l.trim().split(/\s+/).at(-1)!));
-    expect(ts).toHaveLength(1000);
-    for (let i = 1; i < ts.length; i++) expect(ts[i] - ts[i - 1]).toBe(86_400_000);
+    expect(r.exit).toHaveBeenCalledTimes(1);
+    expect(r.exit).toHaveBeenCalledWith(1);
+    expect(r.err).toBe("--next N must be between 1 and 100");
+    expect(lines(r.out)).toHaveLength(0);
+    nothingRan(r);
   });
 });
 
