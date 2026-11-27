@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -47,7 +48,7 @@ from vibe_bt.backtest.loaders.registry import register
 logger = logging.getLogger(__name__)
 
 _CONFIG_DIR = Path.home() / ".vibe-trading" / "data-bridge"
-_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
+_CONFIG_PATH = Path(os.environ.get("BT_LOCAL_DATA_CONFIG") or _CONFIG_DIR / "config.yaml")  # shim: env override
 
 _DEFAULT_COLUMNS = {
     "date": "date",

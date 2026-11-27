@@ -15,3 +15,7 @@ Shims (all under `vibe_bt/src/` unless noted):
 6. `backtest/loaders/rsshub_events.py` - `defusedxml` replaced by stdlib `xml.etree.ElementTree` and a local `DefusedXmlException` stub (no XXE hardening; only parses a configured RSSHub feed).
 
 Not copied: the broker SDK connectors (`src.trading.*`; only lazily imported in india_broker_loader), `src.br_data` (lazy, b3 loader only), `src.config.writer/paths/gildata_features`, data_gateway service/scheduling, all agent/LLM/provider code.
+
+7. `backtest/loaders/local_loader.py` - `_CONFIG_PATH` honours env `BT_LOCAL_DATA_CONFIG` (path to the data-bridge config.yaml) so the child process of `bt_service.run_backtest` can use a non-default local-source config (used by tests).
+
+8. `backtest/runner.py` `_validate_signal_engine_source` - local hardening vs upstream: new `_reject_dunder_escapes` rejects names `__builtins__`, `__import__`, `__loader__`, `__spec__`, `builtins`, `vars`, `locals`, `globals`, `breakpoint`, dunder attributes other than `__init__`/`__name__`/`__len__`/`__getitem__`, and string subscripts with dunder keys. `bt_service/_child.py` additionally installs a `sys.addaudithook` sandbox (blocks process spawn/exec/kill, ctypes (only when signal_engine.py is on the stack, since platformdirs/yfinance use ctypes), rmtree, and fs mutation or writes outside run_dir; sockets and reads allowed).
