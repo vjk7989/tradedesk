@@ -79,3 +79,6 @@ Fix round 1 pushed to tm/TM-6 (PR #6): OverflowError → ValueError, plus a repr
 
 ## 2026-11-27 09:25 IST · TM-10 · status
 Fix round 1 pushed to tm/TM-10 (PR #10): signed integers now clamp ("-1" → 5000), one timeout note per doc. trade-mcp 900 passed / 1 skipped, tsc and build clean.
+
+## 2026-11-27 09:37 IST · TM-11 · status
+TM-11 started on tm/TM-11 (main after the TM-8 merge). 15 sites in the listed files.
