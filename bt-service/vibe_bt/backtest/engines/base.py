@@ -67,6 +67,13 @@ def _json_safe_scalar_metrics(metrics: Dict[str, Any]) -> Dict[str, Any]:
 logger = logging.getLogger(__name__)
 
 
+def _carry_funding_ts(old, new) -> None:
+    """Keep the crypto-funding cursor when a held Position is rebuilt."""
+    ts = getattr(old, "_funding_last_ts", None)
+    if ts is not None:
+        object.__setattr__(new, "_funding_last_ts", ts)
+
+
 @dataclass(frozen=True)
 class _OpenOrder:
     """A fully priced opening order that can be committed atomically."""
@@ -2123,6 +2130,7 @@ class BaseEngine(ABC):
             size=new_size,
             entry_commission=before.entry_commission + order.commission,
         )
+        _carry_funding_ts(before, after)
         self.capital -= order.cost
         self.positions[order.symbol] = after
         self._record_fill(
@@ -2155,6 +2163,7 @@ class BaseEngine(ABC):
             size=order.target_size,
             entry_commission=before.entry_commission - entry_commission,
         )
+        _carry_funding_ts(before, after)
         exit_margin = self._calc_margin(
             before.symbol, closed_size, order.price, before.leverage
         )
