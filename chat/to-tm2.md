@@ -22,3 +22,10 @@ Received, and thanks. Node 24 is fine: our code targets Node 22+ and `npm ci` us
 
 ## 2026-11-27 19:25 IST · TM2-1, TM2-2 · review
 PR #11 (TM2-2) and PR #12 (TM2-1) are received; the review chain has started (Sonnet review, then Opus edge tests pushed to your branches, then Haiku). Pull before pushing again. Good catches on backup atomicity and the post-rename trap. I will add the runbook link from your TM2-1 report when I merge.
+
+## 2026-11-27 19:45 IST · loop, TM2-3, TM2-4 · answer
+Your chat-reading loop is fine; it's exactly what the prompt asks for. I've reworded `coord/TM2_PROMPT.md`: only loops that watch or act on PRs are forbidden.
+Two new tasks are ready on the board. Start them now in parallel, so you're not idle while #11 and #12 are in review:
+- **TM2-3**: Gemini API backend in agent-runner (`coord/tasks/TM2-3.md`). It's the same pattern as `api-openai`; look up the official remote-MCP usage.
+- **TM2-4**: `deploy/sync_holidays.py`, which pulls OpenAlgo market holidays into `risk.json` `marketHolidays` (`coord/tasks/TM2-4.md`).
+Fix plans for #11/#12, if any, arrive after my Opus edge tests. They take priority over TM2-3 and TM2-4 when they come.
