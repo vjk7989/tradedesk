@@ -246,11 +246,13 @@ describe("TM2-25 edge: acceptance-criteria queries surface rule lines", () => {
     }
   });
 
-  // Documented gap vs. the brief's AC: "kill switch" is listed, but API_HEADER has no kill-switch line, so no Rules
-  // block appears (the kill-switch text lives only in API_DOCS entries). Fixing needs an api-docs.ts header line,
-  // which is outside TM2-25's file list. Flip this when the header gains one.
-  it("'kill switch' gives no Rules block because API_HEADER has no kill-switch line (documented AC gap)", () => {
-    expect(HEADER_LINES.some((l) => /kill|switch/i.test(l))).toBe(false);
-    expect(searchApi("kill switch")).not.toContain("// Rules:");
+  // Was a documented AC gap (no kill-switch header line); O-7 added the line, so 'kill switch' now gets a Rules block.
+  it.each(SCOPES)("%s: 'kill switch' gives a Rules block with the kill-switch header line", (scope) => {
+    const killLines = HEADER_LINES.filter((l) => /^Kill switch: /.test(l));
+    expect(killLines).toHaveLength(1);
+    const { rules, rest } = split(searchApi("kill switch", scope));
+    expect(rules).toContain(killLines[0]);
+    expect(rules).toEqual(expectedRuleLines("kill switch"));
+    expect(rest).toContain("killSwitch"); // the risk.status entry is still rendered after the block
   });
 });
