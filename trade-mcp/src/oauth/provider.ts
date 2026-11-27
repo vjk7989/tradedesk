@@ -53,6 +53,12 @@ interface Persisted {
   refresh: Record<string, TokenRec>;
   /** sha256(refresh token) already rotated -> family, kept to detect reuse */
   rotated?: Record<string, { familyId: string; expiresAt: number }>;
+  /** keyed by sha256(code) */
+  codes?: Record<string, CodeRec>;
+  /** keyed by sha256(rid) */
+  pending?: Record<string, Pending>;
+  /** sha256(ip) -> failure timestamps (ms) */
+  loginFailures?: Record<string, number[]>;
 }
 
 export function redirectAllowed(uri: string, allowedHosts: string[]): boolean {
@@ -77,6 +83,8 @@ export class TradeOAuthProvider implements OAuthServerProvider {
   private codes = new Map<string, CodeRec>();
   private pending = new Map<string, Pending>();
 
+  private readonly limiter = new LoginLimiter();
+
   constructor(private cfg: OAuthConfig) {
     if (existsSync(cfg.stateFile)) {
       try {
@@ -85,6 +93,10 @@ export class TradeOAuthProvider implements OAuthServerProvider {
         for (const [k, v] of Object.entries(d.access ?? {})) this.access.set(k, v);
         for (const [k, v] of Object.entries(d.refresh ?? {})) this.refresh.set(k, v);
         for (const [k, v] of Object.entries(d.rotated ?? {})) this.rotated.set(k, v);
+        for (const [k, v] of Object.entries(d.codes ?? {})) this.codes.set(k, v);
+        for (const [k, v] of Object.entries(d.pending ?? {})) this.pending.set(k, v);
+        this.limiter.load(d.loginFailures ?? {});
+        this.prune();
       } catch {
         /* corrupt state: start empty */
       }
@@ -97,6 +109,9 @@ export class TradeOAuthProvider implements OAuthServerProvider {
       access: Object.fromEntries(this.access),
       refresh: Object.fromEntries(this.refresh),
       rotated: Object.fromEntries(this.rotated),
+      codes: Object.fromEntries(this.codes),
+      pending: Object.fromEntries(this.pending),
+      loginFailures: this.limiter.snapshot(),
     };
     mkdirSync(path.dirname(this.cfg.stateFile), { recursive: true });
     const tmp = this.cfg.stateFile + ".tmp";
@@ -137,7 +152,7 @@ export class TradeOAuthProvider implements OAuthServerProvider {
   async authorize(client: OAuthClientInformationFull, params: AuthorizationParams, res: Response): Promise<void> {
     this.prune();
     const rid = randomBytes(24).toString("hex");
-    this.pending.set(rid, {
+    this.pending.set(sha(rid), {
       clientId: client.client_id,
       redirectUri: params.redirectUri,
       codeChallenge: params.codeChallenge,
@@ -146,6 +161,7 @@ export class TradeOAuthProvider implements OAuthServerProvider {
       resource: params.resource?.href,
       expiresAt: Date.now() + CODE_TTL_MS,
     });
+    this.persist();
     this.sendLogin(res, rid, client.client_name ?? client.client_id);
   }
 
@@ -157,15 +173,13 @@ export class TradeOAuthProvider implements OAuthServerProvider {
       .send(loginPage({ rid, clientName, error }));
   }
 
-  private readonly limiter = new LoginLimiter();
-
   /** POST /login handler. */
   login = (req: express.Request, res: express.Response): void => {
     const ip = req.ip ?? "unknown";
     const rid = String(req.body?.rid ?? "");
     const password = String(req.body?.password ?? "");
     this.prune();
-    const p = this.pending.get(rid);
+    const p = this.pending.get(sha(rid));
     if (!p) {
       res.status(400).type("text").send("Authorization request expired. Start again from the client.");
       return;
@@ -178,11 +192,12 @@ export class TradeOAuthProvider implements OAuthServerProvider {
     }
     if (!verifyPassword(password, this.cfg.passwordHash)) {
       this.limiter.fail(ip);
+      this.persist();
       this.sendLogin(res, rid, name, "Wrong password.", 401);
       return;
     }
     this.limiter.reset(ip);
-    this.pending.delete(rid);
+    this.pending.delete(sha(rid));
     const code = randomBytes(32).toString("hex");
     this.codes.set(sha(code), {
       clientId: p.clientId,
@@ -192,6 +207,7 @@ export class TradeOAuthProvider implements OAuthServerProvider {
       resource: p.resource,
       expiresAt: Date.now() + CODE_TTL_MS,
     });
+    this.persist();
     const target = new URL(p.redirectUri);
     target.searchParams.set("code", code);
     if (p.state !== undefined) target.searchParams.set("state", p.state);
@@ -215,6 +231,7 @@ export class TradeOAuthProvider implements OAuthServerProvider {
     const key = sha(code);
     const rec = this.codes.get(key);
     this.codes.delete(key); // single use
+    this.persist(); // removal is durable before any tokens are returned
     if (!rec || rec.clientId !== client.client_id || rec.expiresAt <= Date.now()) {
       throw new InvalidGrantError("invalid authorization code");
     }
