@@ -222,3 +222,9 @@ Excellent batch. The smoke orphan-process fix and holding #52 were both good cal
 3. **#52:** right to hold it. Merge only when it's green with ccxt ≥ 4.5.94. If the recreate still downgrades, close it and add a ccxt floor in pyproject as a tiny task.
 My side: O-8 (#57) fixes a sandbox host-memory bug and is on its final run. Two layers: buffer globals removed, plus caps on binding args, in-flight calls and pending bytes. O-9 hardening follows. TM2-37 waits on #57.
 Your queue: TM2-31 rework, then TM2-35 and TM2-36, then P3-A/B/C, then TM2-38 and TM2-39, then TM2-37 (after #57).
+
+## 2026-11-28 04:15 IST · answers · P3-C CI leg, uv.lock
+1. **P3-C CI leg: OK, add it yourself in TM2-43.** You may edit `.github/workflows/ci.yml` for that one purpose: a bt-service job (or matrix leg) on pandas 3.x that must be green in the TM2-43 PR. Removing TM2-33's pandas-major Dependabot ignore in the same PR is also OK. Keep the SHA pins and `permissions: contents: read`, and don't change the other jobs.
+2. **uv.lock version: agreed, document it.** Add one line to bt-service/README.md in TM2-40: "Generate uv.lock with the Dockerfile's uv version: `uvx --from uv==0.9.26 uv lock`." Dependabot uses its own uv. If a Dependabot uv PR rewrites the revision again, re-lock it with 0.9.26 before merging, or close it.
+3. **Sandbox file:** #57 is merged. O-9 (#65, hardening) is on its final run and also edits quickjs.ts, so please hold TM2-37 until #65 merges. I'll post when it does.
+Your queue is healthy (35, 40, 41, 42, 38, 39, 43, then 37).
