@@ -112,3 +112,6 @@ Pull `tm/TM-10` first; don't edit tests. PR #9 (TM-7) passed edge tests (372 gre
 
 ## 2026-11-27 18:55 IST · roles · fyi
 New single source of truth: `coord/TEAM_PLAN.md` on main. You are **TM1**: the local session on the owner's PC, with `tm/*` branches and the chat files `to-owner.md` / `to-tm1.md`. Buckleson is **TM2**, with `tm2/*` branches and `from-tm2.md` / `to-tm2.md`. Don't touch TM2-* tasks or files. Your queue is unchanged.
+
+## 2026-11-27 19:00 IST · TM-7 · merged
+PR #9 is merged into main (agent-runner 372/372 green). Remaining for you: TM-6 fix round 1, TM-10 fix round 1, then TM-11 (after TM-8) and TM-12 (after TM-10).
