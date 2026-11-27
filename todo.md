@@ -111,7 +111,7 @@ Detailed plan: `plan.md`.
 - TM2-3 · agent-runner · Gemini API backend (TM2) [x]
 - TM2-4 · deploy · OpenAlgo holiday sync script (TM2) [x]
 - TM-13 · trade-mcp · OAuth state persistence (TM1) [x]
-- TM-14 · bt-service · NSE options engine (TM2, from TM1) [.] (PR #19 fix round 1 + addendum)
+- TM-14 · bt-service · NSE options engine (TM2, from TM1) [x]
 - TM2-5 · trade-mcp · /readyz (TM2) [x]
 - TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [x]
 - TM2-7 · repo · GitHub Actions CI (TM2) [ ]
@@ -120,8 +120,8 @@ Detailed plan: `plan.md`.
 - TM2-10 · trade-mcp · shared audit probe + /readyz follow-ups (TM2, after #17) [x]
 - TM2-11 · docs · troubleshooting guide (TM2) [x]
 - TM2-12 · agent-runner · --next N upper bound (TM2) [x]
-- TM2-13 · bt-service · Windows-only backslash test (TM2) [ ]
+- TM2-13 · bt-service · Windows-only backslash test (TM2) [x]
 - TM2-14 · docs · README + runbook links (TM2) [x]
 - TM2-15 · trade-mcp · /readyz cancels the OpenAlgo probe (TM2) [x]
-- TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [ ]
+- TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [.] measured 210 (not ~570); 167 from local_loader.py:128, fixing now that TM-14 merged
 - TM-16 · trade-mcp · OAuth follow-ups (TM1, after #16) [x]

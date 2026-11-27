@@ -75,3 +75,17 @@ Decision: At the user's request, no further tasks go to OpenCode. Two OpenCode t
 Context: A teammate on another machine uses Claude Code.
 Decision: On TM1's machine, Opus orchestrates and Sonnet subagents implement. TM1 opens PRs from `tm/<ID>`. On the owner's machine, Sonnet reviews the PR, Opus writes edge-case tests, Haiku runs the gates, and the Opus orchestrator merges via `gh pr merge`. Only the owner's orchestrator merges.
 Consequences: The same quality gates apply to every contributor. `coord/` plus PR comments carry all communication.
+
+## ADR-16: NSE/BSE index options backtest engine  (2026-11-27, status: accepted)
+Context: TM-14 adds CE/PE index options (`engines/india_options.py`) to bt-service, alone and inside composite baskets.
+Decision:
+- Symbols: weekly `ROOTDDMONYYSTRIKE{CE,PE}` and monthly `ROOTYYMONSTRIKE{CE,PE}`.
+  - The weekly form wins when its date is a real date and the strike has ≥4 digits.
+  - An impossible weekly date returns None, with no monthly fallback.
+  - The monthly expiry is the last Tuesday, with no holiday shift.
+- Lots come from the india_fno table (NIFTY 65, BANKNIFTY 30, FINNIFTY 60, MIDCPNIFTY 120). An unknown root (including SENSEX) gets lot 1 plus a warning.
+- Short margin: underlying close (as of the bar, no look-ahead) × lot × `opt_short_margin_pct`. The fallback is strike × lot when no underlying series is mapped.
+- Expiry settlement: intrinsic value from the underlying's last valid close on or before the expiry DATE. Without an underlying, the option's last valid close on or before the expiry date; else 0 plus a warning. Never a post-expiry bar.
+- Composite delegates options legs' lot sizing, margin, plan notes and expiry hooks to the options engine.
+- Costs: STT 0.15% sell side (also applied to expiry intrinsic, a simplification versus ~0.125%), stamp 0.003% buy side, exchange 0.03503%, SEBI 0.0001%, GST 18%. All are overridable via `in_opt_*`.
+Consequences: Options results are approximate around holiday-shifted expiries and expiry STT. Verify SENSEX lot size and current rates before relying on absolute costs.
