@@ -456,7 +456,7 @@ class DataLoader:
 
         start = pd.Timestamp(start_date)
         # Include the entire end day in the configured timestamp basis.
-        end = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+        end = pd.Timestamp(end_date) + pd.Timedelta(1, "D")
         # A half-open boundary includes fractional seconds on the end day
         # without admitting the following midnight.
         df = df[(df.index >= start) & (df.index < end)]

@@ -36,16 +36,16 @@ _INTERVAL_MAP = {
 }
 
 _TIMEFRAME_DELTA = {
-    "1m": pd.Timedelta(minutes=1),
-    "3m": pd.Timedelta(minutes=3),
-    "5m": pd.Timedelta(minutes=5),
-    "15m": pd.Timedelta(minutes=15),
-    "30m": pd.Timedelta(minutes=30),
-    "1h": pd.Timedelta(hours=1),
-    "4h": pd.Timedelta(hours=4),
-    "1d": pd.Timedelta(days=1),
-    "1w": pd.Timedelta(weeks=1),
-    "1M": pd.Timedelta(days=31),
+    "1m": pd.Timedelta(1, "min"),
+    "3m": pd.Timedelta(3, "min"),
+    "5m": pd.Timedelta(5, "min"),
+    "15m": pd.Timedelta(15, "min"),
+    "30m": pd.Timedelta(30, "min"),
+    "1h": pd.Timedelta(1, "h"),
+    "4h": pd.Timedelta(4, "h"),
+    "1d": pd.Timedelta(1, "D"),
+    "1w": pd.Timedelta(1, "W"),
+    "1M": pd.Timedelta(31, "D"),
 }
 
 
@@ -281,7 +281,7 @@ class DataLoader:
             logger.warning("ccxt loader: unsupported interval %r; returning no data", interval)
             return {}
         since_ms = int(pd.Timestamp(start_date).timestamp() * 1000)
-        end_ms = int((pd.Timestamp(end_date) + pd.Timedelta(days=1)).timestamp() * 1000)
+        end_ms = int((pd.Timestamp(end_date) + pd.Timedelta(1, "D")).timestamp() * 1000)
 
         # Build the exchange lazily so a full cache hit never imports ccxt or
         # opens an exchange object.
