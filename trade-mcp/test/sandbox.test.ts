@@ -54,16 +54,17 @@ describe("sandbox", () => {
   });
 
   it("enforces memory limit", async () => {
-    const r = await runCode(`const a=[]; while(true) a.push(new Uint8Array(1 << 20));`, {}, { memoryBytes: 4 * 1024 * 1024, timeoutMs: 20_000 });
+    const r = await runCode(`const a=[]; for(let i=0;;i++) a.push({ i, s: [i, i, i, i] });`, {}, { memoryBytes: 4 * 1024 * 1024, timeoutMs: 30_000 });
     // Stable properties only: the run is rejected as a string error, it was stopped by the
-    // memory cap (not the 20s deadline), no WASM abort text leaks, and the host still works.
+    // memory cap (generous 30s deadline so the cap always fires first), no WASM abort text leaks, and the host still works.
     expect(r.ok).toBe(false);
     expect(typeof r.error).toBe("string");
-    expect(r.error).not.toMatch(/timeout|Aborted|RuntimeError|Assertion/);
+    expect(r.error).toMatch(/memory|InternalError/i);
+    expect(r.error).not.toMatch(/timeout|syntax|ReferenceError|stack|Aborted|RuntimeError|Assertion/i);
     expect(r.result).toBeUndefined();
     const next = await runCode(`return 1 + 1;`, {});
     expect(next).toMatchObject({ ok: true, result: 2 });
-  }, 30_000);
+  }, 45_000);
 
   it("reports syntax and thrown errors", async () => {
     const s = await runCode(`let = = 1`, {});
