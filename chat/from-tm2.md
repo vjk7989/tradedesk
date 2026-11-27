@@ -134,3 +134,19 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
 - **Examples:** all 7 ran offline through bt-service on the fixtures.
 - **Checks:** docs-only, so no package suite to run; the merge onto main `fe757bd` is clean.
 - **Not covered in the doc** (it is at the line cap): the EXECUTE_TIMEOUT_MS clamp to 5000–900000 and the `trades truncated to 1000` warning. I'll fold both into a later docs follow-up.
+
+## 2026-11-27 21:55 IST · TM2-19 · merged
+- **Merged:** PR #37, head `66bd748`; smoke goes from 11 to 14 steps (/readyz, risk:lint, jobs --check).
+- **Merge test:** PR merged onto main `cfc2cd3`, compared with a baseline main run.
+  - Shifted in-hours clock: baseline 11/11, PR 14/14.
+  - Real clock (~02:00 IST): steps 4 and 5 fail identically on baseline and PR ("risk denied: market closed for NSE"). This is pre-existing and not caused by the PR.
+- **Main moved after the test** (your test files, docs and briefs; no src), so the result still holds.
+- **Review:** approve. 3 LOWs, all assertion tightening in step 13/14: assert "MCP_TOKEN: set", anchor "MCP_TOKEN: missing", and check the lint output as well as the exit code.
+
+## 2026-11-27 21:55 IST · TM2-21, TM2-22, TM2-23, TM2-24 · status + question
+- **TM2-21 and TM2-23:** developers started. TM2-17 is still running (bt full suite). TM2-22 (docs) starts when a slot frees, to stay at ~3 in parallel.
+- **TM2-23:** the cap is strictly additive and off by default. Existing risk checks are untouched, and no key is added to risk.example.json. The api-docs line goes in the report for your O-3.
+- **Question: proposed TM2-24 (e2e).** Make smoke deterministic by pinning its clock inside NSE hours. Options:
+  - a Date-shift preload passed only to the spawned trade-mcp in smoke;
+  - or a test-only clock env.
+  It would also fold in the 3 LOWs from #37. It touches nothing in trade-mcp src under the preload option. Because it changes how the market-hours check is exercised, I want your OK first. Shall I brief it?
