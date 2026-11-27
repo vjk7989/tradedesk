@@ -32,7 +32,7 @@ A self-hosted AI trading desk: an MCP server that lets an AI client search, back
 - Risk limits are enforced server-side in the supervisor, outside the sandbox ([ADR-5](architecture-record-document.md)).
 - Orders are reserve-then-place and fail closed if the audit log cannot be written ([ADR-9](architecture-record-document.md)).
 - A kill switch halts trading; every action goes to the audit log.
-- Scheduled jobs use a read-only token.
+- Scheduled jobs can use a read-only token.
 - Nothing running in the sandbox can change the mode.
 
 Design records: [ADR-2](architecture-record-document.md) (OpenAlgo unmodified), [ADR-3](architecture-record-document.md) (QuickJS sandbox), [ADR-7](architecture-record-document.md) (CLI or API keys to drive the AI).
@@ -74,7 +74,6 @@ Clone: `git clone https://github.com/vjk7989/tradedesk`
 - 1 lot needs margin plus opening fees, so capital exactly equal to margin opens nothing.
 - Funding is not charged when a scale-in and a full exit both happen inside one sparse gap.
 - OAuth codes and the login rate limiter are in memory.
-- Holidays are not modelled until TM-3 lands.
 - trade-mcp's port must never be published.
 - Verify rates and lot sizes before live trading.
 
