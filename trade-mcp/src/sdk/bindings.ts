@@ -3,7 +3,8 @@ import { orderNotional, type RiskEngine } from "../risk/engine.js";
 import type { Config } from "../config.js";
 import type { Bindings } from "../sandbox/quickjs.js";
 import { createHash } from "node:crypto";
-import { open } from "node:fs/promises";
+import { open, readdir } from "node:fs/promises";
+import path from "node:path";
 import type { BacktestClient, BacktestRequest, WalkForwardRequest } from "../backtest/client.js";
 import { appendAudit } from "../risk/audit.js";
 import { probeAuditWritable } from "../risk/audit-probe.js";
@@ -140,6 +141,49 @@ async function readAuditTail(file: string, limit: number): Promise<{ entries: ob
     }
   }
   return { entries: entries.slice(-limit), skipped };
+}
+
+/** Newest rotated sibling of the audit file (same name pattern as audit.ts rotation: base.DATE[.N].jsonl). */
+async function newestRotated(file: string): Promise<string | undefined> {
+  const dir = path.dirname(file);
+  const base = path.basename(file, path.extname(file));
+  const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.(\\d{4}-\\d{2}-\\d{2})(?:\\.(\\d+))?\\.jsonl$`);
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return undefined;
+  }
+  let best: { name: string; date: string; n: number } | undefined;
+  for (const name of names) {
+    const m = re.exec(name);
+    if (!m) continue;
+    const c = { name, date: m[1], n: m[2] ? Number(m[2]) : 0 };
+    if (!best || c.date > best.date || (c.date === best.date && c.n > best.n)) best = c;
+  }
+  return best && path.join(dir, best.name);
+}
+
+/** Last `limit` entries, oldest to newest: current file, topped up from the newest rotated file if short. */
+async function readAuditRecent(file: string, limit: number): Promise<{ entries: object[]; skipped: number }> {
+  const cur = await readAuditTail(file, limit);
+  if (cur.entries.length >= limit) return cur;
+  const rotated = await newestRotated(file);
+  if (!rotated) return cur;
+  const old = await readAuditTail(rotated, limit - cur.entries.length);
+  return { entries: [...old.entries, ...cur.entries], skipped: cur.skipped + old.skipped };
+}
+
+/** Replace every occurrence of each secret value in all strings of v (audit redaction only matches key names). */
+function scrub(v: unknown, secrets: string[]): unknown {
+  if (typeof v === "string") return secrets.reduce((acc, x) => acc.split(x).join("[REDACTED]"), v);
+  if (Array.isArray(v)) return v.map((x) => scrub(x, secrets));
+  if (v && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) out[k] = scrub(x, secrets);
+    return out;
+  }
+  return v;
 }
 
 export function createBindings(deps: BindingDeps, run: { id: string }): LooseBindings & Bindings {
@@ -463,9 +507,13 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
               throw new Error(`${w}: "limit" must be an integer from 1 to ${AUDIT_MAX_LIMIT}`);
             }
           }
-          const { entries, skipped } = await readAuditTail(auditFile, limit);
+          const secrets = [cfg.mcpToken, cfg.mcpTokenReadonly, cfg.openalgoApiKey, cfg.btToken, process.env.OAUTH_PASSWORD_HASH]
+            .filter((x): x is string => typeof x === "string" && x.length >= 8);
+          const read = await readAuditRecent(auditFile, limit);
+          const entries = scrub(read.entries, secrets) as object[];
+          const skipped = read.skipped;
           audit({ action: w, args: a, decision: "allowed", count: entries.length, skipped });
-          return skipped > 0 ? { entries, skipped } : entries;
+          return { entries, skipped };
         } catch (e) {
           audit({ action: w, args, decision: "error", error: e instanceof Error ? e.message : String(e) });
           throw e;
