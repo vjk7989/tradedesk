@@ -55,11 +55,12 @@ export function createHttpServer(
   // Bodies carry only fixed enum strings: never URLs, keys or error text.
   async function checkOpenalgo(): Promise<Check> {
     let timer: NodeJS.Timeout | undefined;
+    const ctl = new AbortController();
     try {
-      // Race only: analyzerStatus() takes no signal; the OpenAlgo request itself is bounded by the client's own internal timeout.
+      // On the deadline the controller aborts the in-flight OpenAlgo request as well as failing the check.
       // (setTimeout, not AbortSignal.timeout: existing TM2-5 fake-timer tests drive this deadline.)
-      const timeout = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("timeout")), READYZ_TIMEOUT_MS); });
-      const r = await Promise.race([deps.client.analyzerStatus(), timeout]);
+      const timeout = new Promise<never>((_, rej) => { timer = setTimeout(() => { ctl.abort(); rej(new Error("timeout")); }, READYZ_TIMEOUT_MS); });
+      const r = await Promise.race([deps.client.analyzerStatus(ctl.signal), timeout]);
       return r?.status === "success" ? "ok" : "fail";
     } catch {
       return "fail";

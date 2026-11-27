@@ -28,7 +28,7 @@ export class OpenAlgoClient {
     return this.apiKey ? s.split(this.apiKey).join("[REDACTED]") : s;
   }
 
-  private async call<R = T.OpenAlgoResponse>(endpoint: string, body: object = {}): Promise<R> {
+  private async call<R = T.OpenAlgoResponse>(endpoint: string, body: object = {}, signal?: AbortSignal): Promise<R> {
     const fail = (msg: string, status?: number) =>
       new OpenAlgoError(endpoint, this.redact(msg), status);
     const ctl = new AbortController();
@@ -41,10 +41,25 @@ export class OpenAlgoClient {
       }, this.timeoutMs);
     });
     timeout.catch(() => {});
+    // Caller cancellation: abort the request too, but report it as an abort, not as our own timeout.
+    let callerAborted = false;
+    let onCallerAbort: (() => void) | undefined;
+    const aborted = new Promise<never>((_, rej) => {
+      if (!signal) return;
+      onCallerAbort = () => {
+        callerAborted = true;
+        ctl.abort();
+        rej(fail("request aborted"));
+      };
+      if (signal.aborted) onCallerAbort();
+      else signal.addEventListener("abort", onCallerAbort, { once: true });
+    });
+    aborted.catch(() => {});
     let res: Response;
     let text: string;
     try {
       const work = (async () => {
+        if (callerAborted) throw fail("request aborted");
         const r = await this.fetchImpl(`${this.base}/api/v1/${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -54,13 +69,15 @@ export class OpenAlgoClient {
         return [r, await r.text()] as const;
       })();
       work.catch(() => {});
-      [res, text] = await Promise.race([work, timeout]);
+      [res, text] = await Promise.race([work, timeout, aborted]);
     } catch (e) {
       if (e instanceof OpenAlgoError) throw e;
+      if (callerAborted) throw fail("request aborted");
       if (ctl.signal.aborted) throw timeoutErr();
       throw fail(`network error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       clearTimeout(timer);
+      if (signal && onCallerAbort) signal.removeEventListener("abort", onCallerAbort);
     }
     let json: any;
     try {
@@ -93,7 +110,7 @@ export class OpenAlgoClient {
   /** Sandbox P&L; docs path is /api/v1/pnl/symbols (analyzer mode only). */
   pnl() { return this.call("pnl/symbols"); }
   /** Read-only analyzer status. The toggle endpoint is deliberately not implemented. */
-  analyzerStatus() { return this.call<T.OpenAlgoResponse<T.AnalyzerStatusData>>("analyzer"); }
+  analyzerStatus(signal?: AbortSignal) { return this.call<T.OpenAlgoResponse<T.AnalyzerStatusData>>("analyzer", {}, signal); }
   placeOrder(r: T.PlaceOrderRequest) { return this.call<T.OrderResponse>("placeorder", r); }
   modifyOrder(r: T.ModifyOrderRequest) { return this.call<T.OrderResponse>("modifyorder", r); }
   cancelOrder(r: T.CancelOrderRequest) { return this.call<T.OrderResponse>("cancelorder", r); }
