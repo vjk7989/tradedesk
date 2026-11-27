@@ -18,14 +18,21 @@ const MAX_TEXT = 3500;
 /** Reads and discards a response body so the socket is released; never logs it. Bounded by the signal. */
 async function drain(res: Response, signal: AbortSignal): Promise<void> {
   try {
-    await new Promise<void>((resolve) => {
-      if (signal.aborted) return resolve();
-      signal.addEventListener("abort", () => resolve(), { once: true });
-      Promise.resolve(res.text()).then(
-        () => resolve(),
-        () => resolve(),
-      );
-    });
+    let onAbort: (() => void) | undefined;
+    try {
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) return resolve();
+        onAbort = () => resolve();
+        signal.addEventListener("abort", onAbort, { once: true });
+        Promise.resolve(res.text()).then(
+          () => resolve(),
+          () => resolve(),
+        );
+      });
+    } finally {
+      if (onAbort) signal.removeEventListener("abort", onAbort);
+    }
+    // Best-effort only: a no-op while text() holds the reader lock; the abort signal is the real cut-off.
     if (signal.aborted) await Promise.resolve(res.body?.cancel()).catch(() => {});
   } catch {
     /* never throw */
