@@ -5,11 +5,11 @@ Developers: 3 (resources.py). D1 = trade-mcp core/server · D2 = trade-mcp clien
 Detailed plan: `plan.md`.
 
 ## P0 Workspace
-- P0.1 · root · git init, .gitignore (vendor/, node_modules, .venv, .env, runtime data), commit plan/docs [ ]
+- P0.1 · root · git init, .gitignore (vendor/, node_modules, .venv, .env, runtime data), commit plan/docs (a0ac36f) [x]
   verify: `git status --short` clean after commit; `git check-ignore vendor`
 
 ## P1 trade-mcp (Node/TS, Code Mode MCP server)
-- P1.1 · trade-mcp · scaffold (package.json, tsconfig, vitest) + `src/config.ts` (env + risk config, zod) [ ]
+- P1.1 · trade-mcp · scaffold (package.json, tsconfig, vitest) + `src/config.ts` (env + risk config, zod) (D1 building) [.]
   files: trade-mcp/package.json, tsconfig.json, vitest.config.ts, src/config.ts, test/config.test.ts   size: S   dev: D1
   AC: loadConfig(env) needs OPENALGO_URL, OPENALGO_API_KEY, MCP_TOKEN (throws, naming the missing key); mode defaults to "paper"; risk limits from RISK_CONFIG json file path or defaults; negative/zero limits rejected; secrets never in error text
   verify: `cd trade-mcp && npm test && npx tsc --noEmit`   deps: P0.1
@@ -35,7 +35,7 @@ Detailed plan: `plan.md`.
   verify: `npm test -- server && npx tsc --noEmit && npm run build`   deps: P1.5
 
 ## P2 bt-service (Python, Vibe-Trading engine)
-- P2.1 · bt-service · extract Vibe `agent/backtest` + minimal `src.*` shims into `bt-service/vibe_bt/` (MIT notice kept) [ ]
+- P2.1 · bt-service · extract Vibe `agent/backtest` + minimal `src.*` shims into `bt-service/vibe_bt/` (MIT notice kept) (D3 building) [.]
   files: bt-service/pyproject.toml, bt-service/vibe_bt/** (copied), bt-service/vibe_bt/NOTICE   size: L   dev: D3
   AC: `uv run python -c "import vibe_bt.backtest.runner"` works with deps limited to pandas, numpy, scipy, pydantic, yfinance, ccxt, fastapi, uvicorn, httpx; no LLM/agent modules copied
   verify: `cd bt-service && uv sync && uv run python -c "import vibe_bt.backtest.runner"`   deps: P0.1
