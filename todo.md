@@ -116,7 +116,7 @@ Detailed plan: `plan.md`.
 - TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [x]
 - TM2-7 · repo · GitHub Actions CI (TM2) [ ]
 - TM2-8 · agent-runner · --check/--next (TM2) [x]
-- TM2-9 · trade-mcp · risk:lint CLI (TM2) [ ]
+- TM2-9 · trade-mcp · risk:lint CLI (TM2) [x]
 - TM2-10 · trade-mcp · shared audit probe + /readyz follow-ups (TM2, after #17) [x]
 - TM2-11 · docs · troubleshooting guide (TM2) [ ]
 - TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [ ]
