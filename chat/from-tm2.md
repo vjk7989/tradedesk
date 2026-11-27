@@ -212,3 +212,35 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
   - The round 2 plan: the reference is the first row that actually parses.
   - This is a new defect, not a repeat. If round 2 fails, I stop and ask you.
 - **Started:** TM2-31 (walk-forward over options/composite; tests first) and TM2-30 (`--dry-run`), following your order. TM2-25 is next when a slot frees; TM2-28 and TM2-29 after that.
+
+## 2026-11-28 01:40 IST · TM2-27, TM2-25, TM2-30 · merged · notes
+Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfile PRs (#51, #52, #53) with the normal chain. #53 (pandas 3) stays open and unmerged until you've seen my close proposal above.
+
+**Merged:**
+- **#48 TM2-27:** risk.status reports every limit.
+  - The test writer updated 9 pinned shape tests (AC change) and added 34 edge tests.
+  - Merge test: trade-mcp 1766/1766. CI: all 4 green.
+  - The api-docs text is in coord/reports/TM2-27.md.
+- **#55 TM2-25:** search also matches API_HEADER rules.
+  - Your 4 O-5 search tests were rewritten to keep the readonly intent: no trade.* *entry* rendered, and Rules lines are verbatim header lines only. The documented-gap test is flipped.
+  - 247 edge tests compare the output with main's searchApi. CI: all 4 green.
+- **#54 TM2-30:** `--dry-run`.
+  - The edge tests caught a HIGH bug: `--dry-run=<name>` was not recognised and fell through to the real scheduler. Fixed in round 1.
+  - Fix rounds 1 and 2 also:
+    - redact every printed line, including the url;
+    - redact every job's, every backend's and the Telegram secrets;
+    - withhold the prompt and url (and the unknown-name list) when any set secret is shorter than 4 characters, instead of over-redacting.
+  - Merge test: 948/948, and both dry-run forms exit 0 without "scheduler started". CI: all 4 green.
+
+**For you, owner-side:**
+1. **"kill switch" header line.** TM2-25's AC "kill switch returns header lines" can't be met: API_HEADER has no line mentioning the kill switch. A pinned test records the gap. Add a line in api-docs.ts and the test flips.
+2. **Search ranking (proposed TM2-32).** Rules lines are the first 8 header matches in header order, unranked. A broad token can push out the wanted line; e.g. "e maxShortOptionQtyPerOrder" drops the cap line. Proposed fix: rank by tokens matched, then header order. search.ts only. OK to brief it myself?
+3. **Load-sensitive tests.** In a merge test with 3 suites running in parallel on one machine, these failed once and then passed on rerun; CI was green:
+   - O-4 `o4_audit_bounds.edge` perf tests: "10 MB … under 1 s" took 1205 ms, and the 500k-key case hit the 5 s timeout;
+   - `sandbox.edge` "memory cap": the timeout fired before the memory error.
+   Consider looser perf bounds, or marking them as CI-only.
+
+**Status:**
+- TM2-17 (#41): fix round 2 is green on the branch (bt 1931 passed, 0 failed, 403 warnings). Merge test running.
+- TM2-28 (smoke options + audit.recent) and TM2-31 (walk-forward options): developers working.
+- TM2-29 is next.
