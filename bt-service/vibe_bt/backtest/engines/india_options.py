@@ -88,7 +88,7 @@ def parse_option(symbol: str) -> Optional[OptionSpec]:
         try:
             return OptionSpec(root, date(2000 + int(yy), _MONTHS[mon], int(dd)), float(strike), kind)
         except ValueError:
-            pass
+            return None  # weekly form with an impossible calendar date: no monthly fallback
     m = _YM.match(base)
     if m:
         root, yy, mon, strike, kind = m.groups()
@@ -227,8 +227,12 @@ class IndiaOptionsEngine(FuturesBaseEngine):
             if len(hist):
                 s = float(hist.iloc[-1])
                 return max(s - spec.strike, 0.0) if spec.kind == "CE" else max(spec.strike - s, 0.0)
-        frame = data_map[code]
-        return float(frame.loc[:timestamp, "close"].iloc[-1])
+        # no underlying: last VALID option close up to and including the expiry bar (no look-ahead)
+        closes = pd.to_numeric(data_map[code].loc[:timestamp, "close"], errors="coerce").dropna()
+        if len(closes):
+            return float(closes.iloc[-1])
+        logger.warning("%s: no valid premium at expiry %s and no underlying series; settling at 0", code, spec.expiry)
+        return 0.0
 
     def settle_expired(self, host, data_map, timestamp, codes) -> None:
         """Close expired options on ``host`` (this engine, or the composite owning the book)."""
