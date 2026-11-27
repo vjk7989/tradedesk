@@ -191,6 +191,13 @@ class BacktestConfigSchema(BaseModel):
     @classmethod
     def valid_interval(cls, v: str) -> str:
         if v not in _VALID_INTERVALS:
+            # Case-insensitive only for the unambiguous hour/day/week suffixes
+            # (``1h`` -> ``1H``). ``m`` (minute) vs ``M`` (month) are
+            # case-distinct, so they are never folded: ``5M`` stays rejected.
+            if isinstance(v, str) and v[-1:] in {"h", "d", "w"}:
+                canon = v[:-1] + v[-1].upper()
+                if canon in _VALID_INTERVALS:
+                    return canon
             raise ValueError(f"unsupported interval {v!r}, must be one of {_VALID_INTERVALS}")
         return v
 
