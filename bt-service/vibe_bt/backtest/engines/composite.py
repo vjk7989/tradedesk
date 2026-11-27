@@ -51,6 +51,9 @@ def _build_rule_engines(config: dict, codes: List[str]) -> Dict[str, BaseEngine]
         elif market == "india_equity":
             from vibe_bt.backtest.engines.india_equity import IndiaEquityEngine
             engines["india_equity"] = IndiaEquityEngine(config)
+        elif market == "india_fno":
+            from vibe_bt.backtest.engines.india_fno import IndiaFnoEngine
+            engines["india_fno"] = IndiaFnoEngine(config)
         elif market == "kr_equity":
             from vibe_bt.backtest.engines.korea_equity import KoreaEquityEngine
             engines["kr_equity"] = KoreaEquityEngine(config)

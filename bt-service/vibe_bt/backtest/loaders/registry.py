@@ -224,6 +224,7 @@ FALLBACK_CHAINS: dict[str, list[str]] = {
         "local",
     ],
     "india_equity": ["openalgo", "yahoo", "yfinance", "india_broker", "local"],
+    "india_fno": ["openalgo", "local"],
     "jp_equity": ["yahoo", "yfinance", "local"],
     "kr_equity": ["pykrx", "yahoo", "yfinance", "local"],
     # TSX (.TO) / TSX Venture (.V): direct Yahoo first, SDK fallback second.

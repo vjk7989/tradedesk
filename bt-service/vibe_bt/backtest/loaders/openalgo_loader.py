@@ -99,7 +99,7 @@ class DataLoader:
     """OpenAlgo REST history adapter."""
 
     name = "openalgo"
-    markets = {"india_equity", "crypto"}
+    markets = {"india_equity", "india_fno", "crypto"}
     requires_auth = True
 
     def __init__(self) -> None:
