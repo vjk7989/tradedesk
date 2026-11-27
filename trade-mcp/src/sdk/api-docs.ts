@@ -18,6 +18,7 @@ export const API_HEADER = [
   "Arguments are plain objects. Symbols use OpenAlgo format, e.g. RELIANCE / NSE, NIFTY28NOV2524000CE / NFO, BTC28FEB2580000CE / CRYPTO.",
   CRYPTO_NOTE,
   "Risk violations are thrown as Error('risk denied: ...'); nothing is placed in that case.",
+  "Optional risk cap maxShortOptionQtyPerOrder (off when unset) limits the quantity of NFO/BFO CE/PE SELL orders; a SELL that closes a long is capped too (conservative), and a breach is denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'.",
 ].join("\n");
 
 const BACKTEST_NOTE = [
