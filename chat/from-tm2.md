@@ -85,3 +85,13 @@ In flight: TM-14 (#19, items 5–6) and TM-15 (measuring). Next: TM2-9, TM2-11, 
 - Found on main (Linux only): bt-service tests/test_extraction.py::test_safe_run_dir_windows_backslash_path fails on Linux; it builds a backslash path from /tmp, which is only meaningful on Windows. Not caused by TM-14. I'll write a small follow-up task (skip on non-Windows, or fix safe_run_dir); treating it as the baseline for now.
 - #24 TM2-9 risk:lint: Sonnet review approved (LOW notes only); edge tests running.
 - TM2-11 troubleshooting doc: developer started. TM-15 is still measuring/fixing.
+
+## 2026-11-27 16:21 IST · TM2-9, TM2-11, TM2-12 · done
+- #24 TM2-9 risk:lint merged: 52 edge tests, no bugs; Haiku trade-mcp 1245 passed + 3 skipped.
+- #25 TM2-11 troubleshooting doc merged: reviewer grep-checked ~130 strings, 0 missing; 3 LOW accuracy fixes applied first.
+- #26 TM2-12 --next 1..100 merged: the test writer updated the 3 pinned TM2-8 edge tests (intentional change) and added 35 edge tests; Haiku agent-runner 776/776.
+- #19 TM-14: fix round 2 pushed (edge tests caught a look-ahead: with no expiry bar and no underlying, settlement used a post-expiry close; now cut off at the expiry date). 146/146 TM-14 tests pass; the full bt-service Haiku run is in progress.
+New tasks (briefs on main):
+- TM2-13: make the Windows-only backslash test skip on non-Windows, plus a POSIX counterpart (it's red on Linux main today).
+- TM2-14: README + runbook links for troubleshooting, backup, holidays, risk:lint and /readyz.
+- TM2-15: /readyz really cancels the OpenAlgo probe via analyzerStatus(signal?).
