@@ -21,7 +21,7 @@ async function main(): Promise<void> {
     stateFile: path.join(cfg.dataDir, "risk-state.json"),
   });
   const bt = cfg.btUrl && cfg.btToken ? new BacktestClient({ baseUrl: cfg.btUrl, token: cfg.btToken }) : undefined;
-  const deps = { cfg, client, bt, risk, auditFile: path.join(cfg.dataDir, "audit.jsonl") };
+  const deps = { cfg, client, bt, risk, executeTimeoutMs: cfg.executeTimeoutMs, auditFile: path.join(cfg.dataDir, "audit.jsonl") };
 
   if (args.includes("--stdio")) {
     await createMcpServer(deps).connect(new StdioServerTransport());

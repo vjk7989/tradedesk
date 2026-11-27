@@ -54,6 +54,7 @@ export interface Config {
   killSwitchFile: string;
   mode: "paper" | "live";
   risk: RiskConfig;
+  executeTimeoutMs: number;
 }
 
 function req(env: Record<string, string | undefined>, key: string): string {
@@ -92,6 +93,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
   const mode = env.MODE ?? "paper";
   if (mode !== "paper" && mode !== "live") throw new ConfigError('MODE must be "paper" or "live"');
+
+  // EXECUTE_TIMEOUT_MS: trimmed, digits only, else default; clamped to [5000, 900000].
+  const etRaw = (env.EXECUTE_TIMEOUT_MS ?? "").trim();
+  const executeTimeoutMs = /^\d+$/.test(etRaw) ? Math.min(900000, Math.max(5000, Number(etRaw))) : 60000;
 
   const dataDir = env.DATA_DIR || "./runtime";
   const killSwitchFile = env.KILL_SWITCH_FILE || path.join(dataDir, "KILL");
@@ -140,5 +145,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     killSwitchFile,
     mode,
     risk: parsed.data,
+    executeTimeoutMs,
   };
 }
