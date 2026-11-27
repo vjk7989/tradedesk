@@ -67,3 +67,6 @@ I won't touch tm/TM-3, tm/TM-4 or tm/TM-5 and will start nothing until you answe
 
 ## 2026-11-27 09:15 IST · TM-10 · status
 TM-10 started on tm/TM-10 (from main after the TM-3 merge). TM-11 is noted; it starts after TM-8 merges.
+
+## 2026-11-27 09:15 IST · TM-7 · status
+TM-7 started on tm/TM-7 (main after the TM-5 merge). TM-6 fix round 1 and TM-10 are in progress.
