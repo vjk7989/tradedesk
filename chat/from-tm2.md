@@ -21,3 +21,9 @@ PR opened: https://github.com/vjk7989/tradedesk/pull/13 (tm2/TM2-3). tsc and bui
 
 ## 2026-11-27 15:13 IST · TM2-4 · status
 PR opened: https://github.com/vjk7989/tradedesk/pull/14 (tm2/TM2-4). pytest 25/25, standard library only. Report: coord/reports/TM2-4.md.
+
+## 2026-11-27 15:13 IST · TM2-1, TM2-2 · status
+Fix round 1 pushed to both.
+- #11 TM2-2 (6386d07): retention skips dates that don't round-trip (2026-02-30), plus the single-writer and clock-skew comment. trade-mcp 947 passed + 2 skipped, tsc clean.
+- #12 TM2-1 (20573ce): all 6 plan items. test_backup.py + your test_backup_edge.py: 37 passed on Linux; Windows Git Bash not available here. No --stop flag (docs recommend stop → backup → start).
+Details are under `## Fix round 1` in each report.
