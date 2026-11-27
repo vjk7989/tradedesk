@@ -1,8 +1,20 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { runTask } from "./cli.js";
-import { executeJob, parseJobs, type Job } from "./jobs.js";
-import { runScheduler } from "./scheduler.js";
+import { executeJob, OFFSET_MIN, parseJobs, type Job } from "./jobs.js";
+import { nextRun, runScheduler } from "./scheduler.js";
+
+// Backend -> API key env (CLI backends need none).
+const KEY_ENV: Record<string, string> = {
+  api: "ANTHROPIC_API_KEY",
+  "api-openai": "OPENAI_API_KEY",
+  "api-gemini": "GEMINI_API_KEY",
+};
+const state = (name: string) => (process.env[name]?.trim() ? "set" : "missing");
+
+/** Wall clock in the job tz, e.g. "2026-11-30 08:45 Asia/Kolkata". */
+const wall = (d: Date, tz: Job["schedule"]["tz"]) =>
+  new Date(d.getTime() + OFFSET_MIN[tz] * 60000).toISOString().slice(0, 16).replace("T", " ") + " " + tz;
 
 const run = (job: Job) =>
   runTask({ backend: job.backend, prompt: job.prompt, mcp: job.mcp, timeoutMs: job.timeoutMs });
@@ -29,8 +41,57 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     return i >= 0 ? args[i + 1] : undefined;
   };
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>]");
+    console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>] [--check] [--next N]");
     return;
+  }
+  const check = args.includes("--check");
+  const nextIdx = args.indexOf("--next");
+  if (check || nextIdx >= 0) {
+    if (check && nextIdx >= 0) {
+      console.error("--check and --next cannot be combined");
+      return exit(1);
+    }
+    let n = 5;
+    if (nextIdx >= 0) {
+      const a = args[nextIdx + 1];
+      if (a !== undefined && !a.startsWith("--")) {
+        if (!/^\d+$/.test(a) || Number(a) < 1) {
+          console.error(`--next N must be a positive integer, got: ${a}`);
+          return exit(1);
+        }
+        n = Number(a);
+      }
+    }
+    const file = val("--jobs") ?? "jobs.json";
+    let jobs: Job[];
+    try {
+      jobs = parseJobs(JSON.parse(readFileSync(file, "utf8")));
+    } catch (e) {
+      console.error(e instanceof Error ? e.message : String(e));
+      return exit(1);
+    }
+    if (check) {
+      let ok = true;
+      console.log(["job", "backend", "mcp token env", "api key env"].join("\t"));
+      for (const j of jobs) {
+        const tok = state(j.mcp.tokenEnv);
+        const keyName = KEY_ENV[j.backend];
+        const key = keyName ? state(keyName) : undefined;
+        if (tok !== "set" || key === "missing") ok = false;
+        console.log([j.name, j.backend, `${j.mcp.tokenEnv}: ${tok}`, keyName ? `${keyName}: ${key}` : "-"].join("\t"));
+      }
+      return exit(ok ? 0 : 1);
+    }
+    const start = new Date();
+    for (const j of jobs) {
+      console.log(j.name);
+      let t = start;
+      for (let i = 0; i < n; i++) {
+        t = nextRun(j.schedule, t);
+        console.log(`  ${wall(t, j.schedule.tz)}  ${t.toISOString()}`);
+      }
+    }
+    return exit(0);
   }
   const jobs = parseJobs(JSON.parse(readFileSync(val("--jobs") ?? "jobs.json", "utf8")));
   const once = val("--once");
