@@ -4,8 +4,8 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { validMcpSpec } from "./cli.js";
 import type { McpSpec, RunResult } from "./types.js";
 
-/** Model used when GEMINI_MODEL is unset: the model recommended for new projects at https://ai.google.dev/gemini-api/docs/models (ids per aistudio.google.com/docs/models). */
-export const DEFAULT_GEMINI_MODEL = "gemini-4-hydrogen";
+/** Model used when GEMINI_MODEL is unset: the stable (non-preview) general Flash model listed at https://ai.google.dev/gemini-api/docs/models (aistudio.google.com/docs/models). */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
 /** A connected MCP client wrapped as a Gemini callable tool. */
 export interface GeminiMcpHandle {
@@ -77,7 +77,14 @@ export async function runGeminiTask(opts: GeminiOptions): Promise<RunResult> {
   let toolError: string | undefined;
   try {
     const connect = opts.connectMcp ?? defaultConnectMcp;
-    handle = await raceAbort(signal, connect(mcp.url, { Authorization: `Bearer ${token}` }));
+    const connecting = connect(mcp.url, { Authorization: `Bearer ${token}` });
+    try {
+      handle = await raceAbort(signal, connecting);
+    } catch (e) {
+      // Lost the race (timeout/abort): a client that connects late must still be closed.
+      connecting.then((h) => h.close()).catch(() => {});
+      throw e;
+    }
     const inner = handle.tool;
     const tool: CallableTool = {
       tool: () => inner.tool(),
