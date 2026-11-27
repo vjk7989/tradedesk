@@ -2,6 +2,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { timingSafeEqual } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer, type ServerDeps } from "./server.js";
+import { loadOAuthConfig } from "./oauth/config.js";
+import { createOAuth, OAUTH_PATHS, type OAuthRuntime } from "./oauth/provider.js";
 
 const MAX_BODY = 1024 * 1024;
 
@@ -38,13 +40,42 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-export function createHttpServer(deps: ServerDeps): Server {
+export function createHttpServer(
+  deps: ServerDeps,
+  oauthCfg = loadOAuthConfig(process.env),
+): Server {
+  const oauth: OAuthRuntime | undefined = oauthCfg ? createOAuth(oauthCfg) : undefined;
+
+  async function allowed(req: IncomingMessage): Promise<boolean> {
+    if (authorized(req, deps.cfg.mcpToken)) return true;
+    if (!oauth) return false;
+    const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? "");
+    if (!m) return false;
+    try {
+      await oauth.provider.verifyAccessToken(m[1]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   return createServer(async (req, res) => {
     try {
       const path = (req.url ?? "").split("?")[0];
+      if (oauth && OAUTH_PATHS.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p))) {
+        oauth.app(req, res);
+        return;
+      }
       if (path === "/healthz" && req.method === "GET") return json(res, 200, { ok: true, mode: deps.cfg.mode });
       if (path !== "/mcp") return json(res, 404, { error: "not found" });
-      if (!authorized(req, deps.cfg.mcpToken)) return json(res, 401, { error: "unauthorized" });
+      if (!(await allowed(req))) {
+        return json(
+          res,
+          401,
+          { error: "unauthorized" },
+          oauth ? { "WWW-Authenticate": oauth.wwwAuthenticate } : {},
+        );
+      }
       if (req.method !== "POST") return json(res, 405, { error: "method not allowed" }, { Allow: "POST" });
 
       let raw: string;
