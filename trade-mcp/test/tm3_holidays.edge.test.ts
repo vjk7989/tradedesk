@@ -317,13 +317,73 @@ describe("SDK bindings on a holiday", () => {
   });
 });
 
-describe("search / API docs unaffected", () => {
-  it("no doc entry or binding for holidays (config only, ADR-5)", () => {
-    const all = [API_HEADER, ...API_DOCS.map((d) => `${d.ns}.${d.name} ${d.signature} ${d.doc}`)].join("\n");
-    expect(all).not.toMatch(/holiday/i);
-    expect(API_DOCS.some((d) => /holiday/i.test(d.name))).toBe(false);
+// Owner ruling (O-7): ADR-5 forbids the sandbox CHANGING limits or holidays. A read-only holiday summary in
+// risk.status is allowed. These pins assert that intent instead of "holidays are never mentioned".
+describe("search / API docs: holidays and limits are read-only (ADR-5)", () => {
+  const WRITE_VERB = /^(set|update|add|remove|delete|del|put|patch|edit|change|modify|clear|reset|write|create|upsert|toggle|enable|disable)/i;
+  const LIMITS_TEXT = /holiday|limit/i;
+  const text = (d: { ns: string; name: string; signature: string; doc: string }) => `${d.ns}.${d.name} ${d.signature} ${d.doc}`;
+
+  it("no API entry can set or modify holidays or limits (no set*/update*/add*... name, no holiday/limit ns or name)", () => {
+    for (const d of API_DOCS) {
+      if (d.ns !== "trade") expect(d.name, `${d.ns}.${d.name}`).not.toMatch(WRITE_VERB);
+      expect(d.ns, `${d.ns}.${d.name}`).not.toMatch(LIMITS_TEXT);
+      expect(d.name, `${d.ns}.${d.name}`).not.toMatch(LIMITS_TEXT);
+    }
+    // trade.* write orders, never config: no entry takes a holiday or risk-limit key as an argument
+    // (priceType 'LIMIT' is an order type, not a risk limit, so match argument keys only)
+    for (const d of API_DOCS) {
+      const args = d.signature.slice(d.signature.indexOf("("), d.signature.indexOf("):"));
+      expect(args, `${d.ns}.${d.name}`).not.toMatch(/holiday|\bmax[A-Z]\w*|allowed(Exchanges|Products)|symbol(Allow|Deny)|contractValues|killSwitch/);
+    }
+    // the only risk entry is the read-only status()
+    expect(API_DOCS.filter((d) => d.ns === "risk").map((d) => d.name)).toEqual(["status"]);
+    expect(API_DOCS.find((d) => d.ns === "risk")!.signature).toMatch(/^status\(\):/); // takes no arguments
   });
-  it("searching 'holiday' finds no API entry", () => {
-    expect(searchApi("holiday")).toContain("No API entries match");
+
+  it("the WRITE_VERB guard itself catches the names it must forbid", () => {
+    for (const n of ["setHolidays", "updateLimits", "addHoliday", "removeHoliday", "resetLimits", "SetLimit"]) expect(n).toMatch(WRITE_VERB);
+    for (const n of ["status", "recent", "quote", "holdings", "walkForward"]) expect(n).not.toMatch(WRITE_VERB);
+  });
+
+  it("any doc mention of holidays is in the read-only risk.status entry only (not the header, not another entry)", () => {
+    expect(API_HEADER).not.toMatch(/holiday/i);
+    const mentions = API_DOCS.filter((d) => /holiday/i.test(text(d))).map((d) => `${d.ns}.${d.name}`);
+    expect(mentions.every((k) => k === "risk.status")).toBe(true);
+  });
+
+  it("searching 'holiday' finds only risk.status, in both scopes, and no Rules block", () => {
+    for (const scope of ["full", "readonly"] as const) {
+      const out = searchApi("holiday", scope);
+      expect(out).not.toContain("// Rules:");
+      const fns = [...out.matchAll(/function (\w+)\(/g)].map((m) => m[1]);
+      expect(fns.every((f) => f === "status")).toBe(true);
+      if (fns.length) expect(out).toContain("declare namespace risk {");
+      else expect(out).toContain("No API entries match");
+    }
+  });
+
+  it("the SDK binding exposes only risk.status (no setter), and it cannot change holidays", async () => {
+    const client = {
+      quotes: vi.fn(async () => ({ status: "success", data: { ltp: 100 } })),
+      analyzerStatus: vi.fn(async () => ({ status: "success", data: { analyze_mode: true } })),
+      pnl: vi.fn(async () => ({ status: "success", total_pnl: 0 })),
+    };
+    const risk = baseRisk({ marketHolidays: NSE_26 });
+    const engine = mkEngine(risk, MON_26_10);
+    const cfg = { mode: "paper", risk, killSwitchFile: path.join(dir, "KILL") } as unknown as Config;
+    const b = createBindings({ client: client as any, risk: engine, cfg, auditFile: path.join(dir, "audit.log") }, { id: "r1" });
+    expect(Object.keys(b.risk)).toEqual(["status"]);
+    for (const ns of Object.keys(b)) {
+      for (const fn of Object.keys((b as any)[ns])) {
+        if (ns !== "trade") expect(`${ns}.${fn}`).not.toMatch(/\.(set|update|add|remove|delete|reset)/i);
+      }
+    }
+    expect(await b.risk.status(undefined as never)).toMatchObject({ limits: { marketHolidays: { NSE: 1, MCX: 0, nextNSE: "2026-01-26" } } });
+    // passing args to status() does not change anything either
+    await (b.risk.status as (a?: unknown) => Promise<unknown>)({ marketHolidays: { NSE: [] }, maxQtyPerOrder: 1e9 });
+    expect(engine.checkOrder(ord("NSE"), { ordersThisRun: 0 }).allow).toBe(false);
+    expect(engine.status().limits.maxQtyPerOrder).toBe(100);
+    expect(engine.status().limits.marketHolidays).toEqual({ NSE: 1, MCX: 0, nextNSE: "2026-01-26" });
   });
 });
