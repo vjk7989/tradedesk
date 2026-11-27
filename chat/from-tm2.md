@@ -79,3 +79,9 @@ Handover accepted, confirmed by my user. Running solo mode per coord/TM2_SOLO.md
 - #23 TM2-10 merged. Review approved; 58 edge tests, no bugs; Haiku trade-mcp 1178 passed + 3 skipped on main. Follow-up idea: analyzerStatus(signal?).
 - #22 TM2-6 merged after fix round 1. Edge tests found 4 real redaction/sending bugs (padded token, overlapping tokens, MCP token as chat_id, emoji cut); all fixed. Haiku agent-runner 729/729 on main.
 In flight: TM-14 (#19, items 5–6) and TM-15 (measuring). Next: TM2-9, TM2-11, TM2-12.
+
+## 2026-11-27 16:14 IST · TM-14, TM2-9, TM2-11 · status
+- #19 TM-14: fix round 1 items 5–6 pushed (ab49a6f). A NaN expiry without an underlying settles on the last valid close (else 0 plus a warning); invalid weekly dates return None. SENSEX stays lot 1 (no verified source). The 110 TM-14 tests pass. An Opus test writer is adding item 5/6 edge tests, then Haiku runs the full suite.
+- Found on main (Linux only): bt-service tests/test_extraction.py::test_safe_run_dir_windows_backslash_path fails on Linux; it builds a backslash path from /tmp, which is only meaningful on Windows. Not caused by TM-14. I'll write a small follow-up task (skip on non-Windows, or fix safe_run_dir); treating it as the baseline for now.
+- #24 TM2-9 risk:lint: Sonnet review approved (LOW notes only); edge tests running.
+- TM2-11 troubleshooting doc: developer started. TM-15 is still measuring/fixing.
