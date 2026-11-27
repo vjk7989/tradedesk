@@ -290,3 +290,31 @@ Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfi
   Each splits the developer's source files from the test writer's test files.
 - **P3-C CI leg:** please do the .github part (a temporary pandas-3 leg for bt-service), or OK me to add it in TM2-43. P3-C also removes TM2-33's pandas-major Dependabot ignore. OK?
 - **In flight:** TM2-35 (oauth:revoke-all), TM2-36 (--history), TM2-40 (ccxt floor) and the TM2-31 test-writer rework. Next: TM2-41/42, then TM2-38/39, then TM2-37 after #57.
+
+## 2026-11-28 07:05 IST · merges · proposals · questions
+**Merged since my last post:**
+- **#60 TM2-33:** pandas-major ignore.
+- **#61 TM2-32:** Rules ranking.
+- **#62 TM2-34:** pandas 3 report.
+- **#63 TM2-31:** walk-forward over options. Tests-only. Test-writer rework: discriminating params, a perturbation no-look-ahead test, runtime 354s → ~50s.
+- **#64 TM2-36:** `--history`. Edge tests found 3 real bugs, all fixed:
+  - an error-text line `- status: ok` spoofed a failed run as ok;
+  - unredacted job names and paths;
+  - full-file reads. It now reads 4 KiB at most and only regular files (no symlinks or FIFOs).
+- **#66 TM2-35:** `oauth:revoke-all`. Edge tests **proved that revoking while trade-mcp runs is undone**: any persist re-writes the old tokens, including an unauthenticated /authorize view. The CLI and docs/vps-runbook.md §13 now give only stop → `docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force` → start. Also: strict args, a wrong-shape store guard, and exit codes 0/1/2/3.
+- **#67 TM2-40:** `ccxt>=4.5.94`. Locked with uv 0.9.26; `revision = 3` kept.
+- **#51:** genai 3.6.1. #52 is closed.
+- **Doc commit:** bt-service/README.md with your uv.lock rule. You said to put it in TM2-40, which had already merged, so it went in as a doc-only commit.
+
+**In flight:**
+- TM2-41 (#69, P3-A): review approved; the test writer is updating the 23 pandas-3 test-side failures.
+- TM2-38 (#70): review approved; the test writer is updating 2 pins.
+- TM2-42 (P3-B): developer working.
+- TM2-37: test writer measuring under load.
+
+**Proposals and notes (please confirm):**
+1. **TM2-44: central ns normaliser** (needed before TM2-43 lifts the pin). The TM2-41 review found that under pandas 3, ~20 loaders still return `us` indexes: ccxt's OHLCV index, yfinance, yahoo, india_broker, akshare, alphavantage and more. Only finnhub casts. Instead of per-loader edits, add one ns normalisation in the shared load path (the registry/base fetch wrapper), with tz preserved. TM2-42 also makes the engine's int64 views unit-explicit, so mixing is safe there regardless. OK to brief TM2-44?
+2. **TM2-39 scope +1 line.** The time-budget returns (walkforward.py ~123/149) return `folds` but drop the collected `warnings`. TM2-38's new failure returns include them. I'd fold "add `warnings` to both budget returns" into TM2-39, which edits the same file and is about warnings. OK?
+3. **For your api-docs (owner-side), after #70:** add one sentence to WALKFORWARD_NOTE: "on ok:false, `folds` holds only the folds completed before the failure (possibly empty); summary and oosEquity are empty; check ok/error."
+4. **Revoke hardening (follow-up, server-side, yours or mine):** have trade-mcp hold a DATA_DIR lock or pid file that the CLI checks, so `--force` cannot be run against a live server by mistake.
+5. **Load flake:** your O-8 test "JSON.parse of growing chunks -> memory error…" times out (~55s) in the full trade-mcp suite on this machine, **on plain main too**. CI is green. TM2-37's test writer is recording its loaded timing for you.
