@@ -94,10 +94,10 @@ def test_24x7_weekend_bars_present_and_traded(env):
     res = run(SMA)
     assert res["ok"], res.get("error")
     days = pd.to_datetime([p["date"] for p in res["equity"]])
-    assert (days.dayofweek >= 5).sum() > 40  # weekends are in the equity curve
+    assert (days.day_of_week >= 5).sum() > 40  # weekends are in the equity curve
     assert res["trades"], "crossover should trade"
     trade_days = pd.to_datetime([str(t["timestamp"])[:10] for t in res["trades"]])
-    assert (trade_days.dayofweek >= 5).any()  # at least one fill on a weekend
+    assert (trade_days.day_of_week >= 5).any()  # at least one fill on a weekend
     finite_metrics(res)
 
 
