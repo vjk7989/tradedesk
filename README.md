@@ -51,6 +51,8 @@ uv run --with pytest --with pyyaml pytest -q deploy/test_deploy.py
 
 CI: `.github/workflows/ci.yml` runs all of the above on every PR and push to main.
 
+Dependabot (`.github/dependabot.yml`) opens weekly PRs for pinned actions and lockfiles; each runs CI and is reviewed and merged by hand (no auto-merge).
+
 Local smoke test (fake OpenAlgo, no broker needed): `node e2e/smoke.mjs`. See [e2e/README.md](e2e/README.md).
 
 - VPS deployment: [docs/vps-runbook.md](docs/vps-runbook.md). Use your own `<DOMAIN>`.
