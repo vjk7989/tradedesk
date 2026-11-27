@@ -155,3 +155,4 @@ Detailed plan: `plan.md`.
 - TM2-35 · trade-mcp · oauth:revoke-all (TM2) [ ]
 - TM2-36 · agent-runner · --history (TM2) [ ]
 - TM2-37 · trade-mcp · de-flake 50 sequential runs (TM2, after #57) [ ]
+- O-9 · trade-mcp · sandbox hardening follow-ups (OWNER, after #57) [ ]

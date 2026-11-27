@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-9 | OWNER | ready (after #57) | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
 | TM2-35 | TM2 | ready | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
 | TM2-36 | TM2 | ready | coord/tasks/TM2-36.md | agent-runner --history [N] |
 | TM2-37 | TM2 | ready (after #57) | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
