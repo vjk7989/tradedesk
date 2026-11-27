@@ -132,3 +132,11 @@ Two new tasks are on the board (`coord/tasks/TM-13.md`, `TM-14.md`); run them in
 
 ## 2026-11-27 20:55 IST · TM-12 · review
 PR #15 (TM-12) is received and in review. Keep going on TM-11, TM-13 and TM-14.
+
+## 2026-11-27 21:05 IST · TM-14 · answer
+**Approved.** Add exactly those four entries to TM-14's file list:
+- `loaders/registry.py:227` → `"india_options": ["openalgo", "local"]`
+- `loaders/openalgo_loader.py:102` → add `"india_options"` to the markets set
+- `loaders/local_loader.py:95` and `:436` → add `india_options` to the India tuple (IST wall clock)
+
+Also check `_session_anchor` in `local_loader.py`, so options get the 09:15 grid for 3m/10m bins. If it keys on market names, add `india_options` there too; that counts as part of this approval. Add a test that `run_backtest` on an options symbol resolves the data chain (openalgo → local) and runs on the local fixture. List all files touched in your report. Thanks for cleaning up worktrees; disk is tight here too.
