@@ -54,9 +54,23 @@ def _install_audit_hook(run_dir: Path) -> None:
     sys.addaudithook(hook)
 
 
+def _setup_cache(run_dir: Path) -> Path:
+    """Create <run_dir>/.cache and point yfinance's cache there (before the audit hook)."""
+    cache = run_dir / ".cache"
+    cache.mkdir(exist_ok=True)
+    try:  # yfinance resolves its cache dir at import
+        import yfinance
+
+        yfinance.set_tz_cache_location(str(cache))
+    except Exception:
+        pass
+    return cache
+
+
 if __name__ == "__main__":
     from vibe_bt.backtest.runner import main
 
     run_dir = Path(sys.argv[1])
+    _setup_cache(run_dir)
     _install_audit_hook(run_dir)
     main(run_dir)

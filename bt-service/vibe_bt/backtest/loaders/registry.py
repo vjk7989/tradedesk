@@ -121,6 +121,7 @@ def _ensure_registered() -> None:
             "vibe_bt.backtest.loaders.tiingo_loader",
             "vibe_bt.backtest.loaders.fmp_loader",
             "vibe_bt.backtest.loaders.gildata_loader",
+            "vibe_bt.backtest.loaders.openalgo_loader",
             "vibe_bt.backtest.loaders.india_broker_loader",
             "vibe_bt.backtest.loaders.pykrx_loader",
             "vibe_bt.backtest.loaders.longbridge",
@@ -222,7 +223,7 @@ FALLBACK_CHAINS: dict[str, list[str]] = {
         "longbridge",
         "local",
     ],
-    "india_equity": ["yahoo", "yfinance", "india_broker", "local"],
+    "india_equity": ["openalgo", "yahoo", "yfinance", "india_broker", "local"],
     "jp_equity": ["yahoo", "yfinance", "local"],
     "kr_equity": ["pykrx", "yahoo", "yfinance", "local"],
     # TSX (.TO) / TSX Venture (.V): direct Yahoo first, SDK fallback second.
@@ -245,7 +246,7 @@ FALLBACK_CHAINS: dict[str, list[str]] = {
     # (.MI), SIX (.SW) and Warsaw (.WA). Yahoo carries each suffix verbatim.
     "europe_equity": ["yahoo", "yfinance", "local"],
     # OKX first (native), then dedicated Binance, then generic CCXT / Yahoo.
-    "crypto": ["okx", "binance", "ccxt", "yfinance", "local"],
+    "crypto": ["openalgo", "okx", "binance", "ccxt", "yfinance", "local"],
     # tushare led this chain while implementing no futures endpoint at all
     # (#1395): ``resolve_loader`` walks FALLBACK_CHAINS and never consults a
     # loader's ``markets`` set, so trimming that set alone would have left
