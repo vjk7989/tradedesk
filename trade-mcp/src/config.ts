@@ -32,10 +32,7 @@ const riskSchema = z
     maxDailyLoss: posNum.default(5000),
     maxOrdersPerRun: posInt.default(5),
     contractValues: z.record(z.string(), posNum).default({}),
-    marketHolidays: z
-      .record(z.string(), z.array(isoDate))
-      .refine((m) => Object.keys(m).every((k) => k === "NSE" || k === "MCX"))
-      .default({}),
+    marketHolidays: z.object({ NSE: z.array(isoDate).optional(), MCX: z.array(isoDate).optional() }).strict().default({}),
   })
   .strict();
 
@@ -107,11 +104,16 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       throw new ConfigError("RISK_CONFIG file is unreadable or not valid JSON");
     }
   }
+  // zod's record silently drops a "__proto__" key; reject such keys up front (names the field only).
+  const rawCv = (riskRaw as { contractValues?: unknown } | null)?.contractValues;
+  if (typeof rawCv === "object" && rawCv !== null && Object.keys(rawCv).some((k) => k === "__proto__" || k === "constructor" || k === "prototype")) {
+    throw new ConfigError("RISK_CONFIG: invalid field contractValues");
+  }
   const parsed = riskSchema.safeParse(riskRaw);
   if (!parsed.success) {
-    const unknown = parsed.error.issues.some((i) => i.code === "unrecognized_keys");
+    const unknown = parsed.error.issues.some((i) => i.code === "unrecognized_keys" && i.path.length === 0);
     const fields = parsed.error.issues
-      .filter((i) => i.code !== "unrecognized_keys")
+      .filter((i) => !(i.code === "unrecognized_keys" && i.path.length === 0))
       .map((i) => `${i.path.length ? String(i.path[0]) : "(root)"} (${i.code})`);
     const parts = [...(fields.length ? [`invalid field ${fields.join(", ")}`] : []), ...(unknown ? ["unknown key(s) present"] : [])];
     throw new ConfigError(`RISK_CONFIG: ${parts.join("; ")}`);
