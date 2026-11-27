@@ -71,6 +71,7 @@ if __name__ == "__main__":
     from vibe_bt.backtest.runner import main
 
     run_dir = Path(sys.argv[1])
+    sys.dont_write_bytecode = True  # lazy imports must not write __pycache__ outside run_dir (audit hook blocks it)
     _setup_cache(run_dir)
     _install_audit_hook(run_dir)
     main(run_dir)
