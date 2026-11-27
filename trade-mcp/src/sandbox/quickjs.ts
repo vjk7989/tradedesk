@@ -30,6 +30,9 @@ const MAX_ARG_BYTES = 1024 * 1024;
 const MAX_IN_FLIGHT = 64;
 // Binding results are copied into the guest: cap them (also bounded by memoryBytes/4, see resultCap).
 const MAX_RESULT_BYTES = 4 * 1024 * 1024;
+// Only parses of at least this many chars pay for the host check (small ones are cheap, and loops of them
+// run enough bytecodes for the interrupt handler to see the ceiling).
+const GUARD_MIN_CHARS = 16 * 1024;
 const MEMORY_ERROR = "memory limit exceeded";
 // Binary-buffer surface that trading scripts never need (shared memory, raw views, wasm).
 const REMOVED_GLOBALS = [
@@ -141,9 +144,31 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     // replace it, and called exactly once per call inside the guest (under the guest memory limit), so
     // toJSON/getters/Proxies run once. Returns the guest string, undefined, or null when not serialisable.
     guestSize = vm.unwrapResult(
-      vm.evalCode(`(() => { const S = JSON.stringify; return (a) => { try { return S(a); } catch (e) { return null; } }; })()`),
+      vm.evalCode(`(() => { const S = JSON.stringify, IE = InternalError; return (a) => { try { return S(a); } catch (e) { if (e instanceof IE) throw e; return null; } }; })()`),
     );
     const snapFn = guestSize;
+    // JSON.parse is one native call: it allocates many MB of transient host memory without running the
+    // bytecodes that drive the interrupt handler (QuickJS polls it every ~10k back-edges/calls), so a loop
+    // of large parses overshoots the WASM ceiling unseen. Wrap it with a host check after each call; once the
+    // ceiling is exceeded it throws (sticky), and the interrupt handler ends the run at its next poll.
+    const guard = vm.newFunction("guard", () => {
+      checkCeiling();
+      return memoryExceeded ? vm.true : vm.false;
+    });
+    try {
+      const install = vm.unwrapResult(
+        vm.evalCode(
+          `(guard) => { const P = JSON.parse; Object.defineProperty(JSON, "parse", { value: function parse(text, reviver) { const v = P(text, reviver); if (typeof text === \"string\" && text.length > ${GUARD_MIN_CHARS} && guard()) throw new Error(${JSON.stringify(MEMORY_ERROR)}); return v; }, writable: true, configurable: true }); }`,
+        ),
+      );
+      try {
+        vm.unwrapResult(vm.callFunction(install, vm.undefined, guard)).dispose();
+      } finally {
+        install.dispose();
+      }
+    } finally {
+      guard.dispose();
+    }
     const fromJson = (json: string | undefined): QuickJSHandle => {
       if (json === undefined) return vm.undefined;
       const s = vm.newString(json);
