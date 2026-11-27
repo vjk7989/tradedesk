@@ -90,7 +90,18 @@ _OHLCV_AGG = {
 _SESSION_ANCHORED_RULES = {"3min", "10min"}
 
 
-def _resample_to_interval(df: pd.DataFrame, interval: str, symbol: str) -> pd.DataFrame:
+def _session_anchor(symbol: str, market: str | None) -> pd.Timestamp:
+    """Fixed-date origin whose time-of-day is the market session open."""
+    if market in ("india_equity", "india_fno"):
+        if symbol.upper().endswith("@MCX"):
+            return pd.Timestamp("2000-01-03 09:00")
+        return pd.Timestamp("2000-01-03 09:15")
+    return pd.Timestamp("2000-01-03 00:00")
+
+
+def _resample_to_interval(
+    df: pd.DataFrame, interval: str, symbol: str, anchor: pd.Timestamp | None = None
+) -> pd.DataFrame:
     """Resample an OHLCV frame to the requested bar ``interval``.
 
     Local files can hold any native granularity, so a requested interval the
@@ -132,10 +143,12 @@ def _resample_to_interval(df: pd.DataFrame, interval: str, symbol: str) -> pd.Da
 
     if rule in _SESSION_ANCHORED_RULES:
         # 10min does not divide 09:15, so midnight-aligned bins would straddle
-        # the open. Anchor to the first date's earliest bar (session open;
-        # midnight for 24x7 data, so crypto alignment is unchanged).
-        first_day = df.index[df.index.normalize() == df.index[0].normalize()]
-        resampled = df.resample(rule, origin=first_day.min()).agg(_OHLCV_AGG)
+        # the open. Anchor to the market session open on every day, regardless
+        # of where the file starts.
+        if anchor is None:
+            first_day = df.index[df.index.normalize() == df.index[0].normalize()]
+            anchor = first_day.min()
+        resampled = df.resample(rule, origin=anchor).agg(_OHLCV_AGG)
     else:
         resampled = df.resample(rule).agg(_OHLCV_AGG)
     resampled = resampled.dropna(subset=["open", "high", "low", "close"])
@@ -419,7 +432,8 @@ class DataLoader:
 
         from vibe_bt.backtest.engines._market_hooks import matched_market
 
-        wall_tz = "Asia/Kolkata" if matched_market(symbol) in ("india_equity", "india_fno") else "UTC"
+        market = matched_market(symbol)
+        wall_tz = "Asia/Kolkata" if market in ("india_equity", "india_fno") else "UTC"
         if src_type == "duckdb":
             db_path = str(Path(entry.get("db_path", "")).expanduser())
             query = entry.get("query", "").strip()
@@ -448,7 +462,7 @@ class DataLoader:
         df = df[(df.index >= start) & (df.index < end)]
         if df.empty:
             return None
-        df = _resample_to_interval(df, interval, symbol)
+        df = _resample_to_interval(df, interval, symbol, _session_anchor(symbol, market))
         if df.empty:
             return None
         return df
