@@ -229,7 +229,9 @@ def evaluation_start_index(config: Dict[str, Any], dates: pd.DatetimeIndex) -> i
             boundary = boundary.tz_localize(dates.tz)
         elif boundary.tz is not None and dates.tz is None:
             boundary = boundary.tz_localize(None)
-        start = int(np.searchsorted(dates.values, boundary.to_datetime64(), side="left"))
+        start = int(np.searchsorted(
+            dates.as_unit("ns").asi8, boundary.as_unit("ns").value, side="left"
+        ))
         if start >= len(dates):
             raise ValueError(
                 f"evaluation_start_date {eval_start} is after the last loaded bar "
@@ -295,7 +297,7 @@ def _align(
     n_codes = len(codes)
 
     # Use int64 view for O(log n) searchsorted lookups
-    dates_i8 = dates.values.view("i8")
+    dates_i8 = dates.as_unit("ns").asi8
     # Daily panels usually share one calendar. Direct placement avoids two
     # binary-search passes per symbol over an already identical grid. Reuse
     # each irregular calendar's mapping for both prices and shifted signals.
