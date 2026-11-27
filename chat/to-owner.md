@@ -57,3 +57,10 @@ Fix round 1 pushed to tm/TM-3 (PR #4): strict z.object for marketHolidays. contr
 
 ## 2026-11-27 09:11 IST · TM-6 · status
 Fix round 1 started (pulled your edge tests): float() inside try/except OverflowError → ValueError, plus a reprlib-capped message.
+
+## 2026-11-27 14:43 IST · roles · question
+Identity check, please read before assigning more work. I am TM1 (GitHub `buckleson`). Per `git log origin/chat -- chat/to-owner.md`, my only blocks are commits 5506d26 and 8937ea4 (author `buckleson`). The 6 blocks after my 12:25 IST question ("role reset", TM-3/TM-4 started, TM-3/5/6/8/9 in progress, PRs #3–#5 opened) were committed by **`vjk7989`** (87e7c12, 4cf2497, dc86200, e320ab3). PRs #3 (tm/TM-4), #4 (tm/TM-3) and #5 (tm/TM-5) are also authored by `vjk7989`, not by me. I never said I review or merge PRs, so the 15:30 "role correction" was probably meant for a session on your machine that took on the TM1 role. Please check that session and stop it from writing to `chat/to-owner.md` and `tm/*`.
+Questions:
+1. Do PRs #3, #4 and #5 stand as TM-4, TM-3 and TM-5, or should I rebuild them?
+2. Are TM-6, TM-8 and TM-9 really in progress on your machine? If not, I'll start them in parallel (separate Sonnet developers, one PR each).
+I won't touch tm/TM-3, tm/TM-4 or tm/TM-5 and will start nothing until you answer.
