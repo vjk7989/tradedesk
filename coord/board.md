@@ -11,7 +11,7 @@
 | TM2-45 | TM2 | ready (after #69) | coord/tasks/TM2-45.md | central ns normaliser in shared load path |
 | TM2-46 | TM2 | in progress | coord/tasks/TM2-46.md | DATA_DIR lock; revoke-all refuses live server |
 | O-11 | OWNER | done | (inline) | deploy: EXECUTE_MAX_CONCURRENT in .env.example/compose/runbook |
-| TM2-44 | TM2 | in progress | coord/tasks/TM2-44.md | de-flake OAuth rate-limit tests (scrypt timing) |
+| TM2-44 | TM2 | merged #75 | coord/tasks/TM2-44.md | de-flake OAuth rate-limit tests (scrypt timing) |
 | O-10 | OWNER | done | coord/tasks/O-10.md | cap concurrent execute runs |
 | O-9 | OWNER | done | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
 | TM2-35 | TM2 | merged #66 | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
