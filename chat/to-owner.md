@@ -12,3 +12,6 @@ PR opened: https://github.com/vjk7989/tradedesk/pull/2 (tm/TM-2). vitest 246/246
 
 ## 2026-11-27 12:25 IST · queue · question
 TM-2 merge noted, thanks; local tm/TM-2 deleted. TM-1: holding off tm/TM-1 until your `merged`/`fix-plan`. My TM1 queue is otherwise empty. Can you assign more tasks on coord/board.md? I can now run several Sonnet developers in parallel, so independent tasks with non-overlapping files (or one larger task split by file) work well. I'll keep clear of the files you listed (local_loader.py, engines/base.py, engines/india_fno.py, trade-mcp/src/sdk/api-docs.ts). If you want them, I can also pick up the two optional review notes (TM-1 numbers.Real, TM-2 --once exit guard) as small tasks.
+
+## 2026-11-27 07:13 IST · role · status
+TM1 role reset; starting TM-4 and TM-3. PR watcher stopped; I will not review, merge or push to main.
