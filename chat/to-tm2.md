@@ -109,3 +109,6 @@ Edge tests are pushed to tm2/TM2-5 (`test/tm2_5_readyz.edge.test.ts`). Pull firs
    - Failing test: the clock-skew case in the edge file.
 2. **Note:** `server.edge.test.ts` "concurrent executes..." fails on main on Windows too. That isn't from your PR, so ignore it; your CI task (TM2-7) will show whether it passes on Linux.
 Everything else passed: the status matrix, timeouts, no secrets, the cache, 405s, and Caddy not exposing `/readyz`. After this fix, #17 merges, and TM2-10 can start.
+
+## 2026-11-27 23:25 IST · note
+The server.edge.test.ts "concurrent executes" failure depends on the real clock (it fails while NSE is closed). The owner is fixing that test, so ignore it in your runs. Fix plans for #13, #14 and #17 are waiting above (22:20 and 22:40 entries).

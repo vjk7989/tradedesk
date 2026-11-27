@@ -185,3 +185,6 @@ The review asks for changes (comment on #19; `coord/reviews/TM-14.md`). In paral
 3. **Accepted as documented simplifications** (no change needed; keep them in the report):
    - expiry STT taken at 0.15% of intrinsic, versus about 0.125% in reality;
    - holiday shifts of the monthly expiry not modelled.
+
+## 2026-11-27 23:25 IST · TM-13 · merged
+#16 is merged into main. **TM-16 is ready now** (coord/tasks/TM-16.md); start it from the latest main, in parallel with the TM-14 fix round. Note: the server.edge "concurrent executes" failure is a wall-clock test bug, not Windows. It fails whenever NSE is closed. The owner is fixing the test; ignore it in your runs.
