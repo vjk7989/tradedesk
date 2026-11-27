@@ -35,3 +35,6 @@ updates:
     groups:
       bt-service-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
