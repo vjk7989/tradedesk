@@ -6,6 +6,7 @@ Scheduler that runs recurring AI jobs (pre-market brief, end-of-day review, week
 - `claude`, `codex`, `gemini`: the vendor CLI is launched headless with the prompt and the MCP server configured for that run. The CLI must be installed and logged in on the host.
 - `api`: Anthropic Messages API with the MCP connector. Needs `ANTHROPIC_API_KEY` and a public https MCP URL (Anthropic's servers call trade-mcp, so localhost will not work).
 - `api-openai`: OpenAI Responses API with remote MCP. Needs `OPENAI_API_KEY`, optional `OPENAI_MODEL`, and a public https MCP URL.
+- `api-gemini`: Gemini API with a remote MCP tool (in-process Streamable HTTP client). Needs `GEMINI_API_KEY`, optional `GEMINI_MODEL` (default `gemini-3.8-flash`), and an https MCP URL.
 
 ## Read-only recommendation
 Jobs must not trade. Set `MCP_TOKEN_READONLY` on trade-mcp (see `docs/connect-clients.md`) and point each job's `mcp.tokenEnv` at an env var holding that token. The `trade` namespace is then absent server side, whatever the prompt says.
@@ -19,7 +20,7 @@ A JSON array of jobs (see `jobs.example.json`):
 | `schedule.days` | non-empty list of `Mon`..`Sun` |
 | `schedule.time` | `HH:MM`, 24h |
 | `schedule.tz` | `"Asia/Kolkata"` or `"UTC"` |
-| `backend` | `claude`, `codex`, `gemini`, `api` or `api-openai` |
+| `backend` | `claude`, `codex`, `gemini`, `api`, `api-openai` or `api-gemini` |
 | `prompt` | non-empty string |
 | `mcp` | `{ "name", "url", "tokenEnv" }`; `tokenEnv` is the NAME of the env var holding the token, never the token |
 | `timeoutMs` | optional, positive |

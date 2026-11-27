@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.14.0",
+    "@google/genai": "3.3.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "openai": "7.65.0"
   }
 }

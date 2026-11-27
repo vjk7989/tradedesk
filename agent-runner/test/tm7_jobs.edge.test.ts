@@ -17,7 +17,7 @@ const mcp = { name: "tradedesk", url: "https://mcp.example.com/mcp", tokenEnv: T
 const job = (backend: unknown, extra: Record<string, unknown> = {}) => ({
   name: "j", schedule: { days: ["Mon"], time: "08:45", tz: "UTC" }, backend, prompt: "p", mcp, outputDir: "/tmp/out", ...extra,
 });
-const FIVE = "backend must be claude|codex|gemini|api|api-openai";
+const SIX = "backend must be claude|codex|gemini|api|api-openai|api-gemini"; // six backends since TM2-3
 
 afterEach(() => {
   runOpenAiTask.mockReset();
@@ -35,7 +35,7 @@ describe("TM-7 parseJobs backend api-openai (edges)", () => {
     for (const b of ["claude", "codex", "gemini", "api"]) expect(parseJobs([job(b)])[0].backend).toBe(b);
   });
   it.each([["API-OPENAI"], ["Api-OpenAI"], [" api-openai "], ["api-openai "], ["api_openai"], ["openai"], [""], [null], [undefined], [5]])(
-    "rejects backend %j with the five-backend message",
+    "rejects backend %j with the six-backend message",
     (b) => {
       let err: unknown;
       try {
@@ -44,11 +44,11 @@ describe("TM-7 parseJobs backend api-openai (edges)", () => {
         err = e;
       }
       expect(err).toBeInstanceOf(JobsError);
-      expect((err as Error).message).toBe(`jobs[0]: ${FIVE}`);
+      expect((err as Error).message).toBe(`jobs[0]: ${SIX}`);
     },
   );
   it("reports the index of the bad job when an api-openai job precedes it", () => {
-    expect(() => parseJobs([job("api-openai"), { ...job("API-OPENAI"), name: "k" }])).toThrow(`jobs[1]: ${FIVE}`);
+    expect(() => parseJobs([job("api-openai"), { ...job("API-OPENAI"), name: "k" }])).toThrow(`jobs[1]: ${SIX}`);
   });
 });
 
