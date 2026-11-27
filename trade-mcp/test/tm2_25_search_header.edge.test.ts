@@ -112,15 +112,19 @@ describe("TM2-25 edge: Rules block shape", () => {
   });
 
   // TM2-32 AC change (flipped): the cap is by relevance now, so a broad token can no longer push out the cap line.
-  it("cap is by relevance: 'e maxShortOptionQtyPerOrder' includes the cap line (last header line)", () => {
+  it("cap is by relevance: 'e maxShortOptionQtyPerOrder' includes the cap line", () => {
+    const q = "e maxShortOptionQtyPerOrder";
     const capLine = HEADER_LINES.find((l) => l.includes("maxShortOptionQtyPerOrder"))!;
-    expect(HEADER_LINES.indexOf(capLine)).toBeGreaterThanOrEqual(8);
-    expect(expectedRuleLines("e maxShortOptionQtyPerOrder").length).toBeGreaterThan(8);
+    // precondition: under TM2-25's first-8 rule the cap line was pushed out by the broad token
+    expect(expectedRuleLines(q).length).toBeGreaterThan(8);
+    expect(expectedRuleLines(q).slice(0, 8)).not.toContain(capLine);
     for (const scope of SCOPES) {
-      const rules = split(searchApi("e maxShortOptionQtyPerOrder", scope)).rules;
+      const rules = split(searchApi(q, scope)).rules;
       expect(rules).toContain(capLine);
       expect(rules).toHaveLength(8);
-      expect(rules[rules.length - 1]).toBe(capLine); // still in header order: cap line is last
+      expect(rules).toEqual(rankedRuleLines(q));
+      const idx = rules.map((l) => HEADER_LINES.indexOf(l));
+      expect([...idx].sort((x, y) => x - y)).toEqual(idx); // still in header order
     }
   });
 

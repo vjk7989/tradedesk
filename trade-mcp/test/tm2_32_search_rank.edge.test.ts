@@ -4,18 +4,31 @@ import { searchApi } from "../src/sdk/search.js";
 
 // Independent edge tests for TM2-32: the Rules block keeps the top 8 API_HEADER lines by number of DISTINCT query
 // tokens contained (case-insensitive substring), ties to the earlier line, and outputs them in header order.
+// Layout-independent: line count, indexes and per-line unique words are all derived from API_HEADER at test time.
 
+const CAP = 8;
 const HEADER_LINES = API_HEADER.split("\n");
+const LOW = HEADER_LINES.map((l) => l.toLowerCase());
+const N = HEADER_LINES.length;
+const BIG = N > CAP; // ranking only differs from "all matches" when more than CAP lines can match
 const PREFIX = "// Rules:\n";
 const SCOPES = ["full", "readonly"] as const;
 const tokensOf = (q: string) => q.toLowerCase().split(/\s+/).filter(Boolean);
+const hitsOf = (t: string) => LOW.map((l, i) => (l.includes(t.toLowerCase()) ? i : -1)).filter((i) => i >= 0);
 
-/** Oracle: stable sort of indices by score desc (Array.prototype.sort is stable), keep 8, re-sort by index. */
+/** Oracle: stable sort of indices by score desc (Array.prototype.sort is stable), keep CAP, re-sort by index. */
 function oracle(q: string): string[] {
   const uniq = [...new Set(tokensOf(q))];
-  const scored = HEADER_LINES.map((l, i) => ({ i, s: uniq.reduce((n, t) => n + (l.toLowerCase().includes(t) ? 1 : 0), 0) }));
-  const keep = scored.filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 8).map((x) => x.i);
+  const scored = LOW.map((l, i) => ({ i, s: uniq.reduce((n, t) => n + (l.includes(t) ? 1 : 0), 0) }));
+  const keep = scored.filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, CAP).map((x) => x.i);
   return keep.sort((a, b) => a - b).map((i) => HEADER_LINES[i]);
+}
+
+/** Expected indexes for a designed score profile (score per line): top CAP by score, ties to the earlier, header order. */
+function fromProfile(score: number[]): number[] {
+  const order = score.map((s, i) => [s, i] as const).filter(([s]) => s > 0);
+  order.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  return order.slice(0, CAP).map(([, i]) => i).sort((a, b) => a - b);
 }
 
 function rulesOf(out: string): string[] {
@@ -25,115 +38,157 @@ function rulesOf(out: string): string[] {
   return (cut < 0 ? body : body.slice(0, cut)).split("\n");
 }
 const idxOf = (rules: string[]) => rules.map((l) => HEADER_LINES.indexOf(l));
-const allBut = (...drop: number[]) => HEADER_LINES.map((_, i) => i).filter((i) => !drop.includes(i));
+const ruleIdx = (q: string, scope: (typeof SCOPES)[number] = "full") => idxOf(rulesOf(searchApi(q, scope)));
+const range = (a: number, b: number) => Array.from({ length: Math.max(0, b - a) }, (_, k) => a + k);
 
-// Words that each occur in exactly one header line (asserted below), used to build precise score profiles.
-const ONLY = ["await", "arguments", "broker", "ddmonyy", "product", "whole", "24x7", "violations", "sell"];
-const ONLY2 = ["body", "plain", "futures", "strike"]; // second unique word for lines 0..3
+// Words (letters/digits/_ only, length >= 3) that occur as a substring in exactly one header line, in line order.
+const UNIQUE: string[][] = LOW.map((l, i) => [
+  ...new Set(l.split(/[^a-z0-9_]+/).filter((w) => w.length >= 3 && hitsOf(w).length === 1 && hitsOf(w)[0] === i)),
+]);
+const one = (i: number) => UNIQUE[i][0];
+const ALL_ONE = range(0, N).map(one); // query where every line scores exactly 1
+const LINES_WITH_TWO = range(0, N).filter((i) => UNIQUE[i].length >= 2);
 
-describe("TM2-32 edge: fixture assumptions", () => {
-  it("header has 9 lines and each ONLY/ONLY2 word hits exactly its own line", () => {
-    expect(HEADER_LINES).toHaveLength(9);
-    ONLY.forEach((w, i) => expect(idxOf(HEADER_LINES.filter((l) => l.toLowerCase().includes(w))), w).toEqual([i]));
-    ONLY2.forEach((w, i) => expect(idxOf(HEADER_LINES.filter((l) => l.toLowerCase().includes(w))), w).toEqual([i]));
-    expect(HEADER_LINES.map((l, i) => (l.toLowerCase().includes("ris") ? i : -1)).filter((i) => i >= 0)).toEqual([4, 5, 6, 7, 8]);
-    expect(HEADER_LINES.map((l, i) => (l.toLowerCase().includes("risk") ? i : -1)).filter((i) => i >= 0)).toEqual([4, 5, 6, 7, 8]);
+describe("TM2-32 edge: fixture assumptions (derived from API_HEADER)", () => {
+  it("every header line has a word unique to it, and each derived word hits only its line", () => {
+    for (let i = 0; i < N; i++) {
+      expect(UNIQUE[i].length, `line ${i} has no unique word: ${HEADER_LINES[i]}`).toBeGreaterThan(0);
+      for (const w of UNIQUE[i]) expect(hitsOf(w), w).toEqual([i]);
+    }
+  });
+
+  // Skip-with-assert: if the header ever shrinks to <= CAP lines, the ranking tests below are skipped, and this
+  // test asserts the remaining behaviour (every matching line is shown) so nothing passes silently.
+  it.runIf(!BIG)(`header has <= ${CAP} lines: ranking cannot drop anything, every matching line is shown`, () => {
+    expect(ruleIdx(ALL_ONE.join(" "))).toEqual(range(0, N));
+  });
+  it.runIf(BIG)(`header has > ${CAP} lines, so the ranking cases below are live`, () => {
+    expect(N).toBeGreaterThan(CAP);
+    expect(LINES_WITH_TWO.some((i) => i >= CAP)).toBe(true); // a line beyond the first CAP can be boosted
   });
 });
 
-describe("TM2-32 edge: repeated tokens count once", () => {
+describe.runIf(BIG)("TM2-32 edge: repeated tokens count once", () => {
   it("'risk risk' gives exactly the output of 'risk' (both scopes)", () => {
     for (const s of SCOPES) expect(searchApi("risk risk", s)).toBe(searchApi("risk", s));
   });
 
-  it("a repeated token cannot outrank lines: 8 unique words + 'sell sell' still drops the sell line (ties to earlier)", () => {
-    // distinct scoring: every line scores 1, so the 9th (sell) line loses the tie. Counting repeats would give the
-    // sell line 2 and drop line 7 instead.
-    const q = `${ONLY.slice(0, 8).join(" ")} sell sell sell`;
-    for (const s of SCOPES) expect(idxOf(rulesOf(searchApi(q, s)))).toEqual(allBut(8));
-    expect(oracle(q)).toEqual(allBut(8).map((i) => HEADER_LINES[i]));
+  it("repeating the last line's word cannot lift it: every line scores 1, so the first CAP lines are kept", () => {
+    // Counting repeats would score the last line 3 and keep it, dropping line CAP-1 instead.
+    const last = one(N - 1);
+    const q = `${ALL_ONE.join(" ")} ${last} ${last}`;
+    for (const s of SCOPES) expect(ruleIdx(q, s)).toEqual(range(0, CAP));
+    expect(idxOf(oracle(q))).toEqual(range(0, CAP));
   });
 
-  it("repeating every token of a broad query list changes nothing", () => {
-    for (const q of ["e", "e sell", "risk denied", "is nfo", "crypto symbols qty", ONLY.join(" ")]) {
+  it("repeating every token of a query (in any case) changes nothing", () => {
+    for (const q of ["e", "risk denied", "crypto symbols qty", ALL_ONE.join(" "), `e ${one(N - 1)}`]) {
       const rep = `${q} ${q} ${q.toUpperCase()}`;
       for (const s of SCOPES) expect(searchApi(rep, s), q).toBe(searchApi(q, s));
     }
   });
 });
 
-describe("TM2-32 edge: mixed case", () => {
-  it.each(["E SELL", "e Sell", "E sElL", "e sell"])("%j behaves like 'e sell' and keeps the sell line", (q) => {
-    for (const s of SCOPES) {
-      expect(searchApi(q, s)).toBe(searchApi("e sell", s));
-      expect(idxOf(rulesOf(searchApi(q, s)))).toEqual(allBut(7));
-    }
+describe.runIf(BIG)("TM2-32 edge: mixed case", () => {
+  const variants = (w: string) => [w.toUpperCase(), w[0].toUpperCase() + w.slice(1), [...w].map((c, k) => (k % 2 ? c.toUpperCase() : c)).join("")];
+
+  it("upper/mixed-case variants of a boosting query give identical output and keep the boosted last line", () => {
+    const k = N - 1;
+    const base = `${ALL_ONE.join(" ")} ${UNIQUE[k][1]}`;
+    expect(ruleIdx(base)).toContain(k);
+    for (const v of variants(base)) for (const s of SCOPES) expect(searchApi(v, s), v).toBe(searchApi(base, s));
   });
 
-  it("'SELL sell Sell' + 8 unique words: case variants are one distinct token", () => {
-    const q = `${ONLY.slice(0, 8).map((w) => w.toUpperCase()).join(" ")} SELL sell Sell`;
-    expect(idxOf(rulesOf(searchApi(q)))).toEqual(allBut(8));
+  it("case variants of one word are one distinct token (no boost)", () => {
+    const last = one(N - 1);
+    const q = `${ALL_ONE.join(" ")} ${variants(last).join(" ")}`;
+    expect(ruleIdx(q)).toEqual(range(0, CAP));
   });
 });
 
-describe("TM2-32 edge: substring tokens", () => {
+describe.runIf(BIG)("TM2-32 edge: substring tokens", () => {
   it("'risk' and 'risk denied': 'risk risk denied' = 'risk denied'; the risk-denied line is included", () => {
     expect(searchApi("risk risk denied")).toBe(searchApi("risk denied"));
     expect(rulesOf(searchApi("risk denied")).some((l) => l.includes("'risk denied"))).toBe(true);
+    for (const q of ["ris risk", "ris risk denied e", "risk risk denied den"]) expect(rulesOf(searchApi(q)), q).toEqual(oracle(q));
   });
 
-  it("'ris' and 'risk' are two distinct tokens: both count, so risk lines outrank a line with one unique word", () => {
-    // scores: lines 0-2 = e + 2 unique = 3; line 3 = e + 1 unique = 2; lines 4-7 = e + ris + risk = 3; line 8 = 4.
-    // Distinct counting drops line 3. Collapsing substring tokens would score 4-7 as 2 and drop line 7.
-    const q = "e ris risk await body arguments plain broker futures ddmonyy sell";
-    for (const s of SCOPES) expect(idxOf(rulesOf(searchApi(q, s)))).toEqual(allBut(3));
-    expect(idxOf(oracle(q))).toEqual(allBut(3));
+  it("a token and its own prefix are two distinct tokens: both count, which lifts a line past the cut", () => {
+    // Find a line k >= CAP whose unique word w has a proper prefix p (len >= 3) also unique to line k.
+    let found: { k: number; w: string; p: string } | undefined;
+    for (let k = CAP; k < N && !found; k++)
+      for (const w of UNIQUE[k])
+        for (let n = w.length - 1; n >= 3 && !found; n--) {
+          const p = w.slice(0, n);
+          const h = hitsOf(p);
+          if (h.length === 1 && h[0] === k) found = { k, w, p };
+        }
+    expect(found, "no prefix-pair fixture found").toBeDefined();
+    const { k, w, p } = found!;
+    // w is one(k) or another unique word of k; build: every line scores 1, line k gets w + p = 2 (if w != one(k), 3).
+    const q = `${ALL_ONE.join(" ")} ${w} ${p}`;
+    const prof = range(0, N).map((i) => (i === k ? new Set([one(k), w, p]).size : 1));
+    expect(fromProfile(prof)).toContain(k);
+    for (const s of SCOPES) expect(ruleIdx(q, s), q).toEqual(fromProfile(prof));
+    // Collapsing p into w would leave line k at score 1 (if w = one(k)) and drop it; distinct counting keeps it.
   });
 });
 
-describe("TM2-32 edge: ties", () => {
-  it.each(["e", "a", "o", "e a o", "E A O e"])("%j: all 9 lines tie, so the last (cap) line is dropped", (q) => {
-    for (const s of SCOPES) expect(idxOf(rulesOf(searchApi(q, s)))).toEqual(allBut(8));
+describe.runIf(BIG)("TM2-32 edge: ties", () => {
+  it.each(["e", "a", "o", "e a", "E A O e"])("%j: matched lines all tie, so the earliest CAP matched lines are kept", (q) => {
+    const uniq = [...new Set(tokensOf(q))];
+    const prof = LOW.map((l) => uniq.filter((t) => l.includes(t)).length);
+    for (const s of SCOPES) expect(ruleIdx(q, s)).toEqual(fromProfile(prof));
+    if (prof.every((x) => x === prof[0]) && prof[0] > 0) expect(ruleIdx(q)).toEqual(range(0, CAP));
   });
 
-  it("all 9 lines tie at score 9 (one unique word each): first 8 kept", () => {
-    expect(idxOf(rulesOf(searchApi(ONLY.join(" "))))).toEqual(allBut(8));
-    expect(idxOf(rulesOf(searchApi([...ONLY].reverse().join(" "))))).toEqual(allBut(8)); // token order irrelevant
+  it("all N lines tie (one unique word each): first CAP kept, whatever the token order", () => {
+    expect(ruleIdx(ALL_ONE.join(" "))).toEqual(range(0, CAP));
+    expect(ruleIdx([...ALL_ONE].reverse().join(" "))).toEqual(range(0, CAP));
   });
 
-  it("one line scoring higher survives anywhere; among the 1-scorers the latest is dropped", () => {
-    for (let k = 0; k < 9; k++) {
-      const q = `e ${ONLY[k]}`;
-      const dropped = k === 8 ? 7 : 8;
-      expect(idxOf(rulesOf(searchApi(q))), q).toEqual(allBut(dropped));
+  it("boosting any one line keeps it; among the tied 1-scorers the latest are dropped", () => {
+    expect(LINES_WITH_TWO.length).toBeGreaterThan(0);
+    for (const k of LINES_WITH_TWO) {
+      const q = `${ALL_ONE.join(" ")} ${UNIQUE[k][1]}`;
+      const exp = [...new Set([k, ...range(0, N).filter((i) => i !== k).slice(0, CAP - 1)])].sort((a, b) => a - b);
+      for (const s of SCOPES) expect(ruleIdx(q, s), q).toEqual(exp);
     }
   });
 
   it("output is header order even when the top scorer is the last line", () => {
-    const r = idxOf(rulesOf(searchApi("e sell maxShortOptionQtyPerOrder")));
-    expect(r).toEqual(allBut(7));
-    expect(r[r.length - 1]).toBe(8);
+    const k = N - 1;
+    expect(UNIQUE[k].length).toBeGreaterThanOrEqual(2);
+    const r = ruleIdx(`${UNIQUE[k][1]} ${ALL_ONE.join(" ")}`); // boosting token placed first in the query
+    expect(r).toEqual([...range(0, CAP - 1), k]);
+    expect(r[r.length - 1]).toBe(k);
   });
 });
 
-describe("TM2-32 edge: 8 vs 9 matches", () => {
-  it("exactly 8 matching lines ('is'): all 8, identical to header-order filter", () => {
-    const exp = HEADER_LINES.filter((l) => l.toLowerCase().includes("is"));
-    expect(exp).toHaveLength(8);
-    for (const s of SCOPES) expect(rulesOf(searchApi("is", s))).toEqual(exp);
+describe.runIf(BIG)("TM2-32 edge: CAP vs CAP+1 and more matches", () => {
+  it("first m lines matched (m = 1..N): min(m, CAP) kept; for m <= CAP identical to the header-order filter", () => {
+    for (let m = 1; m <= N; m++) {
+      const q = ALL_ONE.slice(0, m).join(" ");
+      expect(ruleIdx(q), `m=${m}`).toEqual(range(0, Math.min(m, CAP)));
+    }
   });
 
-  it("8 unique words for lines 1..8 (8 matches): all kept, including the cap line", () => {
-    expect(idxOf(rulesOf(searchApi(ONLY.slice(1).join(" "))))).toEqual(allBut(0));
+  it("last m lines matched (m = 1..N): all kept up to CAP (incl. the last line), then the earliest CAP", () => {
+    for (let m = 1; m <= N; m++) {
+      const q = ALL_ONE.slice(N - m).join(" ");
+      expect(ruleIdx(q), `m=${m}`).toEqual(range(N - m, N - m + Math.min(m, CAP)));
+    }
   });
 
-  it("9 matches ('is nfo'): exactly one dropped, the lowest-scoring latest line (7)", () => {
-    // line 8 has is+nfo = 2, every other line 1
-    expect(idxOf(rulesOf(searchApi("is nfo")))).toEqual(allBut(7));
+  it("exactly CAP matches vs CAP+1: one line drops only once CAP+1 match", () => {
+    const capQ = ALL_ONE.slice(N - CAP).join(" ");
+    expect(ruleIdx(capQ)).toEqual(range(N - CAP, N));
+    const plus = ALL_ONE.slice(N - CAP - 1).join(" ");
+    expect(ruleIdx(plus)).toEqual(range(N - CAP - 1, N - 1)); // the last (latest tie) is dropped
   });
 
-  it("all 9 match with many tokens: always exactly 8, never more", () => {
-    for (const q of ["e a o", "e risk crypto symbols", `${ONLY.join(" ")} e a o is the`]) expect(rulesOf(searchApi(q)), q).toHaveLength(8);
+  it("many tokens matching everything: always exactly CAP, never more", () => {
+    for (const q of ["e a o", "e risk crypto symbols", `${ALL_ONE.join(" ")} e a o is the`]) expect(rulesOf(searchApi(q)), q).toHaveLength(CAP);
   });
 });
 
@@ -188,7 +243,7 @@ describe("TM2-32 edge: performance", () => {
     for (let i = 0; i < 10; i++) searchApi(q, i % 2 ? "readonly" : "full");
     expect((performance.now() - t0) / 10).toBeLessThan(50);
     expect(rulesOf(searchApi(q))).toEqual(oracle(q));
-    expect(rulesOf(searchApi(q))).toHaveLength(8);
+    expect(rulesOf(searchApi(q))).toHaveLength(Math.min(CAP, oracle(q).length));
   });
 
   it("200 copies of one token is as fast and equals the single token", () => {
