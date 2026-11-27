@@ -176,11 +176,20 @@ async function readAuditRecent(file: string, limit: number): Promise<{ entries: 
 
 /** Replace every occurrence of each secret value in all strings of v (audit redaction only matches key names). */
 function scrub(v: unknown, secrets: string[]): unknown {
-  if (typeof v === "string") return secrets.reduce((acc, x) => acc.split(x).join("[REDACTED]"), v);
+  const red = (t: string) => secrets.reduce((acc, x) => acc.split(x).join("[REDACTED]"), t);
+  if (typeof v === "string") return red(v);
+  // a number whose decimal text contains a secret (all-digit secret) is replaced by the string
+  if (typeof v === "number") return red(String(v)) === String(v) ? v : "[REDACTED]";
   if (Array.isArray(v)) return v.map((x) => scrub(x, secrets));
   if (v && typeof v === "object") {
     const out: Record<string, unknown> = {};
-    for (const [k, x] of Object.entries(v)) out[k] = scrub(x, secrets);
+    for (const [k, x] of Object.entries(v)) {
+      // keys are scrubbed too; keys that collide after redaction are all kept, the 2nd, 3rd... as "<key>#2", "<key>#3"
+      const base = red(k);
+      let key = base;
+      for (let n = 2; Object.prototype.hasOwnProperty.call(out, key); n++) key = base + "#" + n;
+      Object.defineProperty(out, key, { value: scrub(x, secrets), enumerable: true, writable: true, configurable: true });
+    }
     return out;
   }
   return v;
