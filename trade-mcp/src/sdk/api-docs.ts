@@ -18,6 +18,7 @@ export const API_HEADER = [
   "Arguments are plain objects. Symbols use OpenAlgo format, e.g. RELIANCE / NSE, NIFTY28NOV2524000CE / NFO, BTC28FEB2580000CE / CRYPTO.",
   CRYPTO_NOTE,
   "Risk violations are thrown as Error('risk denied: ...'); nothing is placed in that case.",
+  "Optional risk cap maxShortOptionQtyPerOrder (off when unset) limits the quantity of NFO/BFO CE/PE SELL orders; a SELL that closes a long is capped too (conservative), and a breach is denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'.",
 ].join("\n");
 
 const BACKTEST_NOTE = [
@@ -66,7 +67,7 @@ export const API_DOCS: ApiDoc[] = [
   { ns: "account", name: "holdings", signature: "holdings(): Promise<unknown>", doc: "Delivery holdings." },
   { ns: "account", name: "orders", signature: "orders(): Promise<unknown>", doc: "Order book for today." },
   { ns: "account", name: "trades", signature: "trades(): Promise<unknown>", doc: "Trade book for today." },
-  { ns: "trade", name: "place", signature: `place(args: { ${ORDER} }): Promise<unknown>`, doc: "Place an order after risk checks (price from limit or LTP). LIMIT/SL need price; SL/SL-M need triggerPrice. Throws on risk denial. Paper mode requires OpenAlgo analyzer ON. " + CRYPTO_NOTE },
+  { ns: "trade", name: "place", signature: `place(args: { ${ORDER} }): Promise<unknown>`, doc: "Place an order after risk checks (price from limit or LTP). LIMIT/SL need price; SL/SL-M need triggerPrice. Throws on risk denial. Optional risk cap maxShortOptionQtyPerOrder limits NFO/BFO CE/PE SELL qty (off when unset; also caps a SELL that closes a long), denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'. Paper mode requires OpenAlgo analyzer ON. " + CRYPTO_NOTE },
   { ns: "trade", name: "modify", signature: `modify(args: { orderId: string; ${ORDER} }): Promise<unknown>`, doc: "Modify an open order; same risk checks, does not count as a new order." },
   { ns: "trade", name: "cancel", signature: "cancel(args: { orderId: string }): Promise<unknown>", doc: "Cancel an order. Allowed even when the kill switch is on." },
   { ns: "trade", name: "closePosition", signature: "closePosition(args?: {}): Promise<unknown>", doc: "Square off all open positions. Allowed even when the kill switch is on." },
