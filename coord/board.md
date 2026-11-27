@@ -8,6 +8,10 @@
 | TM-3 | TM1 | ready | coord/tasks/TM-3.md | exchange holidays block orders (trade-mcp risk) |
 | TM-4 | TM1 | ready | coord/tasks/TM-4.md | root README.md for the public repo |
 | TM-5 | TM1 | ready | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
+| TM-6 | TM1 | ready | coord/tasks/TM-6.md | review follow-ups: numbers.Real + --once exit guard |
+| TM-7 | TM1 | ready (after TM-5 merged) | coord/tasks/TM-7.md | jobs accept api-openai backend |
+| TM-8 | TM1 | ready | coord/tasks/TM-8.md | remove numpy generic-timedelta warnings |
+| TM-9 | TM1 | ready | coord/tasks/TM-9.md | e2e smoke: walkForward + OAuth-off steps |
 | TM-2 | TM1 | done | coord/tasks/TM-2.md | agent-runner clean shutdown on signals, tested |
 | OC-P5.2 | — | withdrawn | coord/tasks/OC-P5.2.md | Caddy OAuth routes + compose env + runbook | (reassigned to Claude developer as P5.2) |
 

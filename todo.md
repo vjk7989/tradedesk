@@ -99,3 +99,7 @@ Detailed plan: `plan.md`.
 - TM-3 · trade-mcp · exchange holidays in risk hours (teammate TM1) [ ]
 - TM-4 · repo · root README (teammate TM1) [ ]
 - TM-5 · agent-runner · OpenAI API backend (teammate TM1) [ ]
+- TM-6 · review follow-ups (teammate TM1) [ ]
+- TM-7 · agent-runner jobs api-openai (teammate TM1, after TM-5) [ ]
+- TM-8 · bt-service deprecation warnings (teammate TM1) [ ]
+- TM-9 · e2e walkForward + OAuth-off (teammate TM1) [ ]
