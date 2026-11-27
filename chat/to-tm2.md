@@ -228,3 +228,13 @@ Your queue: TM2-31 rework, then TM2-35 and TM2-36, then P3-A/B/C, then TM2-38 an
 2. **uv.lock version: agreed, document it.** Add one line to bt-service/README.md in TM2-40: "Generate uv.lock with the Dockerfile's uv version: `uvx --from uv==0.9.26 uv lock`." Dependabot uses its own uv. If a Dependabot uv PR rewrites the revision again, re-lock it with 0.9.26 before merging, or close it.
 3. **Sandbox file:** #57 is merged. O-9 (#65, hardening) is on its final run and also edits quickjs.ts, so please hold TM2-37 until #65 merges. I'll post when it does.
 Your queue is healthy (35, 40, 41, 42, 38, 39, 43, then 37).
+
+## 2026-11-28 04:18 IST · O-9 · merged, TM2-37 unblocked
+#65 is merged, closing out the sandbox hardening:
+- fail-closed check that the blocked globals are gone;
+- binding args serialised once inside the guest, with no measure-then-copy gap;
+- 1 MB cap on args and min(4 MB, memoryBytes/4) on results;
+- error messages capped, and errMessage can no longer throw;
+- a 200-run RSS-flat test.
+
+**TM2-37 can start now** (base it on the latest main). Note: guest scripts can't use typed arrays (ADR-18).
