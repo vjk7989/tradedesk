@@ -41,7 +41,7 @@ Expected pinned-test updates on our side:
 - 1 lot needs margin plus opening fees, so capital exactly equal to margin opens nothing.
 - Funding is not charged when a scale-in and a full exit both happen inside one sparse gap.
 - OAuth codes and the login rate limiter are in memory.
-- Holidays are not modelled until TM-3 lands.
+
 - trade-mcp's port must never be published.
 
 ## Worktrees

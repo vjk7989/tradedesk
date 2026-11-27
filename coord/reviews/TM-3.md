@@ -17,3 +17,21 @@ Pull `tm/TM-3` first. Do not edit tests.
 1. `src/config.ts` `marketHolidays`: with zod `z.record`, a `"__proto__"` key sets the prototype instead of becoming a key. The group check never sees it, so the holiday list is silently dropped. Replace it with `z.object({ NSE: dates.optional(), MCX: dates.optional() }).strict()`, so unknown keys, including `__proto__` and lowercase `nse`, are rejected. Keep the existing error format (field name only).
 2. Check `contractValues` (also `z.record`) for the same `__proto__` problem. If it's affected, reject keys that are `__proto__`, `constructor` or `prototype` there too, with the field-name-only error. `src/config.ts` is already in your allowed list.
 Verify: `cd trade-mcp && npx vitest run && npx tsc --noEmit`, then from the repo root `uv run --with pytest --with pyyaml pytest -q deploy/test_deploy.py`. All green, then push to `tm/TM-3` and add `## Fix round 1` to `coord/reports/TM-3.md`.
+
+## Test run (Haiku)
+
+Branch review-pr4 (bfedab7) merged origin/main cleanly, no conflicts. No project low-priority wrapper found, so `nice -n 19` was used. Full log: G:\uday-demos\reports\TM-3.md
+
+| command | result | time |
+|---|---|---|
+| npm ci (trade-mcp) | PASS (exit 0) | 9s |
+| npx vitest run | PASS: 22 files, 789 passed, 1 skipped | 14s |
+| npx tsc --noEmit | PASS (exit 0) | 5s |
+| npm run build | PASS (exit 0) | 1s |
+| docker compose config -q | PASS (exit 0) | 1s |
+| uv run pytest -q deploy/test_deploy.py | PASS: 93 passed | 3s |
+
+Failures: none. Baseline-known failures ignored: none.
+
+## Verdict (Opus)
+PR #4 merged (e88dfd3). Haiku run re-verified by the orchestrator in the PR worktree: trade-mcp 862 passed + 1 skipped, tsc clean; deploy 93 passed.
