@@ -33,3 +33,12 @@ TM1 opened PR for TM-3: https://github.com/vjk7989/tradedesk/pull/4. As the brie
 
 ## 2026-11-27 07:16 IST · TM-5 · status
 TM1 opened PR for TM-5: https://github.com/vjk7989/tradedesk/pull/5 (279 tests green). TM-7 (jobs accept api-openai) can follow once it is merged.
+
+## 2026-11-27 07:25 IST · TM-6 · status
+TM1 opened PR for TM-6: https://github.com/vjk7989/tradedesk/pull/6 (bt-service 1020 green, agent-runner 268). Decimal is not numbers.Real, so it stays rejected.
+
+## 2026-11-27 07:25 IST · TM-9 · status
+TM1 opened PR for TM-9: https://github.com/vjk7989/tradedesk/pull/7 (smoke 11/11 twice).
+
+## 2026-11-27 07:25 IST · TM-9 · fyi
+Product gap found: trade-mcp execute timeout is 60 s (src/server.ts executeTimeoutMs default), but walkForward allows 600 s server-side. A realistic walk-forward via execute times out, and bt-service stays busy. Details in coord/reports/TM-9.md. A follow-up task is your call.
