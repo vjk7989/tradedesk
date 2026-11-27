@@ -25,13 +25,36 @@ else
 fi
 
 [ -f "$BDIR/MANIFEST.txt" ] || { echo "MANIFEST.txt missing in $BDIR" >&2; exit 1; }
+# Manifest names must be plain file names; the folder must match the manifest exactly.
+listed=()
+while IFS= read -r line || [ -n "$line" ]; do
+  if [[ ! "$line" =~ ^[0-9a-fA-F]{64}\ [\ \*](.+)$ ]]; then
+    echo "malformed MANIFEST line; nothing changed" >&2; exit 1
+  fi
+  name="${BASH_REMATCH[1]}"
+  if [[ "$name" == */* || "$name" == *\\* || "$name" == *..* || "$name" =~ ^[A-Za-z]: ]]; then
+    echo "unsafe name in MANIFEST; nothing changed" >&2; exit 1
+  fi
+  [ -f "$BDIR/$name" ] || { echo "file listed in MANIFEST is missing; nothing changed" >&2; exit 1; }
+  listed+=("$name")
+done < "$BDIR/MANIFEST.txt"
+for f in "$BDIR"/* "$BDIR"/.[!.]* "$BDIR"/..?*; do
+  [ -e "$f" ] || continue
+  b="${f##*/}"
+  [ "$b" = "MANIFEST.txt" ] && continue
+  found=0
+  for n in "${listed[@]+"${listed[@]}"}"; do
+    if [ "$n" = "$b" ]; then found=1; break; fi
+  done
+  [ "$found" -eq 1 ] || { echo "backup folder has a file not in MANIFEST; nothing changed" >&2; exit 1; }
+done
 if ! (cd "$BDIR" && check >/dev/null 2>&1); then
   echo "MANIFEST verification failed (mismatch or missing file); nothing changed" >&2
   exit 1
 fi
 
 if [ "$FORCE" -ne 1 ]; then
-  running="$(docker compose -f "$DEPLOY_DIR/docker-compose.yml" ps -q)"
+  running="$(docker compose -f "$DEPLOY_DIR/docker-compose.yml" ps -aq)"
   if [ -n "$running" ]; then
     echo "stack is running; stop it first (docker compose down) or pass --force" >&2
     exit 1
@@ -50,7 +73,15 @@ for pair in "${FILES[@]}"; do
   src="$BDIR/${pair%%:*}"
   dst="$DEPLOY_DIR/${pair##*:}"
   if [ -f "$src" ]; then
-    if [ -e "$dst" ]; then mv "$dst" "$dst.pre-restore"; fi
+    if [ -e "$dst" ]; then
+      bak="$dst.pre-restore"
+      if [ -e "$bak" ]; then
+        bak="$bak.$(date -u +%Y%m%dT%H%M%SZ)"
+        n=1
+        while [ -e "$bak" ]; do bak="$dst.pre-restore.$(date -u +%Y%m%dT%H%M%SZ).$n"; n=$((n + 1)); done
+      fi
+      mv "$dst" "$bak"
+    fi
     cp "$src" "$dst"
     chmod 600 "$dst"
     echo "restored $dst"

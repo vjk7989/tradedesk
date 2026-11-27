@@ -2,6 +2,7 @@
 import hashlib
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -12,6 +13,8 @@ import pytest
 DEPLOY = Path(__file__).resolve().parent
 VOLS = ["openalgo_db", "openalgo_log", "openalgo_strategies", "openalgo_keys", "trade_mcp_data"]
 SECRET = "SECRET-MARKER-9f3a1c"
+MLINE = re.compile(r"^([0-9a-f]{64}) [ *](.+)$")
+BASH = shutil.which("bash") or "bash"
 TS = re.compile(r"^\d{8}T\d{6}Z$")
 
 STUB = r"""#!/usr/bin/env bash
@@ -41,7 +44,7 @@ def env(tmp_path):
     bindir = tmp_path / "bin"
     bindir.mkdir()
     d = bindir / "docker"
-    d.write_text(STUB)
+    d.write_text(STUB, newline="\n")
     d.chmod(0o755)
     dep = tmp_path / "deploy"
     dep.mkdir()
@@ -58,7 +61,7 @@ def env(tmp_path):
 
 
 def run(script, args, e):
-    r = subprocess.run(["bash", str(DEPLOY / script), *map(str, args)],
+    r = subprocess.run([BASH, str(DEPLOY / script), *map(str, args)],
                        capture_output=True, text=True, env=e)
     assert SECRET not in r.stdout + r.stderr
     return r
@@ -82,7 +85,7 @@ def test_layout_and_manifest(env):
     lines = (b / "MANIFEST.txt").read_text().splitlines()
     assert len(lines) == len(names) - 1
     for ln in lines:
-        h, name = ln.split("  ", 1)
+        h, name = MLINE.match(ln).groups()
         assert hashlib.sha256((b / name).read_bytes()).hexdigest() == h
     assert "deploy_openalgo_db:/src:ro" in Path(e["FAKE_DOCKER_LOG"]).read_text()
 

@@ -20,15 +20,35 @@ else
   sha() { shasum -a 256 "$@"; }
 fi
 
-case "$KEEP" in ''|*[!0-9]*|0) echo "KEEP must be an integer >= 1" >&2; exit 2;; esac
+case "$KEEP" in ''|*[!0-9]*) echo "KEEP must be an integer >= 1" >&2; exit 2;; esac
+if [ "$((10#$KEEP))" -lt 1 ]; then echo "KEEP must be an integer >= 1" >&2; exit 2; fi
+KEEP=$((10#$KEEP))
 
 mkdir -p "$DEST"
 DEST="$(cd "$DEST" && pwd)"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 FINAL="$DEST/$STAMP"
 BDIR="$DEST/.$STAMP.partial"
-[ ! -e "$FINAL" ] || { echo "backup $FINAL already exists" >&2; exit 1; }
-trap '[ -d "$BDIR" ] && rm -rf -- "$BDIR"' EXIT
+LOCKDIR=""
+cleanup() {
+  if [ -z "${PARTIAL_DONE:-}" ] && [ -n "$BDIR" ] && [ -d "$BDIR" ]; then rm -rf -- "$BDIR"; fi
+  if [ -n "$LOCKDIR" ]; then rmdir "$LOCKDIR" 2>/dev/null || true; fi
+}
+trap cleanup EXIT
+
+# Lock against concurrent runs: flock on DEST itself, else a mkdir lock dir.
+if command -v flock >/dev/null 2>&1; then
+  exec 9<"$DEST"
+  flock -n 9 || { echo "another backup is running" >&2; BDIR=""; exit 1; }
+else
+  mkdir "$DEST/.backup.lock" 2>/dev/null || { echo "another backup is running" >&2; BDIR=""; exit 1; }
+  LOCKDIR="$DEST/.backup.lock"
+fi
+
+# Remove stale partial dirs (older than 1 day) left by killed runs.
+find "$DEST" -mindepth 1 -maxdepth 1 -type d -name '.*.partial' -mtime +0 -exec rm -rf {} +
+
+[ ! -e "$FINAL" ] || { echo "backup $FINAL already exists" >&2; BDIR=""; exit 1; }
 mkdir "$BDIR"
 chmod 700 "$BDIR"
 
@@ -55,14 +75,18 @@ done
 chmod 600 "$BDIR"/*
 chmod 700 "$BDIR"
 mv "$BDIR" "$FINAL"
-trap - EXIT
 BDIR="$FINAL"
+PARTIAL_DONE=1
 
 # Retention: newest KEEP timestamped dirs survive.
+all=()
+for d in "$DEST"/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z; do
+  [ -d "$d" ] && all+=("${d##*/}")
+done
 old=()
 while IFS= read -r d; do
-  old+=("$d")
-done < <(find "$DEST" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z' -printf '%f\n' | sort -r | tail -n +"$((KEEP + 1))")
+  [ -n "$d" ] && old+=("$d")
+done < <(printf '%s\n' "${all[@]}" | sort -r | tail -n +"$((KEEP + 1))")
 for d in "${old[@]+"${old[@]}"}"; do
   rm -rf -- "${DEST:?}/$d"
 done
