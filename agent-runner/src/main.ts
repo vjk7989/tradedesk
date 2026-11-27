@@ -55,6 +55,10 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     if (nextIdx >= 0) {
       const a = args[nextIdx + 1];
       if (a !== undefined && !a.startsWith("--")) {
+        if (Number(a) > 100) {
+          console.error("--next N must be between 1 and 100");
+          return exit(1);
+        }
         if (!/^\d+$/.test(a) || Number(a) < 1) {
           console.error(`--next N must be a positive integer, got: ${a}`);
           return exit(1);
