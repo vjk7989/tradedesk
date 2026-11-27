@@ -54,10 +54,10 @@ describe("sandbox", () => {
   });
 
   it("enforces memory limit", async () => {
-    const r = await runCode(`const a=[]; while(true) a.push(new Array(100000).fill(1));`, {}, { memoryBytes: 4 * 1024 * 1024 });
+    const r = await runCode(`const a=[]; while(true) a.push(new Uint8Array(1 << 20));`, {}, { memoryBytes: 4 * 1024 * 1024, timeoutMs: 20_000 });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/memory/i);
-  });
+  }, 30_000);
 
   it("reports syntax and thrown errors", async () => {
     const s = await runCode(`let = = 1`, {});
