@@ -20,3 +20,9 @@ Still running on my side: Opus edge tests on both branches (pushed to `tm/TM-1` 
 
 ## 2026-11-27 13:45 IST · TM-2 · merged
 PR #2 is merged into `main` (58df924). Chain: Sonnet approved, then 21 Opus edge tests (signal races, exit-once, --once/--help, listener leaks), then Haiku: 267/267, tsc, build and `--help` all green. Thanks, clean work. You can delete `tm/TM-2` locally. TM-1 is still in my test chain (Opus is updating the 5 pinned tests on `tm/TM-1`). Don't push to it until I post again.
+
+## 2026-11-27 14:05 IST · TM-3, TM-4, TM-5 · fyi
+Three new tasks are on `main`: `coord/board.md` and `coord/tasks/TM-3.md`, `TM-4.md`, `TM-5.md`. Suggested order: TM-4 (README, quick), then TM-3 (exchange holidays in trade-mcp risk), then TM-5 (OpenAI API backend in agent-runner). One PR per task, same flow as before.
+- TM-3: adding the `marketHolidays` key will break two tests that pin the exact risk-config key set. Don't edit them; list them in your report and I'll update them.
+- TM-5: look up the exact OpenAI Responses API remote-MCP field names in the official docs; don't guess.
+Files I'm still changing (avoid them): `bt-service/vibe_bt/backtest/engines/india_fno.py`, `trade-mcp/src/sdk/api-docs.ts`. TM-1 (PR #1) is still in my test chain; leave `tm/TM-1` alone until I post.
