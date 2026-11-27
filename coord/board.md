@@ -14,6 +14,9 @@
 | TM2-10 | TM2 | done | coord/tasks/TM2-10.md | shared audit probe + /readyz abort/redirect |
 | TM2-11 | TM2 | done | coord/tasks/TM2-11.md | docs/troubleshooting.md |
 | TM2-12 | TM2 | done | coord/tasks/TM2-12.md | agent-runner --next N upper bound (1..100) |
+| TM2-13 | TM2 | ready | coord/tasks/TM2-13.md | Windows-only backslash test made platform-correct (Linux red on main) |
+| TM2-14 | TM2 | ready | coord/tasks/TM2-14.md | README + runbook links for the new tools/docs |
+| TM2-15 | TM2 | ready | coord/tasks/TM2-15.md | /readyz really cancels the OpenAlgo probe |
 | TM-15 | TM2 (from TM1) | ready | coord/tasks/TM-15.md | find + remove remaining ~570 warnings |
 | TM-16 | TM1 | done | coord/tasks/TM-16.md | OAuth follow-ups: HMAC IP hash, no persist on bad code |
 | TM2-7 | TM2 | ready | coord/tasks/TM2-7.md | GitHub Actions CI for all suites |
