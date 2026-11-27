@@ -276,7 +276,9 @@ describe("TM2-35 edge: every credential map is emptied, clients and limiter kept
     const r = runCaptured(["--force"], envFor(dir));
     const n = (k: string) => Object.keys(before[k]).length;
     expect(r.out).toContain(`revoked ${n("access")} access, ${n("refresh")} refresh, ${n("codes")} codes`);
-    expect(r.out).toContain("rotate MCP_TOKEN in .env separately");
+    expect(r.out).toContain("rotate MCP_TOKEN and MCP_TOKEN_READONLY in .env separately");
+    expect(r.out).toContain("docker compose start trade-mcp");
+    expect(r.out + r.err).not.toContain("docker compose exec");
   });
 
   it("loginFailures are kept even when OAUTH_PASSWORD_HASH is not set in the CLI env", async () => {
@@ -432,10 +434,8 @@ describe("TM2-35 edge: CLI argument and store paths", () => {
     }
   });
 
-  it("valid JSON that is not an object (null / [] / \"x\" / 42): non-zero and byte-identical (clients must not be wiped)", () => {
-    // BUG if failing: the CLI's corrupt-check is only JSON.parse; for a non-object the provider ctor throws on
-    // d.clients, its catch silently starts empty, and revokeAll overwrites the file with an empty store, contrary to
-    // the CLI's own "refusing to rewrite a corrupt store" contract. (Low impact: such a file holds no clients.)
+  it("valid JSON that is not an object (null / [] / \"x\" / 42): non-zero and byte-identical", () => {
+    // Regression (fixed in round 1): the CLI must not rewrite a JSON store that is not an object.
     const dir = dirOf();
     for (const txt of ["null", "[]", "\"x\"", "42"]) {
       writeFileSync(stateFile(dir), txt);
@@ -528,22 +528,21 @@ describe("TM2-35 edge: atomicity on write failure", () => {
   });
 });
 
-describe("TM2-35 edge: running-server race (documented `exec --force` while trade-mcp runs)", () => {
-  // These tests model the runbook's `docker compose exec trade-mcp npm run oauth:revoke-all -- --force`
-  // with the server still up. The live process keeps all tokens in memory and rewrites oauth.json from
-  // memory on ANY persisting action. If they fail, revoked tokens are resurrected on disk and the
-  // "exec --force while running" procedure is NOT safe unless the restart wins the race against every
-  // persisting request (authorize page view, failed login, token issue, refresh, DCR, revoke).
+const RUNBOOK_CMD =
+  "docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
 
-  it("live instance issues a new token after the CLI ran: old tokens must stay revoked after restart", async () => {
+describe("TM2-35 edge: why stop -> run -> start is required (revoking against a live server is unsupported)", () => {
+  // Documented-unsupported behaviour: a live trade-mcp keeps the OAuth store in memory and rewrites oauth.json from
+  // memory on ANY persisting action, so a revoke done while it runs is undone. These tests PIN that behaviour
+  // (so the runbook warning stays justified) and check the CLI warns about it.
+
+  it("why stop->run->start is required: a live server issuing a token after the CLI ran re-persists the revoked tokens", async () => {
     const dir = dirOf();
     const live = await boot(dir);
     const c = await populate(live, 3);
     expect(runCaptured(["--force"], envFor(dir)).code).toBe(0);
-    const revokedOnDisk = readState(dir);
-    expect(Object.keys(revokedOnDisk.access).length).toBe(0);
+    expect(Object.keys(readState(dir).access).length).toBe(0);
 
-    // live process performs a persisting action: a new token issue
     const { verifier, challenge } = pkce();
     const code = codeOf(await live.login(await live.authorize(c.pubId, challenge), PASSWORD));
     expect((await live.token(c.pubId, code, verifier)).status).toBe(200);
@@ -552,19 +551,139 @@ describe("TM2-35 edge: running-server race (documented `exec --force` while trad
 
     const s = await boot(dir);
     const resurrected = c.access.filter((at) => accessKeysOnDisk.includes(sha(at)));
-    expect(resurrected.length, `${resurrected.length}/${c.access.length} revoked access tokens were written back to oauth.json by the live process`).toBe(0);
-    for (const at of c.access) expect((await s.mcp(at)).status, "revoked access token after restart").toBe(401);
-    expect((await s.refresh(c.pubId, c.refresh[0])).status, "revoked refresh token after restart").toBe(400);
+    expect(resurrected.length).toBe(c.access.length); // all revoked tokens written back
+    for (const at of c.access) expect((await s.mcp(at)).status).toBe(200);
   });
 
-  it("an unauthenticated /authorize page view on the live instance after the CLI ran must not resurrect tokens", async () => {
+  it("why stop->run->start is required: even an unauthenticated /authorize view on the live server undoes the revoke", async () => {
     const dir = dirOf();
     const live = await boot(dir);
     const c = await populate(live, 2);
     expect(runCaptured(["--force"], envFor(dir)).code).toBe(0);
-    await live.authorize(c.pubId, pkce().challenge); // any visitor can trigger this persist
+    await live.authorize(c.pubId, pkce().challenge);
     await live.stop();
     const s = await boot(dir);
-    for (const at of c.access) expect((await s.mcp(at)).status, "revoked access token after restart").toBe(401);
+    for (const at of c.access) expect((await s.mcp(at)).status).toBe(200);
+  });
+
+  it("control: stop -> run -> start (no live writer in between) keeps every token revoked", async () => {
+    const dir = dirOf();
+    const live = await boot(dir);
+    const c = await populate(live, 2);
+    await live.stop();
+    expect(runCaptured(["--force"], envFor(dir)).code).toBe(0);
+    const s = await boot(dir);
+    await s.authorize(c.pubId, pkce().challenge); // a persisting action on the new process is harmless
+    for (const at of c.access) expect((await s.mcp(at)).status).toBe(401);
+  });
+
+  it("refusal text warns that revoking while running is undone, gives stop/run/start, never exec", () => {
+    const dir = dirOf();
+    const r = runCaptured([], envFor(dir));
+    expect(r.code).toBe(2);
+    expect(r.err).toMatch(/--force confirms trade-mcp is STOPPED/);
+    expect(r.err).toMatch(/while it runs is undone/);
+    expect(r.err).toContain(RUNBOOK_CMD);
+    expect(r.out + r.err).not.toContain("docker compose exec");
+  });
+
+  it("--force usage text (unknown arg) also warns that revoking while running is undone", () => {
+    const r = runCaptured(["--force", "--x"], envFor(dirOf()));
+    expect(r.code).toBe(2);
+    expect(r.err).toMatch(/--force confirms trade-mcp is STOPPED/);
+    expect(r.err).toMatch(/undone/);
+  });
+
+  it("no CLI path ever prints `docker compose exec`", async () => {
+    const { dir } = await populatedDir(1);
+    const corrupt = dirOf();
+    writeFileSync(stateFile(corrupt), "{bad");
+    const shape = dirOf();
+    writeFileSync(stateFile(shape), "[]");
+    const outs = [
+      runCaptured([], envFor(dir)),
+      runCaptured(["--bogus"], envFor(dir)),
+      runCaptured(["--force"], envFor(dirOf())),
+      runCaptured(["--force"], envFor(corrupt)),
+      runCaptured(["--force"], envFor(shape)),
+      runCaptured(["--force"], envFor(dir)),
+    ];
+    for (const r of outs) expect(r.out + r.err).not.toContain("docker compose exec");
+  });
+});
+
+describe("TM2-35 edge: exit codes 0/1/2/3", () => {
+  it("0 ok, 0 nothing to revoke, 1 corrupt, 1 wrong shape, 2 usage (in-process)", async () => {
+    const { dir } = await populatedDir(1);
+    expect(runCaptured(["--force"], envFor(dir)).code).toBe(0);
+    expect(runCaptured(["--force"], envFor(dirOf())).code).toBe(0);
+    const corrupt = dirOf();
+    writeFileSync(stateFile(corrupt), "{bad");
+    expect(runCaptured(["--force"], envFor(corrupt)).code).toBe(1);
+    expect(runCaptured([], envFor(dir)).code).toBe(2);
+  });
+
+  it("unknown args exit 2 with the store byte-identical", async () => {
+    const { dir } = await populatedDir(2);
+    const before = rawState(dir);
+    for (const argv of [["--force", "--bogus"], ["--bogus", "--force"], ["--force", "extra"], ["--force", "--data-dir=/tmp/x"], ["-f"], ["--force="]]) {
+      const r = runCaptured(argv, envFor(dir));
+      expect(r.code, JSON.stringify(argv)).toBe(2);
+      expect(rawState(dir).equals(before), JSON.stringify(argv)).toBe(true);
+    }
+  });
+
+  it("null / [] / \"x\" / 42 exit 1 with the store byte-identical", () => {
+    const dir = dirOf();
+    for (const txt of ["null", "[]", "\"x\"", "42"]) {
+      writeFileSync(stateFile(dir), txt);
+      const r = runCaptured(["--force"], envFor(dir));
+      expect(r.code, txt).toBe(1);
+      expect(rawState(dir).toString("utf8"), txt).toBe(txt);
+    }
+  });
+
+  it("read-only DATA_DIR exits 3 (real process) with a one-line message, no stack trace, store intact", async () => {
+    const { dir, c } = await populatedDir(2);
+    const before = rawState(dir);
+    chmodSync(dir, 0o555);
+    roDirs.push(dir);
+    const p = runProc(["--force"], dir);
+    expect(p.code).toBe(3);
+    expect(p.out).toBe("");
+    const lines = p.err.split("\n").filter((l) => l.trim() !== "");
+    expect(lines.length).toBe(1);
+    expect(p.err).not.toMatch(/\n\s+at |Error:|EACCES|node:/);
+    expect(rawState(dir).equals(before)).toBe(true);
+    expectNoSecrets(p.out + p.err, c.secrets);
+  });
+
+  it("real process exit codes match in-process: 2 without --force, 2 unknown arg, 1 wrong shape, 0 success", async () => {
+    const { dir } = await populatedDir(1);
+    expect(runProc([], dir).code).toBe(2);
+    expect(runProc(["--force", "--nope"], dir).code).toBe(2);
+    const shape = dirOf();
+    writeFileSync(stateFile(shape), "null");
+    expect(runProc(["--force"], shape).code).toBe(1);
+    expect(runProc(["--force"], dir).code).toBe(0);
+  });
+});
+
+describe("TM2-35 edge: docs/vps-runbook.md", () => {
+  it("contains the stop -> run --rm --no-deps -> start command and never instructs exec", () => {
+    const md = readFileSync(path.join(ROOT, "..", "docs", "vps-runbook.md"), "utf8");
+    expect(md).toContain(RUNBOOK_CMD);
+    // any mention of `docker compose exec` near revoke-cli must be a prohibition, never a command to run
+    const lines = md.split("\n");
+    for (const l of lines) {
+      if (/revoke-cli|oauth:revoke-all/.test(l)) expect(l, l).not.toMatch(/docker compose exec/);
+      if (/docker compose exec/.test(l) && /revoke/i.test(l)) expect(l).toMatch(/do not/i);
+    }
+    const start = md.indexOf("Emergency: revoke all OAuth tokens");
+    expect(start).toBeGreaterThan(-1);
+    const section = md.slice(start, md.indexOf("\n## ", start));
+    for (const l of section.split("\n")) if (/docker compose exec/.test(l)) expect(l).toMatch(/do not use/i);
+    const fence = /```[^\n]*\n([\s\S]*?)```/.exec(section)![1];
+    expect(fence).not.toMatch(/\bexec\b/);
   });
 });

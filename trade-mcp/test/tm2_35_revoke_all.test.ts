@@ -117,7 +117,8 @@ describe("TM2-35 oauth:revoke-all", () => {
     const res = capture(["--force"], { DATA_DIR: dir });
     expect(res.code).toBe(0);
     expect(res.out).toMatch(/revoked 1 access, 1 refresh, 1 codes/);
-    expect(res.out).toContain("rotate MCP_TOKEN in .env separately");
+    expect(res.out).toContain("rotate MCP_TOKEN and MCP_TOKEN_READONLY in .env separately");
+    expect(res.out).not.toContain("docker compose exec");
     for (const sec of [...secrets, ...Object.keys(before.access), ...Object.keys(before.refresh), ...Object.keys(before.codes), PW_HASH, TOKEN]) {
       expect(res.out).not.toContain(sec);
     }
@@ -150,7 +151,9 @@ describe("TM2-35 oauth:revoke-all", () => {
     expect(r.code).not.toBe(0);
     expect(r.out).toMatch(/--force/);
     expect(r.out).toMatch(/stop trade-mcp/);
-    expect(r.out).toMatch(/docker compose exec/);
+    expect(r.out).toContain("docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp");
+    expect(r.out).not.toMatch(/docker compose exec/);
+    expect(readFileSync(f, "utf8")).toBe(JSON.stringify({ clients: {}, access: {}, refresh: {} }));
   });
 
   it("missing store: nothing to revoke, no file created; corrupt store: refuses and leaves it", () => {
