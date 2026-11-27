@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { runTask } from "./cli.js";
 import { DEFAULT_GEMINI_MODEL } from "./gemini.js";
+import { collectHistory, formatHistory } from "./history.js";
 import { executeJob, OFFSET_MIN, parseJobs, type Job } from "./jobs.js";
 import { nextRun, runScheduler } from "./scheduler.js";
 
@@ -85,8 +86,45 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     return i >= 0 ? args[i + 1] : undefined;
   };
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>] [--check] [--next N] [--dry-run <name>]");
+    console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>] [--check] [--next N] [--dry-run <name>] [--history [N]]");
     return;
+  }
+  const histIdx = args.findIndex((a) => a.startsWith("--history"));
+  if (histIdx >= 0) {
+    const arg = args[histIdx];
+    if (arg !== "--history" && !arg.startsWith("--history=")) {
+      console.error(`unknown option: ${arg}`);
+      return exit(1);
+    }
+    const flags = ["--once", "--check", "--next", "--dry-run"];
+    const bad = flags.filter((f) => args.some((a) => a === f || a.startsWith(`${f}=`)));
+    if (bad.length) {
+      console.error(`--history cannot be combined with ${bad.join(", ")}`);
+      return exit(1);
+    }
+    let n = 20;
+    const a = arg.startsWith("--history=") ? arg.slice(10) : args[histIdx + 1];
+    if (a !== undefined && (arg.startsWith("--history=") || !a.startsWith("--"))) {
+      if (Number(a) > 200) {
+        console.error("--history N must be between 1 and 200");
+        return exit(1);
+      }
+      if (!/^\d+$/.test(a) || Number(a) < 1) {
+        console.error(`--history N must be a positive integer, got: ${a}`);
+        return exit(1);
+      }
+      n = Number(a);
+    }
+    let jobs: Job[];
+    try {
+      jobs = parseJobs(JSON.parse(readFileSync(val("--jobs") ?? "jobs.json", "utf8")));
+    } catch (e) {
+      console.error(e instanceof Error ? e.message : String(e));
+      return exit(1);
+    }
+    const { rows, skipped } = collectHistory(jobs, n);
+    for (const l of formatHistory(rows, skipped)) console.log(l);
+    return exit(0);
   }
   const dryIdx = args.findIndex((a) => a === "--dry-run" || a.startsWith("--dry-run="));
   if (dryIdx >= 0) {
