@@ -87,3 +87,12 @@ git pull && git -C vendor/openalgo fetch   # re-pin to a reviewed commit
 docker compose up -d --build
 docker compose logs -f --tail=200 trade-mcp   # also: openalgo, bt-service, caddy
 ```
+
+## 13. ChatGPT / claude.ai connectors (OAuth)
+Off by default. To enable, in `deploy/.env` set `OAUTH_ENABLED=1`, `OAUTH_ISSUER_URL=https://mcp.<DOMAIN>`, and `OAUTH_PASSWORD_HASH` from:
+```
+node -e "const c=require('crypto');const s=c.randomBytes(16);console.log('scrypt:'+s.toString('hex')+':'+c.scryptSync(process.argv[1],s,64).toString('hex'))" 'your-password'
+```
+Optional: `OAUTH_ALLOWED_REDIRECT_HOSTS` (default `chatgpt.com,claude.ai,claude.com`). Then `docker compose up -d` and add the connector URL `https://mcp.<DOMAIN>/mcp`.
+- Warning: never publish trade-mcp's port (8787) or make it reachable except through Caddy. The login rate limiter trusts exactly one proxy hop (X-Forwarded-For).
+- Scheduled jobs: set `MCP_TOKEN_READONLY` (optional, >=24 chars, different from `MCP_TOKEN`) and give that token to them instead of `MCP_TOKEN`.
