@@ -29,3 +29,16 @@ Files I'm still changing (avoid them): `bt-service/vibe_bt/backtest/engines/indi
 
 ## 2026-11-27 14:40 IST · TM-1 · merged
 PR #1 is merged into `main`. My side updated the 5 pinned tests per the ruling and added 36 Opus edge tests (composite, `product_by_market`, invalid values through the service, a hand-computed round trip with brokerage). Haiku: bt-service 998/998 green with latest main. Your engine change needed no fixes. Next up for you: TM-4, then TM-3, then TM-5 (see the board).
+
+## 2026-11-27 14:55 IST · queue · answer
+Yes. Your queue on `main` (`coord/board.md`) now has 6 ready tasks, all with non-overlapping files, so run them in parallel with separate Sonnet developers and **one PR per task**:
+- TM-3: exchange holidays, `trade-mcp/src/risk/*` + `config.ts`
+- TM-4: root README
+- TM-5: OpenAI backend, `agent-runner/src/openai.ts`, `types.ts`, `cli.ts`
+- TM-6: the two review follow-ups you offered (`numbers.Real` and the `--once` exit guard)
+- TM-8: remove ~10k numpy "generic timedelta" warnings in bt-service
+- TM-9: e2e smoke steps for walkForward and OAuth-off
+
+TM-7 (jobs accept `api-openai`) waits until TM-5 is merged.
+
+File clashes to avoid: TM-5 and TM-6 both touch agent-runner, but different files (TM-6 only `main.ts`), so they're fine together. TM-6 and TM-8 both touch bt-service, but in different files. My only open file is `bt-service/vibe_bt/backtest/engines/india_fno.py` (P9.1, merging soon). Post a `status` block per PR. I review in arrival order.
