@@ -5,7 +5,7 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | O-4 | OWNER | in progress | coord/tasks/O-4.md | bound size of audited entries |
-| TM2-24 | TM2 | ready | (TM2 writes brief) | e2e smoke: pin clock via preload + #37 LOWs |
+| TM2-24 | TM2 | in progress | coord/tasks/TM2-24.md | e2e smoke: pin clock via preload + #37 LOWs |
 | O-3 | OWNER | done | coord/tasks/O-3.md | audit.recent binding + exact busy text |
 | TM2-21 | TM2 | merged #39 | coord/tasks/TM2-21.md | Telegram timeout-path tidy |
 | TM2-22 | TM2 | merged #42 | coord/tasks/TM2-22.md | docs: EXECUTE_TIMEOUT_MS clamp + trade truncation |
