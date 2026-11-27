@@ -175,9 +175,23 @@ describe.skipIf(!MAIN_SRC)("O-1 edge: walkForward and crypto sections unchanged 
     return () => rmSync(tmp, { recursive: true, force: true });
   });
 
-  it("CRYPTO_NOTE and API_HEADER identical", () => {
+  it("CRYPTO_NOTE identical; API_HEADER keeps every main line in order, adding only known lines", () => {
     expect(CRYPTO_NOTE).toBe(main.CRYPTO_NOTE);
-    expect(API_HEADER).toBe(main.API_HEADER);
+    expect(API_HEADER).toContain(CRYPTO_NOTE);
+    // Later doc PRs may append header lines on purpose. They must not edit or drop a line from main,
+    // and each added line must be listed here (O-5: the short-option qty cap sentence).
+    const ALLOWED_ADDED = [/^Optional risk cap maxShortOptionQtyPerOrder \(off when unset\) /];
+    const cur = API_HEADER.split("\n");
+    const old = main.API_HEADER.split("\n");
+    let i = 0;
+    const added: string[] = [];
+    for (const l of cur) {
+      if (i < old.length && l === old[i]) i++;
+      else added.push(l);
+    }
+    expect(i).toBe(old.length); // all main lines present, same order, unedited
+    for (const l of added) expect(ALLOWED_ADDED.some((re) => re.test(l)), `unexpected header line: ${l}`).toBe(true);
+    expect(added.length).toBeLessThanOrEqual(ALLOWED_ADDED.length);
   });
 
   it("walkForward entry identical (signature and doc)", () => {
