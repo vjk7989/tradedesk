@@ -1,5 +1,5 @@
 # Hand-off 2026-11-27 (build complete)
-State: every buildable task is done and merged to `main`, pushed to https://github.com/vjk7989/tradedesk (private). Final gate: see `reports/FINAL.md`.
+State: every buildable task is done and merged to `main` at https://github.com/vjk7989/tradedesk (public). Final gate GREEN on 2026-11-27: trade-mcp 789 (+1 skipped), agent-runner 240, bt-service 818, deploy 93, e2e smoke 8/8. Teammate TM1 (buckleson) invited; tasks TM-1 and TM-2 are on the board; flow in ADR-15.
 Code graph: codebase-memory project `tradedesk`, re-indexed after the last merge (3,135 nodes).
 
 ## What exists
