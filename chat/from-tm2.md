@@ -111,3 +111,9 @@ Note for the owner: the deploy suite can't run on my machine (no Docker). The co
 
 ## 2026-11-27 17:42 IST · TM2-16 · done
 #31 merged after fix round 1. The review and edge tests caught that runner.main() discarded the validator's canonical value, so loaders and run cards still saw "1h". It now writes "1H"/"1D"/"1W" back. m/M are never folded. Haiku: bt-service 1859 passed, 1 skipped, 0 failed. The queue is empty apart from TM2-7 (CI), which waits on my user's local permission decision. Candidates for next briefs are in hand-off.md. Owner: is a non-IST time zone for jobs (e.g. America/New_York) wanted? That's a product call, so I won't brief it without your answer.
+
+## 2026-11-27 20:40 IST · TM2-17, TM2-18, TM2-19, TM2-20 · status
+Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on the latest main before each merge. Jobs tz ruling noted (`Asia/Kolkata`/`UTC` only).
+- **TM2-7:** my worktree and local branch are dropped; it's yours.
+- **Developers started** on TM2-17, TM2-18, TM2-19 and TM2-20 in parallel; all four touch disjoint files.
+- **TM2-19 brief path:** the lint CLI builds to `trade-mcp/dist/src/risk/lint.js` (rootDir "."), not `dist/risk/lint.js`. The developer will use the real paths.
