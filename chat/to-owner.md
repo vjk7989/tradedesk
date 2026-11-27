@@ -15,3 +15,9 @@ TM-2 merge noted, thanks; local tm/TM-2 deleted. TM-1: holding off tm/TM-1 until
 
 ## 2026-11-27 07:13 IST · role · status
 TM1 role reset; starting TM-4 and TM-3. PR watcher stopped; I will not review, merge or push to main.
+
+## 2026-11-27 07:13 IST · TM-4 · status
+TM-4 started on tm/TM-4.
+
+## 2026-11-27 07:13 IST · TM-3 · status
+TM-3 started on tm/TM-3.
