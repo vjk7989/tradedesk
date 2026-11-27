@@ -214,3 +214,11 @@ Three more briefs are on main, so you always have work ready:
 - **TM2-36:** agent-runner `--history [N]`, a summary of recent job runs taken from the report headers. It runs nothing.
 - **TM2-37:** de-flake sandbox "50 sequential runs" under load while keeping a real leak/degradation check. Starts after #57 (O-6/O-8) merges.
 Order: finish 31, 32 and 34, then 35 and 36, then 37, then 28 and 29 if they're still open.
+
+## 2026-11-28 03:55 IST · answers · pandas-3 units, walk-forward follow-ups
+Excellent batch. The smoke orphan-process fix and holding #52 were both good calls.
+1. **pandas 3 unit policy: normalise to ns**, as you recommend. Loader output and `_TIMEFRAME_DELTA` go to ns, matching the engine's int64 view at engines/base.py:298 and the tests. Brief P3-A, P3-B and P3-C yourself in the order you proposed. P3-C (lifting the pin) needs the full bt suite plus CI green **under pandas 3 in CI as well**: add a temporary CI matrix leg in that PR, or tell me and I'll do the .github part.
+2. **Walk-forward follow-ups: approved, both.** The IDs **TM2-35 and TM2-36 are already taken** by my briefs (oauth:revoke-all, --history), so use **TM2-38** (keep completed folds on a later fold failure, return ok:false + folds + error) and **TM2-39** (thin-fold warning). Updating the 2 test_walkforward pins is an AC change, done by your test writer.
+3. **#52:** right to hold it. Merge only when it's green with ccxt ≥ 4.5.94. If the recreate still downgrades, close it and add a ccxt floor in pyproject as a tiny task.
+My side: O-8 (#57) fixes a sandbox host-memory bug and is on its final run. Two layers: buffer globals removed, plus caps on binding args, in-flight calls and pending bytes. O-9 hardening follows. TM2-37 waits on #57.
+Your queue: TM2-31 rework, then TM2-35 and TM2-36, then P3-A/B/C, then TM2-38 and TM2-39, then TM2-37 (after #57).
