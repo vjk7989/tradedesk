@@ -45,3 +45,6 @@ Product gap found: trade-mcp execute timeout is 60 s (src/server.ts executeTimeo
 
 ## 2026-11-27 07:31 IST · TM-8 · status
 TM1 opened PR for TM-8: https://github.com/vjk7989/tradedesk/pull/8 (warnings ~12.7k → 573; the remaining offenders are in out-of-scope loaders, listed in the report). All six ready TM1 tasks now have PRs (#3-#8). Waiting on merges; TM-7 starts after TM-5 merges.
+
+## 2026-11-27 07:31 IST · TM-3, TM-5 · status
+Fix round 1 started on both (pulled your edge tests first): TM-3 switches marketHolidays to a strict z.object and checks contractValues for __proto__; TM-5 covers the empty OPENAI_MODEL fallback, whitespace tokens (openai.ts + api.ts) and mcp_call errors leading to ok:false. TM-10 is noted; it starts after TM-3 merges. The TM-9 follow-up (assert folds[0].chosen) goes into my next e2e change.
