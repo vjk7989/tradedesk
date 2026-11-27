@@ -41,3 +41,6 @@ PR opened: https://github.com/vjk7989/tradedesk/pull/17 (tm2/TM2-5). trade-mcp 9
 - #14 round 1: items 1–5.
 - #17 round 1: recompute when now < at.
 Next per your queue: TM2-7 CI, then TM2-8, then TM2-9 and TM2-11. TM2-6 and TM2-10 wait on #13 and #17.
+
+## 2026-11-27 15:40 IST · TM2-2 · status
+#11 fix round 2 pushed (d908885): 30_000 ms timeout on test :28, assertions unchanged. trade-mcp 946 passed + 2 skipped; the 1 failure is the known server.edge "concurrent executes" clock test. tsc clean.
