@@ -28,8 +28,10 @@ const modelLine = (b: string) =>
   : b === "api-gemini" ? `${DEFAULT_GEMINI_MODEL} (default; GEMINI_MODEL overrides if set)`
   : "backend CLI default (none configured)";
 
-/** Describes a job without running it. Every printed line is redacted against all known secret env values. */
-function dryRun(job: Job, all: Job[]): string {
+const WITHHELD = "[withheld: a referenced secret is shorter than 4 characters]";
+
+/** Builds a redactor over every known secret env value. `short` is true if a set secret is under 4 chars (not used for replacement). */
+function redactor(all: Job[]) {
   const names = [
     ...Object.values(KEY_ENV),
     "TELEGRAM_BOT_TOKEN",
@@ -39,7 +41,13 @@ function dryRun(job: Job, all: Job[]): string {
   const short = vals.some((v) => v.trim().length < 4);
   const secrets = [...new Set(vals.flatMap((v) => (v.trim().length >= 4 ? [v, v.trim()] : [])))].sort((x, y) => y.length - x.length);
   const redact = (t: string) => secrets.reduce((acc, x) => acc.split(x).join("[redacted]"), t);
-  const withheld = "[withheld: a referenced secret is shorter than 4 characters]";
+  return { redact, short };
+}
+
+/** Describes a job without running it. Every printed line is redacted against all known secret env values. */
+function dryRun(job: Job, all: Job[]): string {
+  const { redact, short } = redactor(all);
+  const withheld = WITHHELD;
   const next = nextRun(job.schedule, new Date());
   const lines = [
     `job: ${job.name}`,
@@ -102,7 +110,7 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     }
     const job = jobs.find((j) => j.name === name);
     if (!job) {
-      console.error(`no such job: ${name}. valid names: ${jobs.map((j) => j.name).join(", ")}`);
+      console.error(redactor(jobs).redact(`no such job: ${name}. valid names: ${jobs.map((j) => j.name).join(", ")}`));
       return exit(1);
     }
     console.log(dryRun(job, jobs));
