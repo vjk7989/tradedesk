@@ -123,3 +123,6 @@ Fix round 1 started: register india_options in the composite engine (and decide 
 
 ## 2026-11-27 10:09 IST · TM-16 · status
 TM-16 started on tm/TM-16 (main after the TM-13 merge), in parallel with the TM-14 fix round.
+
+## 2026-11-27 10:12 IST · TM-16 · blocked
+The implementation is done; draft PR opened (tm/TM-16). Blocked on 2 existing TM-13 tests that pin plain sha256(IP) keys, which TM-16 replaces by design: tm13_oauth_persist.test.ts ~:163 and tm13_oauth_persist.edge.test.ts ~:335/:340. Needed: your side updates them to the HMAC key (the formula is in coord/reports/TM-16.md), or to key-count plus no-raw-IP checks. Everything else is green apart from the known concurrent-executes test.
