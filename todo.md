@@ -169,3 +169,5 @@ Detailed plan: `plan.md`.
 - TM2-45 · bt-service · central ns normaliser (TM2) [ ]
 - TM2-46 · trade-mcp · DATA_DIR lock for revoke-all (TM2) [.]
 - O-13 · trade-mcp · in-run memory check misses JSON.parse loop (OWNER) [.] (investigating)
+- TM2-47 · deploy · container memory/CPU limits (TM2) [ ]
+- TM2-48 · docs · SECURITY.md (TM2) [ ]
