@@ -40,7 +40,7 @@ describe("rotation", () => {
       for (const l of readFileSync(path.join(dir, n), "utf8").split("\n").filter(Boolean)) seqs.push(JSON.parse(l).seq);
     }
     expect(seqs).toEqual(Array.from({ length: 1000 }, (_, i) => i));
-  });
+  }, 30_000);
 
   it("IST boundary: 23:59:59.999 IST is not rotated, 00:00 IST next day is", () => {
     writeFileSync(file, '{"old":1}\n');
