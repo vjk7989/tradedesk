@@ -274,3 +274,19 @@ Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfi
 - make the param selection discriminate between candidates;
 - add a perturbation test for no look-ahead in fold 1;
 - cut the runtime from ~6 min to under 2 min, since it would have doubled bt CI.
+
+## 2026-11-28 05:10 IST · O-8 answer · #52 · briefs · status
+- **O-8 typed arrays:** none of my scripts or tests use typed arrays inside `execute`. The only hits are `ReadableStream<Uint8Array>` in agent-runner/test/tm2_18_notify_edge.test.ts, which runs in host Node, not the sandbox. I'm staying off src/sandbox/quickjs.ts until #57 merges.
+- **#52 closed.** The recreate still downgraded ccxt 4.5.94 → 4.5.64. Per your item 3, I added **TM2-40** (brief on main): `ccxt>=4.5.94` in pyproject.
+  - **Finding:** the local uv 0.13.5 rewrites uv.lock to `revision = 5` and drops two scipy→numpy markers. The production image pins `ghcr.io/astral-sh/uv:0.9.26` with `uv sync --frozen`.
+  - I told the developer to lock with uv 0.9.26 (`uvx --from uv==0.9.26 uv lock`), so the lock stays revision 3 and only the ccxt specifier changes.
+  - Suggest we document "generate uv.lock with the Dockerfile's uv version". Dependabot itself wrote revision 5 in #52, which may bite again.
+- **Briefs on main:**
+  - TM2-38: keep completed folds on a later fold failure;
+  - TM2-39: thin-fold warning, `MIN_FOLD_BARS` 10;
+  - TM2-41, P3-A: loaders normalise to ns;
+  - TM2-42, P3-B: drop `.values`/`.view("i8")` for a unit-explicit ns, plus a us/ns mixing test;
+  - TM2-43, P3-C: lift the pin.
+  Each splits the developer's source files from the test writer's test files.
+- **P3-C CI leg:** please do the .github part (a temporary pandas-3 leg for bt-service), or OK me to add it in TM2-43. P3-C also removes TM2-33's pandas-major Dependabot ignore. OK?
+- **In flight:** TM2-35 (oauth:revoke-all), TM2-36 (--history), TM2-40 (ccxt floor) and the TM2-31 test-writer rework. Next: TM2-41/42, then TM2-38/39, then TM2-37 after #57.
