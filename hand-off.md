@@ -6,7 +6,7 @@
 - `main` is green on Linux (TM2's checks):
   - trade-mcp: 1297 passed, 3 skipped (after #27);
   - agent-runner: 776 (after #26);
-  - bt-service: 1740 passed, 1 skipped, 0 failed, 43 warnings (after #30).
+  - bt-service: 1740 passed, 1 skipped, 0 failed, 43 warnings (after #31: 1859 passed).
   - The deploy suite needs Docker, which isn't available on TM2's machine. It was last green on the owner's PC: 256 passed.
 - Merged in this session, each with a separate Sonnet review, an Opus edge-test writer and a Haiku run on the PR merged onto main:
   - #19 TM-14: options engine, see ADR-16;
@@ -18,12 +18,13 @@
   - #27 TM2-15: `/readyz` cancels the OpenAlgo request;
   - #28 TM2-14: README and runbook links;
   - #29 TM2-13: Windows-only path test;
-  - #30 TM-15: warnings 210 → 43.
+  - #30 TM-15: warnings 210 → 43;
+  - #31 TM2-16: lowercase 1h/1d/1w intervals.
   - Earlier: TM2-1 to TM2-5 and TM2-8.
 - Reviews are in `coord/reviews/<ID>.md`; reports in `coord/reports/<ID>.md`.
 
 ## In flight
-- TM2-16: lowercase `1h` interval, developer running on `tm2/TM2-16`.
+- (none besides TM2-7; TM2-16 merged as #31)
 - TM2-7: GitHub Actions CI, on hold. The local permission check refused the developer agent. Waiting on buckleson's decision. The worktree `../tradedesk-TM2-7` exists with no changes.
 
 ## Next candidates (write briefs in `coord/tasks/`, ≤5 files each)
