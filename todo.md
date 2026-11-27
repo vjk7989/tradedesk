@@ -114,3 +114,5 @@ Detailed plan: `plan.md`.
 - TM-14 · bt-service · NSE options engine (TM1) [ ]
 - TM2-5 · trade-mcp · /readyz (TM2) [ ]
 - TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [ ]
+- TM2-7 · repo · GitHub Actions CI (TM2) [ ]
+- TM2-8 · agent-runner · --check/--next (TM2) [ ]

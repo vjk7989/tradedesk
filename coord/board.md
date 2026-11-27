@@ -8,6 +8,8 @@
 | TM-3 | TM1 | done | coord/tasks/TM-3.md | exchange holidays block orders (trade-mcp risk) |
 | TM-4 | TM1 | done | coord/tasks/TM-4.md | root README.md for the public repo |
 | TM-5 | TM1 | done | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
+| TM2-7 | TM2 | ready | coord/tasks/TM2-7.md | GitHub Actions CI for all suites |
+| TM2-8 | TM2 | ready | coord/tasks/TM2-8.md | agent-runner --check / --next |
 | TM2-5 | TM2 | review | coord/tasks/TM2-5.md | trade-mcp /readyz |
 | TM2-6 | TM2 | ready (after TM2-3 merged) | coord/tasks/TM2-6.md | Telegram notifications for job reports |
 | TM2-3 | TM2 | review | coord/tasks/TM2-3.md | agent-runner Gemini API backend |
