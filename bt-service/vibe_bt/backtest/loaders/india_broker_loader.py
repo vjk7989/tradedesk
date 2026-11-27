@@ -24,6 +24,7 @@ come back short. For deep history prefer Yahoo.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -33,6 +34,7 @@ from vibe_bt.backtest.loaders.registry import register
 
 logger = logging.getLogger(__name__)
 
+_TZ_SUFFIX = re.compile(r"(Z|[+-]\d{2}:?\d{2})$")
 _OUTPUT_COLUMNS = ["open", "high", "low", "close", "volume"]
 # Project interval -> broker ``period`` token (both connectors share this set).
 # ``1h``/``1d`` alias the project-style tokens; ``1m`` vs ``1M`` stays case-sensitive.
@@ -112,7 +114,14 @@ def _bars_to_frame(bars: list[dict], start_date: str, end_date: str) -> Optional
     else:
         # Explicit ISO8601 (pandas>=2.0; uv.lock pins 2.3.3): same values as the
         # inferred parse for these strings, without the "could not infer format" warning.
-        index = pd.to_datetime(frame["time"], format="ISO8601", errors="coerce")
+        raw = frame["time"].map(lambda v: v.strip() if isinstance(v, str) else v)
+        # Rows whose tz-awareness differs from the first non-null row become NaT
+        # (matches the old inferred parse; avoids ValueError / silent offset stamping).
+        aware = raw.map(lambda v: bool(_TZ_SUFFIX.search(v)) if isinstance(v, str) else None)
+        first = aware.dropna()
+        if not first.empty:
+            raw = raw.where(aware.isna() | (aware == first.iloc[0]), None)
+        index = pd.to_datetime(raw, format="ISO8601", errors="coerce")
     frame = frame.drop(columns=["time"])
     frame.index = pd.DatetimeIndex(index).tz_localize(None)
     frame.index.name = "trade_date"
