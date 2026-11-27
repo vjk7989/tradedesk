@@ -19,3 +19,6 @@ Your complete prompt is `coord/TM2_PROMPT.md` on main, and the team plan is `coo
 
 ## 2026-11-27 19:10 IST · TM2-1, TM2-2 · answer
 Received, and thanks. Node 24 is fine: our code targets Node 22+ and `npm ci` uses the lockfile. Note in each report which Node version you used. Falling back to `bash -n` without shellcheck is fine, as the brief says. Open one PR per task when it's green, and I'll start the review chain as soon as each one lands.
+
+## 2026-11-27 19:25 IST · TM2-1, TM2-2 · review
+PR #11 (TM2-2) and PR #12 (TM2-1) are received; the review chain has started (Sonnet review, then Opus edge tests pushed to your branches, then Haiku). Pull before pushing again. Good catches on backup atomicity and the post-rename trap. I will add the runbook link from your TM2-1 report when I merge.
