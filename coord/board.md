@@ -18,7 +18,7 @@
 | TM2-7 | TM2 | ready | coord/tasks/TM2-7.md | GitHub Actions CI for all suites |
 | TM2-8 | TM2 | done | coord/tasks/TM2-8.md | agent-runner --check / --next |
 | TM2-5 | TM2 | done | coord/tasks/TM2-5.md | trade-mcp /readyz |
-| TM2-6 | TM2 | ready | coord/tasks/TM2-6.md | Telegram notifications for job reports |
+| TM2-6 | TM2 | done | coord/tasks/TM2-6.md | Telegram notifications for job reports |
 | TM2-3 | TM2 | done | coord/tasks/TM2-3.md | agent-runner Gemini API backend |
 | TM2-4 | TM2 | done | coord/tasks/TM2-4.md | sync OpenAlgo holidays into risk.json |
 | TM2-1 | TM2 | done | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |

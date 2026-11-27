@@ -113,7 +113,7 @@ Detailed plan: `plan.md`.
 - TM-13 · trade-mcp · OAuth state persistence (TM1) [x]
 - TM-14 · bt-service · NSE options engine (TM2, from TM1) [.] (PR #19 fix round 1 + addendum)
 - TM2-5 · trade-mcp · /readyz (TM2) [x]
-- TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [.] PR #22, fix round 1 (edge tests found token-redaction bugs)
+- TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [x]
 - TM2-7 · repo · GitHub Actions CI (TM2) [ ]
 - TM2-8 · agent-runner · --check/--next (TM2) [x]
 - TM2-9 · trade-mcp · risk:lint CLI (TM2) [ ]
