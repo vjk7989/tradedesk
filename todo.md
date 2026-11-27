@@ -51,14 +51,14 @@ Detailed plan: `plan.md`.
   files: bt-service/bt_service/app.py, tests/test_app.py   size: S   dev: D3
   AC: 401 without token; 422 on bad body; runs P2.2 wrapper; job concurrency limit 1–2
   verify: `uv run pytest -q`   deps: P2.2
-- P2.5 · trade-mcp · `backtest.run` binding + bt-service client (D2 building) [.]
+- P2.5 · trade-mcp · `backtest.run` binding + bt-service client (0e3fc1b) [x]
   files: src/backtest/client.ts, src/sdk/bindings.ts, src/sdk/api-docs.ts, test/backtest.test.ts   size: S   dev: D2
   AC: forwards to BT_URL with token; summary returned (metrics + trimmed equity/trades); timeout error is clear
   verify: `npm test && npx tsc --noEmit`   deps: P1.5, P2.4
 
 ## P3 Crypto
 - P3.1 · trade-mcp · Delta Exchange via OpenAlgo: CRYPTO exchange in risk config (USD notional), symbol docs in `search` (97402ae) [x]
-- P3.2 · bt-service · crypto backtest path verified (binance/okx loaders, funding, fees) with offline fixtures (D3 building) [.]
+- P3.2 · bt-service · crypto backtest path verified (binance/okx loaders, funding, fees) with offline fixtures (fix f1 queued to D2 after P7.1: -SWAP route, negative fees, leverage≤0) [.]
 - P3.3 · trade-mcp · (optional) ccxt spot trading binding [ ]
 
 ## P4 Deploy (VPS)
@@ -75,7 +75,7 @@ Detailed plan: `plan.md`.
 - P6.2 · Fincept · (optional, source build) OpenAlgoBroker : IBroker + remote backtest provider [ ]
 
 ## P7 Advanced backtesting
-- P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) [ ]
+- P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (D2 building) [.]
 - P7.2 · bt-service · intraday interval support [ ]
 - P7.3 · bt-service · walk-forward / out-of-sample endpoint [ ]
 
@@ -83,4 +83,6 @@ Detailed plan: `plan.md`.
 - P8.1 · docs · connect guides: Claude Code (`claude mcp add --transport http`), Codex (`~/.codex/config.toml` mcp_servers), Gemini CLI (`settings.json` mcpServers), local stdio mode (9f94230; verify after P1.6) [x]
 - P8.2 · agent-runner · interface + `cli` backend (claude -p / codex exec / gemini -p headless, stream parse, timeout, trade-mcp attached) (965b822) [x]
 - P8.3 · agent-runner · `api` backend (Anthropic/OpenAI/Gemini keys) behind the same interface (dcbdc99; Anthropic only) [x]
-- P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) [ ]
+- P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) (testing) [.]
+- P8.5 · trade-mcp · read-only MCP token scope (MCP_TOKEN_READONLY → trade.* bindings absent) for scheduled jobs [ ]
+- P5.2 · deploy · Caddy routes for OAuth paths + OAUTH_* env in compose/.env.example + runbook note (trade-mcp port never published) [ ]

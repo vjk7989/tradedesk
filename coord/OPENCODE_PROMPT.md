@@ -15,9 +15,10 @@ All coordination happens through Markdown files in `coord/`. Read `coord/README.
 - Never edit `coord/board.md`, `coord/tasks/*`, `coord/reviews/*`, `todo.md`, `architecture-record-document.md` or `hand-off.md`. Never merge to `main` and never push `main`. Push only your `oc/<ID>` branch.
 
 ## Loop
-1. `git fetch && git switch main && git pull`.
-2. Open `coord/board.md`. Pick the first row with `owner: <DEV_ID>` in state `ready` or `fix`. If none, wait 2 minutes and re-read (stop after 30 minutes idle and say so).
-3. For a new task: `git switch -c oc/<ID> origin/main`. For a fix: `git switch oc/<ID> && git pull`.
+0. Never switch branches in the main checkout (`G:\uday-demos`): the orchestrator works there. Do all work in your own worktree `G:\uday-demos.<dev_id lowercase>` (e.g. `G:\uday-demos.oc1`).
+1. `git -C G:\uday-demos fetch origin`. Read the board from `origin/main` with `git -C G:\uday-demos show origin/main:coord/board.md`.
+2. Pick the first row whose Owner column is `<DEV_ID>` and whose state is `ready` or `fix`. If there is none, wait 2 minutes and re-read. Stop after 30 minutes idle and say so.
+3. For a new task, the first time: `git -C G:\uday-demos worktree add G:\uday-demos.<dev_id> -b oc/<ID> origin/main` (next tasks: `cd` into your worktree, then `git fetch origin && git switch -c oc/<ID> origin/main`). For a fix: `git switch oc/<ID> && git pull`. Then install deps in your worktree for the package you touch (`npm install` or `uv sync`). Read your task file from your worktree: `coord/tasks/<ID>.md`.
 4. Read `coord/tasks/<ID>.md`. Read only the files and line ranges it names. Read `architecture-record-document.md` only if the task cites an ADR.
 5. Implement the minimal change that meets the acceptance criteria. Rules:
    - Touch only the files the task lists. If you must touch another file, stop and write `Status: blocked` with the reason.
