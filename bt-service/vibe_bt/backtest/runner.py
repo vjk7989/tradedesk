@@ -928,6 +928,7 @@ _MARKET_TO_SOURCE = {
     "us_equity": "yfinance",
     "hk_equity": "yfinance",
     "india_equity": "yahoo",
+    "india_fno": "yahoo",
     "kr_equity": "pykrx",
     "ca_equity": "yahoo",
     "ar_equity": "yahoo",
@@ -1893,6 +1894,9 @@ def _select_market_engine(source: str, config: dict, codes: List[str]):
     # India equity routing — must precede source-based routing because India's
     # effective source is ``yahoo``, which has no Wave-1 branch and would
     # otherwise fall through to the crypto default.
+    if "india_fno" in markets:
+        from vibe_bt.backtest.engines.india_fno import IndiaFnoEngine
+        return IndiaFnoEngine(config)
     if "india_equity" in markets:
         from vibe_bt.backtest.engines.india_equity import IndiaEquityEngine
         return IndiaEquityEngine(config)

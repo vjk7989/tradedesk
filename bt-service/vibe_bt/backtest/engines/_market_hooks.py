@@ -130,6 +130,9 @@ _CN_FUTURES_DATED3_PATTERN = r"^(?:{})\d{{3}}$".format(
 _MARKET_PATTERNS = [
     # Local addition: OpenAlgo explicit-exchange symbols (SYMBOL@EXCHANGE).
     (re.compile(r"^[A-Z0-9&_\-]+@CRYPTO$", re.I), "crypto"),
+    # Local addition: India F&O futures (NIFTY25DECFUT@NFO) have their own engine.
+    # Options (CE/PE) stay on india_equity; an options engine is out of scope.
+    (re.compile(r"^[A-Z0-9&_\-]+FUT@(NFO|BFO|MCX)$", re.I), "india_fno"),
     (re.compile(r"^[A-Z0-9&_\-]+@(NSE|BSE|NFO|BFO|CDS|BCD|MCX)$", re.I), "india_equity"),
     (re.compile(r"^[A-Z0-9]{4}\.T$", re.I), "jp_equity"),
     (re.compile(r"^\d{6}\.(SZ|SH|BJ)$", re.I), "a_share"),
@@ -176,7 +179,7 @@ _MARKET_PATTERNS = [
     # (100-share board-lot rounding) and every computed size rounded to a
     # zero_size rejection (#1863). Base alphabet matches the loader's own
     # ``([A-Z0-9]+)-USDT-PERP`` fullmatch.
-    (re.compile(r"^[A-Z0-9]+-USDT-PERP$", re.I), "crypto"),
+    (re.compile(r"^[A-Z0-9]+-USDT-(?:PERP|SWAP)$", re.I), "crypto"),
     # yfinance's native crypto spelling (BTC-USD, ETH-USD). Distinct from
     # USDT pairs only in the quote currency; both belong to CryptoEngine.
     (re.compile(r"^(?=[A-Z0-9]*[A-Z])[A-Z0-9]+-USD$", re.I), "crypto"),
@@ -292,6 +295,7 @@ _MARKET_CURRENCY = {
     "us_equity": "USD",
     "hk_equity": "HKD",
     "india_equity": "INR",
+    "india_fno": "INR",
     "kr_equity": "KRW",
     "jp_equity": "JPY",
     "ca_equity": "CAD",
