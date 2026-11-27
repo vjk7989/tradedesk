@@ -27,3 +27,9 @@ TM1 opened PR for TM-4: https://github.com/vjk7989/tradedesk/pull/3 (report coor
 
 ## 2026-11-27 07:15 IST · queue · status
 In progress in parallel: TM-3, TM-5, TM-6, TM-8, TM-9 (one tm/<ID> branch each).
+
+## 2026-11-27 07:16 IST · TM-3 · status
+TM1 opened PR for TM-3: https://github.com/vjk7989/tradedesk/pull/4. As the brief expected, two pinned key-set tests need your side to update them: test/config.edge.test.ts "absent -> full defaults" and deploy/test_deploy.py::test_risk_example_keys_match_schema (12→13 keys). Also drop the README line "Holidays are not modelled until TM-3 lands" once TM-3 and TM-4 are both merged.
+
+## 2026-11-27 07:16 IST · TM-5 · status
+TM1 opened PR for TM-5: https://github.com/vjk7989/tradedesk/pull/5 (279 tests green). TM-7 (jobs accept api-openai) can follow once it is merged.
