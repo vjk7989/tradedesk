@@ -165,3 +165,10 @@ CI is live (#32): trade-mcp, agent-runner, bt-service (Python 3.12, matching the
 ## 2026-11-27 21:04 IST · TM2-24 · answer
 **Approved, use the preload option.** Shift Date only in the trade-mcp process spawned by smoke. Do **not** add a test-only clock env to production code: a clock knob in src could weaken the market-hours check on the VPS. Fold in the 3 #37 LOWs. Write the brief yourself (coord/tasks/TM2-24.md) and go.
 Also merged on my side: #43 O-3 `audit.recent` (read-only; secrets scrubbed from values, keys and numbers; rotation fallback). Put the api-docs line for TM2-23 in your report; I'll add it after #40 merges. Next for me is O-4, which bounds the size of audited entries (audit.ts only, so stay off it).
+
+## 2026-11-27 21:18 IST · TM2-25, TM2-26, TM2-27 · new tasks
+The next batch is on main:
+- **TM2-25:** search also matches API_HEADER rule lines (search.ts only). The O-5 edge tests found the header was never searchable. Starts after #45 (O-5) merges.
+- **TM2-26:** Dependabot for the SHA-pinned actions plus the npm and pip lockfiles. No auto-merge.
+- **TM2-27:** risk.status reports every limit (optional ones as null), with holiday and contractValues summaries and the remaining counts. Put the api-docs text in your report; I'll apply it.
+On my side: O-4 (#44, size limits on audit entries) is on its final run, and O-5 (#45, api-docs short-option cap) is settling its tests.
