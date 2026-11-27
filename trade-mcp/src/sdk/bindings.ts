@@ -1,5 +1,5 @@
 import type { OpenAlgoClient } from "../openalgo/client.js";
-import type { RiskEngine } from "../risk/engine.js";
+import { orderNotional, type RiskEngine } from "../risk/engine.js";
 import type { Config } from "../config.js";
 import type { Bindings } from "../sandbox/quickjs.js";
 import { closeSync, existsSync, mkdirSync, openSync, statSync } from "node:fs";
@@ -232,7 +232,7 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
           if (!d.allow || !d.token) throw new Error("risk denied: " + d.reasons.join("; "));
           const token = d.token;
           runState.ordersThisRun++;
-          note("notional", o.quantity * price);
+          note("notional", orderNotional(cfg.risk, o, price));
           const undo = () => {
             risk.release(token);
             runState.ordersThisRun--;

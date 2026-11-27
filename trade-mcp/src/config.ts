@@ -25,10 +25,13 @@ const riskSchema = z
     maxNotionalPerDay: posNum.default(200000),
     maxDailyLoss: posNum.default(5000),
     maxOrdersPerRun: posInt.default(5),
+    contractValues: z.record(z.string(), posNum).default({}),
   })
   .strict();
 
-export type RiskConfig = z.infer<typeof riskSchema>;
+type RiskParsed = z.infer<typeof riskSchema>;
+// contractValues is optional on the type so hand-built configs may omit it (parsing always fills {}).
+export type RiskConfig = Omit<RiskParsed, "contractValues"> & Partial<Pick<RiskParsed, "contractValues">>;
 
 export interface Config {
   openalgoUrl: string;
@@ -92,10 +95,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     const unknown = parsed.error.issues.some((i) => i.code === "unrecognized_keys");
     const fields = parsed.error.issues
       .filter((i) => i.code !== "unrecognized_keys")
-      .map((i) => `${i.path.join(".") || "(root)"} (${i.code})`);
+      .map((i) => `${i.path.length ? String(i.path[0]) : "(root)"} (${i.code})`);
     const parts = [...(fields.length ? [`invalid field ${fields.join(", ")}`] : []), ...(unknown ? ["unknown key(s) present"] : [])];
     throw new ConfigError(`RISK_CONFIG: ${parts.join("; ")}`);
   }
+
+  const cv: Record<string, number> = {};
+  for (const [k, v] of Object.entries(parsed.data.contractValues)) {
+    const key = k.trim().toUpperCase();
+    if (key in cv) throw new ConfigError("RISK_CONFIG: duplicate symbol in contractValues");
+    cv[key] = v;
+  }
+  parsed.data.contractValues = cv;
 
   return {
     openalgoUrl,

@@ -34,6 +34,15 @@ export interface ReserveToken {
 const norm = (s: string) => s.trim().toUpperCase();
 const minor = (n: number) => Math.round(n * 100);
 
+/** Notional the engine enforces: CRYPTO is qty * contractValues[SYMBOL] (default 1) * price. */
+export function orderNotional(cfg: RiskConfig, o: { symbol: string; exchange: string; quantity: number }, price: number): number {
+  if (o.exchange.trim().toUpperCase() !== "CRYPTO") return o.quantity * price;
+  const sym = norm(o.symbol);
+  let cv = 1;
+  for (const [k, v] of Object.entries(cfg.contractValues ?? {})) if (norm(k) === sym) cv = v;
+  return o.quantity * cv * price;
+}
+
 export class RiskEngine {
   private day: Day;
 
@@ -98,7 +107,7 @@ export class RiskEngine {
     if (o.price === undefined || !Number.isFinite(o.price) || o.price <= 0) {
       r.push("price required for notional check");
     } else if (Number.isFinite(o.quantity)) {
-      const n = o.quantity * o.price;
+      const n = orderNotional(c, o, o.price);
       const cap = crypto ? c.maxNotionalPerOrderUsd : c.maxNotionalPerOrder;
       if (minor(n) > minor(cap)) r.push(`notional ${n} exceeds per-order limit ${cap}`);
       if (!crypto && minor(this.day.notional + n) > minor(c.maxNotionalPerDay)) {
