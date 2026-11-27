@@ -19,6 +19,12 @@ export interface RunResult {
 
 const TIMEOUT = Symbol("timeout");
 const MIN_MEMORY = 1024 * 1024;
+// runtime.setMemoryLimit does not count ArrayBuffer/TypedArray backing stores, so the WASM linear
+// memory itself is also capped: baseline (after context creation) + memoryBytes + this headroom.
+const WASM_HEADROOM = 1024 * 1024;
+const MEMORY_ERROR = "memory limit exceeded";
+// Binary-buffer surface that trading scripts never need (shared memory, raw views, wasm).
+const REMOVED_GLOBALS = ["SharedArrayBuffer", "DataView", "Atomics", "WebAssembly"];
 
 export async function runCode(code: string, bindings: Bindings, opts: RunOpts = {}): Promise<RunResult> {
   const timeoutMs = opts.timeoutMs ?? 30_000;
@@ -31,12 +37,13 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
   const deadline = Date.now() + timeoutMs;
   const timeoutMsg = `timeout: execution exceeded ${timeoutMs}ms`;
   let disposed = false;
+  let memoryExceeded = false;
   let timer: NodeJS.Timeout | undefined;
 
   const fail = (error: string): RunResult => ({
     ok: false,
     logs,
-    error: Date.now() > deadline ? timeoutMsg : error,
+    error: memoryExceeded ? MEMORY_ERROR : Date.now() > deadline ? timeoutMsg : error,
     ...(truncated ? { truncated } : {}),
   });
   const errMessage = (e: unknown): string => {
@@ -65,9 +72,20 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     runtime = QuickJS.newRuntime();
     runtime.setMemoryLimit(memoryBytes);
     runtime.setMaxStackSize(512 * 1024);
-    runtime.setInterruptHandler(() => Date.now() > deadline);
     vm = runtime.newContext();
-    return await execute(vm, runtime);
+    for (const g of REMOVED_GLOBALS) {
+      vm.unwrapResult(vm.evalCode(`delete globalThis[${JSON.stringify(g)}]`)).dispose();
+    }
+    const wasmMemory = QuickJS.getWasmMemory();
+    const wasmCeiling = wasmMemory.buffer.byteLength + memoryBytes + WASM_HEADROOM;
+    runtime.setInterruptHandler(() => {
+      if (wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
+      return memoryExceeded || Date.now() > deadline;
+    });
+    const res = await execute(vm, runtime);
+    // Short runs may finish between interrupt checks; linear memory never shrinks, so check the peak.
+    if (wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
+    return memoryExceeded ? fail(MEMORY_ERROR) : res;
   } catch (e) {
     return fail(errMessage(e));
   } finally {
