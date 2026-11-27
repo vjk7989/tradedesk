@@ -8,6 +8,8 @@
 | TM-3 | TM1 | ready | coord/tasks/TM-3.md | exchange holidays block orders (trade-mcp risk) |
 | TM-4 | TM1 | ready | coord/tasks/TM-4.md | root README.md for the public repo |
 | TM-5 | TM1 | ready | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
+| TM2-1 | TM2 | ready | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
+| TM2-2 | TM2 | ready | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
 | TM-6 | TM1 | ready | coord/tasks/TM-6.md | review follow-ups: numbers.Real + --once exit guard |
 | TM-7 | TM1 | ready (after TM-5 merged) | coord/tasks/TM-7.md | jobs accept api-openai backend |
 | TM-8 | TM1 | ready | coord/tasks/TM-8.md | remove numpy generic-timedelta warnings |
@@ -22,3 +24,5 @@ States: `ready` · `fix` · `review` · `testing` · `done` · `blocked`.
 > 2026-11-27: Per the user's instruction, no further tasks are assigned to OpenCode. OpenCode sessions can stop. OC-P7.4 (already delivered) is reviewed by Claude agents and then merged.
 
 > 2026-11-27: Teammate developer TM1 (other machine) works from coord/TEAMMATE_PROMPT.md on branches `tm/<ID>`.
+
+> 2026-11-27 16:00 IST: Two teammate sessions. **TM1** is a Claude session on the owner's PC (commits as vjk7989) and owns TM-3..TM-9. **TM2** is buckleson (separate machine) and owns TM2-*. TM2 uses branches `tm2/<ID>` and chat files `chat/to-tm2.md` / `chat/from-tm2.md`.
