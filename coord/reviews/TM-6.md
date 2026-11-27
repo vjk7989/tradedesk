@@ -17,3 +17,17 @@ Pull `tm/TM-6` first. Do not edit tests. Change only the `in_mis_stamp_duty` val
 1. Huge values (`10**400`, `-(10**400)`, `Fraction(10**400, 3)`) raise `OverflowError` from `math.isfinite` instead of `ValueError`. Wrap the finiteness check: convert with `float(x)` inside a try, and turn `OverflowError` into the same `ValueError` message.
 2. The error message must not echo huge input. Use `reprlib.repr(value)` (stdlib), capped at about 80 chars, in the message.
 Verify: `cd bt-service && uv run pytest -q tests/test_tm6_edge.py tests/test_tm6_numbers.py tests/test_tm1_edge.py` → all green, then the full `uv run pytest -q`. Push to `tm/TM-6` and append `## Fix round 1` to `coord/reports/TM-6.md`.
+
+## Test run (Haiku)
+
+See /g/uday-demos/reports/TM-6.md
+
+| command | result |
+|---|---|
+| bt-service targeted (tm6_edge, tm6_numbers, tm1_edge) | 127 passed |
+| bt-service full pytest | 1098 passed (rerun; run 1 hit ENOSPC on G: at 641) |
+| agent-runner vitest | 388 passed |
+| agent-runner tsc --noEmit | clean |
+
+## Verdict (Opus)
+PR #6 merged (1bdb551). Haiku: bt-service 1098/1098 (rerun after a disk-full environment failure), agent-runner 388/388, tsc clean.
