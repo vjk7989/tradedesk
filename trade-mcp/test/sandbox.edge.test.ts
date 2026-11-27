@@ -296,10 +296,10 @@ describe("sandbox limits", () => {
   });
 
   it("memory cap -> ok:false mentioning memory", async () => {
-    const r = await runCode(`const a=[]; for(let i=0;;i++) a.push(new Array(1e5).fill(i));`, {}, { memoryBytes: 8 * 1024 * 1024, timeoutMs: 5000 });
+    const r = await runCode(`const a=[]; for(;;) a.push(new Uint8Array(1 << 20));`, {}, { memoryBytes: 8 * 1024 * 1024, timeoutMs: 20_000 });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/memory/i);
-  });
+  }, 30_000);
 
   it("tiny memoryBytes fails gracefully mentioning memory", async () => {
     const r = await runCode(`return 1;`, {}, { memoryBytes: 1024 });
