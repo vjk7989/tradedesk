@@ -14,7 +14,7 @@
 | TM-11 | TM1 | ready (after TM-8 merged) | coord/tasks/TM-11.md | remaining deprecation-warning sites |
 | TM-10 | TM1 | fix | coord/tasks/TM-10.md | EXECUTE_TIMEOUT_MS so walkForward can finish in execute |
 | TM-6 | TM1 | fix | coord/tasks/TM-6.md | review follow-ups: numbers.Real + --once exit guard |
-| TM-7 | TM1 | review | coord/tasks/TM-7.md | jobs accept api-openai backend |
+| TM-7 | TM1 | done | coord/tasks/TM-7.md | jobs accept api-openai backend |
 | TM-8 | TM1 | ready | coord/tasks/TM-8.md | remove numpy generic-timedelta warnings |
 | TM-9 | TM1 | done | coord/tasks/TM-9.md | e2e smoke: walkForward + OAuth-off steps |
 | TM-2 | TM1 | done | coord/tasks/TM-2.md | agent-runner clean shutdown on signals, tested |

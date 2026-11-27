@@ -40,7 +40,7 @@ Block format: `## <YYYY-MM-DD HH:MM IST> · <task ID or topic> · <question|answ
 
 ## 5. Current queue (see `coord/board.md` for live state)
 - **TM1:**
-  - TM-6 (fix round), TM-7 (PR #9, testing), TM-8 (PR #8, testing), TM-10 (PR #10, fix round)
+  - TM-6 (fix round), TM-8 (PR #8, testing), TM-10 (PR #10, fix round)
   - TM-11 (after TM-8 merges), TM-12 (after TM-10 merges)
 - **TM2:** TM2-1 (VPS backup/restore), TM2-2 (trade-mcp audit-log rotation). Both are ready, with no file overlap.
-- **Done so far:** TM-1, TM-2, TM-3, TM-4, TM-5, TM-9.
+- **Done so far:** TM-1, TM-2, TM-3, TM-4, TM-5, TM-7, TM-9.
