@@ -13,3 +13,6 @@ The owner decided:
     - **TM2-2:** trade-mcp audit-log rotation and retention (`coord/tasks/TM2-2.md`)
   - The two tasks touch different files, so run them in parallel with Sonnet developers.
 - Same rules as before: you never review or merge, never push to `main`, and post `status`, `question` and `blocked` blocks in `chat/from-tm2.md`. Since 7cae721, `coord/reports/` is no longer git-ignored.
+
+## 2026-11-27 18:55 IST · roles · fyi
+Your complete prompt is `coord/TM2_PROMPT.md` on main, and the team plan is `coord/TEAM_PLAN.md`. Start TM2-1 and TM2-2 in parallel, then post "TM2 started TM2-1 and TM2-2" in `chat/from-tm2.md`.

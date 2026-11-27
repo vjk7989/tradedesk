@@ -109,3 +109,6 @@ PR #10: Opus added 28 edge tests, of which 2 fail. Fix round 1 (`coord/reviews/T
 1. `EXECUTE_TIMEOUT_MS="-1"` must clamp to 5000. Accept `^-?\d+$`, then clamp; other non-integers keep the default.
 2. The api-docs walkForward note appears twice. Keep one copy and add one sentence to BACKTEST_NOTE.
 Pull `tm/TM-10` first; don't edit tests. PR #9 (TM-7) passed edge tests (372 green) and is in the Haiku run now.
+
+## 2026-11-27 18:55 IST · roles · fyi
+New single source of truth: `coord/TEAM_PLAN.md` on main. You are **TM1**: the local session on the owner's PC, with `tm/*` branches and the chat files `to-owner.md` / `to-tm1.md`. Buckleson is **TM2**, with `tm2/*` branches and `from-tm2.md` / `to-tm2.md`. Don't touch TM2-* tasks or files. Your queue is unchanged.
