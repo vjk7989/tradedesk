@@ -35,6 +35,8 @@ cp ../vendor/openalgo/.sample.env openalgo.env
 cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
 chmod 600 .env openalgo.env
 ```
+Lint `risk.json` with the linter in the trade-mcp image (the host needs only Docker; run from `deploy/`). Candidate file before deploying: `docker compose run --rm --no-deps -v "$PWD/risk.json:/tmp/risk.json:ro" trade-mcp node dist/src/risk/lint.js /tmp/risk.json [--strict]`. Deployed file (the running container's `/config/risk.json`): `docker compose exec trade-mcp node dist/src/risk/lint.js /config/risk.json [--strict]`. Exit 0 = OK or warnings only, 1 = invalid config, unreadable file or usage error, 2 = warnings under `--strict`. Re-run each January to confirm the new year's NSE/MCX `marketHolidays` are filled in. From a local checkout instead: `cd trade-mcp && npm ci && npm run build && npm run risk:lint -- <file>`.
+To fill `marketHolidays` from OpenAlgo, use `deploy/sync_holidays.py` (usage and env: [docs/holidays.md](holidays.md)); after a write, `docker compose restart trade-mcp`.
 `EXECUTE_TIMEOUT_MS` (default 60000) is the execute time limit in ms, clamped 5000-900000. Set it to 660000 or more if you use `backtest.walkForward`; MCP clients also have their own tool-call timeout.
 Edit `openalgo.env`:
 - `APP_KEY`, `API_KEY_PEPPER`, `FERNET_SALT`: leave the placeholders; OpenAlgo replaces them on first run with `secrets.token_hex(32)` and writes them back (the file is bind-mounted read-write). To set them yourself: `python3 -c "import secrets;print(secrets.token_hex(32))"` for each. Never reuse or commit.
@@ -49,6 +51,7 @@ docker compose up -d --build     # from deploy/
 docker compose ps
 curl -s https://mcp.<DOMAIN>/healthz
 ```
+`/healthz` is the liveness check. `GET /readyz` is the readiness check: no auth, internal only (Caddy does not route it, so run it inside the stack, e.g. `docker compose exec trade-mcp wget -qO- http://127.0.0.1:8787/readyz`), cached 5 s, 200 when ready or 503, body `{ok, checks:{openalgo, bt, auditWritable}}`. `bt` is `not_configured` when `BT_URL` is unset, which does not cause a 503.
 
 ## 7. First login
 1. Open `https://openalgo.<DOMAIN>`, create the admin account, log in to your broker.
@@ -94,3 +97,6 @@ node -e "const c=require('crypto');const s=c.randomBytes(16);console.log('scrypt
 Optional: `OAUTH_ALLOWED_REDIRECT_HOSTS` (default `chatgpt.com,claude.ai,claude.com`). Then `docker compose up -d` and add the connector URL `https://mcp.<DOMAIN>/mcp`.
 - Warning: never publish trade-mcp's port (8787) or make it reachable except through Caddy. The login rate limiter trusts exactly one proxy hop (X-Forwarded-For).
 - Scheduled jobs: set `MCP_TOKEN_READONLY` (optional, >=24 chars, different from `MCP_TOKEN`) and give that token to them instead of `MCP_TOKEN`.
+
+## 14. Troubleshooting
+See [docs/troubleshooting.md](troubleshooting.md).
