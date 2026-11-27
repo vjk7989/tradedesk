@@ -246,10 +246,9 @@ export class TradeOAuthProvider implements OAuthServerProvider {
   ): Promise<OAuthTokens> {
     const key = sha(code);
     const rec = this.codes.get(key);
-    if (rec) {
-      this.codes.delete(key); // single use
-      this.persist(); // removal is durable before any tokens are returned
-    }
+    this.codes.delete(key); // single use
+    // removal is durable before any tokens are returned; unknown/expired codes change nothing durable
+    if (rec && rec.expiresAt > Date.now()) this.persist();
     if (!rec || rec.clientId !== client.client_id || rec.expiresAt <= Date.now()) {
       throw new InvalidGrantError("invalid authorization code");
     }

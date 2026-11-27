@@ -144,4 +144,37 @@ describe("TM-16 oauth follow-ups", () => {
       spy.mockRestore();
     }
   });
+
+  it("1000 exchanges with expired known codes: zero persists, all rejected; next real write drops them", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const dir = dirOf();
+    const s = await boot(dir);
+    const id = await s.register();
+    const codes: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const lr = await s.login(await s.authorize(id, pkce().challenge), PASSWORD);
+      codes.push(codeOf(lr));
+    }
+    const prov = new TradeOAuthProvider({
+      issuerUrl: new URL("https://mcp.example.com"), passwordHash: PW_HASH,
+      allowedRedirectHosts: ["claude.ai"], stateFile: path.join(dir, "oauth.json"),
+    });
+    const client = { client_id: id, client_name: "T", redirect_uris: [REDIRECT] } as any;
+    const file = () => JSON.parse(readFileSync(path.join(dir, "oauth.json"), "utf8"));
+    for (const c of codes) expect(file().codes[sha(c)]).toBeTruthy();
+    vi.setSystemTime(new Date("2026-01-01T01:00:00Z"));
+    const spy = vi.spyOn(TradeOAuthProvider.prototype as any, "persist");
+    try {
+      for (let i = 0; i < 1000; i++) {
+        await expect(prov.exchangeAuthorizationCode(client, codes[i % 3], "v", REDIRECT)).rejects.toThrow();
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+    const res: any = { status: () => res, set: () => res, type: () => res, send: () => res };
+    await prov.authorize(client, { redirectUri: REDIRECT, codeChallenge: "c", scopes: [] } as any, res);
+    for (const c of codes) expect(file().codes[sha(c)]).toBeUndefined();
+  });
 });
