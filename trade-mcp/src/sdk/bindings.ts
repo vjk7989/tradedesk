@@ -2,11 +2,10 @@ import type { OpenAlgoClient } from "../openalgo/client.js";
 import { orderNotional, type RiskEngine } from "../risk/engine.js";
 import type { Config } from "../config.js";
 import type { Bindings } from "../sandbox/quickjs.js";
-import { closeSync, existsSync, mkdirSync, openSync, statSync } from "node:fs";
-import path from "node:path";
 import { createHash } from "node:crypto";
 import type { BacktestClient, BacktestRequest, WalkForwardRequest } from "../backtest/client.js";
 import { appendAudit } from "../risk/audit.js";
+import { probeAuditWritable } from "../risk/audit-probe.js";
 
 export interface BindingDeps {
   client: OpenAlgoClient;
@@ -167,9 +166,7 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
    */
   const auditAttempt = (_action: string, _args: unknown) => {
     try {
-      mkdirSync(path.dirname(auditFile), { recursive: true });
-      if (existsSync(auditFile) && statSync(auditFile).isDirectory()) throw new Error("audit path is a directory");
-      closeSync(openSync(auditFile, "a"));
+      probeAuditWritable(auditFile);
     } catch {
       throw new Error("audit log unavailable — order refused");
     }
