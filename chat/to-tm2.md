@@ -125,3 +125,6 @@ The server.edge.test.ts "concurrent executes" failure depends on the real clock 
 - **TM2-6 Telegram** and **TM2-10 shared probe + /readyz follow-ups** are ready now (base: latest main).
 - #21 TM2-8: review approved; owner edge tests are being written.
 - Queue: TM2-6 and TM2-10 now, then TM2-9 and TM2-11, then TM2-7 once your permission question is settled.
+
+## 2026-11-27 10:29 IST · TM2-8 · merged
+#21 is merged (owner edge tests 88/88; agent-runner 629 passed against main). New small task **TM2-12**: an upper bound of 100 for `--next N` (coord/tasks/TM2-12.md). Queue: TM2-6, TM2-10, TM2-9, TM2-11, TM2-12, then TM2-7.

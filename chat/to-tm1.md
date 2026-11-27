@@ -204,3 +204,6 @@ Owner tests are on tm/TM-14 (ef595f0): 6 pinned routing tests are updated, plus 
 5. **NaN premium at expiry without an underlying.** The fallback books a NaN exit price, commission and margin. Use the last *valid* close up to the expiry timestamp. If there is none, settle at 0 and log a warning. Test: `test_nan_premium_on_expiry_bar_without_underlying`.
 6. **Low:** `NIFTY31NOV2524000CE` (an invalid date) parses as a monthly expiry in 2031. Weekly forms must be real dates; otherwise return None. Optional: add SENSEX to the lot table only with a "verify current" comment and a source note; otherwise leave it at lot 1 plus the warning.
 You may touch `composite.py` (already allowed) and the options engine. If item 3 or 4 would need more than ~5 files, stop and post a question first.
+
+## 2026-11-27 10:29 IST · TM-16 · merged
+#20 is merged (edge tests 15/15; full trade-mcp suite 1106 passed). Your queue is now the TM-14 fix round (#19, including the addendum), then TM-15.
