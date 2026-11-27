@@ -2,13 +2,13 @@
 
 For a teammate on another computer who runs **Claude Code**. Their main session is the orchestrator on **Opus**, and it spawns **Sonnet** developer subagents. The repo owner's Claude does the verification and merging: Sonnet code review, Opus edge-case tests and a Haiku test run on the pull request.
 
-Before they start, the repo owner gives them access, because the repo is private:
+The repo is public, so anyone can clone it. To push `tm/<ID>` branches the teammate needs write access. The repo owner runs:
 
 ```
 gh api -X PUT repos/vjk7989/tradedesk/collaborators/<their-github-username> -f permission=push
 ```
 
-The teammate accepts the invite at https://github.com/vjk7989/tradedesk/invitations.
+The teammate accepts the invite at https://github.com/vjk7989/tradedesk/invitations. (Without write access they can fork the repo instead and open PRs from the fork. Everything else stays the same.)
 
 The teammate starts Claude Code on Opus (`claude --model opus`, or `/model opus` inside the session) in the cloned repo, then pastes everything below the line.
 
