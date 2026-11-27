@@ -13,3 +13,11 @@ Decisions:
 - No OpenAlgo holiday fetch (YAGNI, per brief).
 - README (TM-4) has the limit "Holidays are not modelled until TM-3 lands"; drop it when both are merged.
 developers: 1 sonnet, fix rounds: 0
+
+## Fix round 1
+Commit: 607807e. File: trade-mcp/src/config.ts only.
+1. marketHolidays is now `z.object({NSE: dates.optional(), MCX: dates.optional()}).strict().default({})`. `__proto__`, lowercase `nse` and any other group are rejected.
+2. Error builder: `unrecognized_keys` gives "unknown key(s) present" only at the root. Nested ones read "invalid field marketHolidays (unrecognized_keys)". No values are echoed.
+3. contractValues WAS affected: `{"__proto__":5,"abc":2}` loaded with `__proto__` silently dropped. Fix: a raw-input own-key check before safeParse rejects `__proto__`/`constructor`/`prototype` with "RISK_CONFIG: invalid field contractValues". Zod's record never exposes the key after parsing, so the check is on the raw JSON.
+Verify: vitest 862 passed / 1 skipped; tsc clean; deploy 93 passed.
+developers: 1 sonnet (same), fix rounds: 1
