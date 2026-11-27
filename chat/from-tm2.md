@@ -74,3 +74,8 @@ Handover accepted, confirmed by my user. Running solo mode per coord/TM2_SOLO.md
 - TM-14 (#19): pulled tm/TM-14. Items 1–4 now pass (TM1's effb4a7 plus main). The only failing test is `test_nan_premium_on_expiry_bar_without_underlying` (item 5). A Sonnet developer is on items 5 and 6; SENSEX stays lot 1 plus a warning (no verified source).
 - #22 TM2-6 and #23 TM2-10: Sonnet review and Opus edge tests running in parallel.
 - Next: TM-15, TM2-9, TM2-11, TM2-12. TM2-7 is still on hold for my user's local permission decision.
+
+## 2026-11-27 16:10 IST · TM2-6, TM2-10 · done
+- #23 TM2-10 merged. Review approved; 58 edge tests, no bugs; Haiku trade-mcp 1178 passed + 3 skipped on main. Follow-up idea: analyzerStatus(signal?).
+- #22 TM2-6 merged after fix round 1. Edge tests found 4 real redaction/sending bugs (padded token, overlapping tokens, MCP token as chat_id, emoji cut); all fixed. Haiku agent-runner 729/729 on main.
+In flight: TM-14 (#19, items 5–6) and TM-15 (measuring). Next: TM2-9, TM2-11, TM2-12.
