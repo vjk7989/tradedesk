@@ -1,12 +1,14 @@
 // TM2-36 independent edge tests: `--history [N]` lists recent runs from report headers and runs nothing.
 // All tokens, keys and secrets below are fake.
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 const fx = vi.hoisted(() => ({
   reads: [] as { file: string; bytes: number }[],
+  opens: [] as string[],
   spawn: vi.fn(),
   runScheduler: vi.fn(),
   runTask: vi.fn(),
@@ -36,7 +38,20 @@ vi.mock("node:fs", async (importOriginal) => {
     fx.reads.push({ file: String(p), bytes: typeof r === "string" ? Buffer.byteLength(r) : r.length });
     return r;
   }) as typeof orig.readFileSync;
-  return { ...orig, readFileSync, default: { ...orig, readFileSync } };
+  const fds = new Map<number, string>();
+  const openSync = ((p: any, ...rest: any[]) => {
+    fx.opens.push(String(p));
+    const fd = (orig.openSync as any)(p, ...rest);
+    fds.set(fd, String(p));
+    return fd;
+  }) as typeof orig.openSync;
+  const readSync = ((fd: number, ...rest: any[]) => {
+    const got = (orig.readSync as any)(fd, ...rest);
+    fx.reads.push({ file: fds.get(fd) ?? `fd:${fd}`, bytes: got });
+    return got;
+  }) as typeof orig.readSync;
+  const t = { readFileSync, openSync, readSync };
+  return { ...orig, ...t, default: { ...orig, ...t } };
 });
 
 import { main } from "../src/main.js";
@@ -116,6 +131,7 @@ const rowLines = (r: R) => r.out.filter((l) => l.includes("\t"));
 
 beforeEach(() => {
   fx.reads.length = 0;
+  fx.opens.length = 0;
   fx.runScheduler.mockReset();
   fx.runTask.mockReset();
   fx.spawn.mockReset();
@@ -253,8 +269,8 @@ describe("reports", () => {
     exitedWith(r, 0);
     expect(rowLines(r)).toHaveLength(1);
     const reportReads = fx.reads.filter((x) => x.file.endsWith(".md"));
-    // BUG (TM2-36): history.ts uses readFileSync on the whole report, then splits every line.
-    const maxBytes = Math.max(0, ...reportReads.map((x) => x.bytes));
+    // Was a bug in round 0 (readFileSync of the whole report); fixed by the bounded 4 KiB head read.
+    const maxBytes = reportReads.reduce((a, x) => a + x.bytes, 0);
     expect(maxBytes, `read ${maxBytes} bytes of a 32 MiB report in ${ms} ms`).toBeLessThan(1024 * 1024);
   });
 
@@ -286,19 +302,116 @@ describe("reports", () => {
     expect(r.out).toEqual(["no reports found"]);
   });
 
-  it("DOCUMENTED: a report symlink pointing outside outputDir IS followed (header fields only are shown)", async () => {
+  it("a report symlink pointing outside outputDir is NOT followed, is counted, and its target is never opened", async () => {
     const d = tmp();
     const out = path.join(d, "runs");
     const outside = path.join(tmp(), "elsewhere.md");
     writeFileSync(outside, report("alpha", "2026-11-09T00:00:00.000Z", "ok", [], "OUTSIDE_BODY_fake"));
-    mkdirSync(path.join(out, "alpha"), { recursive: true });
+    put(out, "alpha", "2026-11-01.md", report("alpha", "2026-11-01T00:00:00.000Z"));
     symlinkSync(outside, path.join(out, "alpha", "2026-11-09.md"));
     const r = await run(["--jobs", writeJobs(d, [{ name: "alpha", outputDir: out }]), "--history"]);
     exitedWith(r, 0);
-    // Current behaviour: the link is followed; the printed path is the link inside outputDir, never the target.
     expect(rowLines(r)).toHaveLength(1);
+    expect(rowLines(r)[0].split("\t")[1]).toBe("2026-11-01");
+    expect(r.out).toContain("skipped 1 unreadable");
     expect(r.all).not.toContain(outside);
     expect(r.all).not.toContain("OUTSIDE_BODY_fake");
+    const target = realpathSync(outside);
+    expect(fx.opens.filter((p) => p === outside || p === target || p.endsWith("2026-11-09.md"))).toEqual([]);
+    expect(fx.reads.filter((x) => x.file === outside || x.file === target || x.file.endsWith("2026-11-09.md"))).toEqual([]);
+  });
+
+  it("a symlinked directory entry named like a report is skipped and counted", async () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    mkdirSync(path.join(out, "alpha"), { recursive: true });
+    symlinkSync(tmp(), path.join(out, "alpha", "2026-11-09.md"));
+    const r = await run(["--jobs", writeJobs(d, [{ name: "alpha", outputDir: out }]), "--history"]);
+    exitedWith(r, 0);
+    expect(r.out).toEqual(["no reports found", "skipped 1 unreadable"]);
+  });
+
+  const hasMkfifo = (() => {
+    try {
+      execFileSync("mkfifo", ["--version"], { stdio: "ignore" });
+      return process.platform !== "win32";
+    } catch {
+      return false;
+    }
+  })();
+  it.skipIf(!hasMkfifo)("a FIFO named like a report is skipped and counted without hanging (skipped where mkfifo is unavailable)", async () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    put(out, "alpha", "2026-11-01.md", report("alpha", "2026-11-01T00:00:00.000Z"));
+    const fifo = path.join(out, "alpha", "2026-11-02.md");
+    execFileSync("mkfifo", [fifo]);
+    const t0 = Date.now();
+    const r = await run(["--jobs", writeJobs(d, [{ name: "alpha", outputDir: out }]), "--history"]);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    exitedWith(r, 0);
+    expect(rowLines(r)).toHaveLength(1);
+    expect(r.out).toContain("skipped 1 unreadable");
+    expect(fx.opens).not.toContain(fifo);
+  }, 5000);
+
+  // HEAD_BYTES is 4096 in history.ts. `pad` builds extra header lines so the header block ends at a chosen byte.
+  const headerOf = (len: number, extra: string[] = []) => {
+    const base = ["# alpha - 2026-11-01T00:00:00.000Z", "", "- status: ok", "- duration: 7 ms", ...extra].join("\n") + "\n";
+    const fillLen = len - Buffer.byteLength(base) - 1; // "- x: " + filler + "\n"; then the blank line "\n" is NOT counted in len
+    return base + "- x: " + "a".repeat(fillLen - 5) + "\n";
+  };
+  it("a header block longer than 4 KiB is skipped and counted", () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    put(out, "alpha", "2026-11-01.md", headerOf(6000) + "\n## Prompt\n\np\n");
+    const job = { name: "alpha", outputDir: out } as Job;
+    expect(collectHistory([job], 20)).toEqual({ rows: [], skipped: 1 });
+  });
+  it("a header block with no blank line at all, longer than 4 KiB, is skipped", () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    put(out, "alpha", "2026-11-01.md", headerOf(9000) + "- y: " + "b".repeat(9000));
+    expect(collectHistory([{ name: "alpha", outputDir: out } as Job], 20)).toEqual({ rows: [], skipped: 1 });
+  });
+  it("boundary: header plus its blank line ending exactly at byte 4096 (file longer) is accepted", () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    const h = headerOf(4095); // 4095 bytes + "\n" blank line = 4096
+    expect(Buffer.byteLength(h + "\n")).toBe(4096);
+    put(out, "alpha", "2026-11-01.md", h + "\n" + "## Prompt\n\n" + "p".repeat(10000));
+    const { rows, skipped } = collectHistory([{ name: "alpha", outputDir: out } as Job], 20);
+    expect(skipped).toBe(0);
+    expect(rows.map((x) => `${x.status} ${x.durationMs}`)).toEqual(["ok 7"]);
+  });
+  it("boundary: a whole report of exactly 4096 bytes is accepted", () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    const h = headerOf(4094) + "\n";
+    const content = h + "z".repeat(4096 - Buffer.byteLength(h) - 1) + "\n";
+    expect(Buffer.byteLength(content)).toBe(4096);
+    put(out, "alpha", "2026-11-01.md", content);
+    const { rows, skipped } = collectHistory([{ name: "alpha", outputDir: out } as Job], 20);
+    expect(skipped).toBe(0);
+    expect(rows).toHaveLength(1);
+  });
+  it("boundary: blank line one byte past 4096 is skipped", () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    // header lines occupy 4096 bytes but the last line's newline is the 4097th byte; blank line after that.
+    const h = headerOf(4097);
+    put(out, "alpha", "2026-11-01.md", h + "\n## Prompt\n");
+    expect(collectHistory([{ name: "alpha", outputDir: out } as Job], 20)).toEqual({ rows: [], skipped: 1 });
+  });
+  it("DOCUMENTED boundary: header whose last line's newline is byte 4096 and blank line is byte 4097 is accepted (trailing split '' reads as the blank line)", () => {
+    const d = tmp();
+    const out = path.join(d, "runs");
+    const h = headerOf(4096);
+    expect(Buffer.byteLength(h)).toBe(4096);
+    put(out, "alpha", "2026-11-01.md", h + "- error: refused\n\n## Prompt\n");
+    const { rows, skipped } = collectHistory([{ name: "alpha", outputDir: out } as Job], 20);
+    // Off by one: the cut drops the "- error: refused" line, so a refusal would show as "ok"/"failed" per its status.
+    expect(skipped).toBe(0);
+    expect(rows).toHaveLength(1);
   });
 
   it("DOCUMENTED: a symlink to a file outside without a report header is just skipped", async () => {
@@ -426,6 +539,60 @@ describe("secrecy", () => {
   });
 });
 
+describe("redaction of name and path columns", () => {
+  it("a secret inside outputDir is redacted in the path column, other columns intact", async () => {
+    const secret = "fake-mcp-PATHSECRET-42";
+    vi.stubEnv("TM236E_TOKEN", secret);
+    const d = tmp();
+    const out = path.join(d, `runs-${secret}`);
+    put(out, "alpha", "2026-11-01.md", report("alpha", "2026-11-01T00:00:00.000Z"));
+    const r = await run(["--jobs", writeJobs(d, [{ name: "alpha", outputDir: out }]), "--history"]);
+    exitedWith(r, 0);
+    expect(r.all).not.toContain(secret);
+    const c = rowLines(r)[0].split("\t");
+    expect(c.slice(0, 4)).toEqual(["alpha", "2026-11-01", "ok", "1234 ms"]);
+    expect(c[4]).toContain("[redacted]");
+  });
+
+  it("job name equal to a secret: both the name and path columns are redacted", async () => {
+    const secret = "sk-fake-JOBNAME-xyz789";
+    vi.stubEnv("OPENAI_API_KEY", secret);
+    const d = tmp();
+    const out = path.join(d, "runs");
+    put(out, secret, "2026-11-01.md", report(secret, "2026-11-01T00:00:00.000Z"));
+    const r = await run(["--jobs", writeJobs(d, [{ name: secret, outputDir: out }]), "--history"]);
+    const c = rowLines(r)[0].split("\t");
+    expect(c[0]).toBe("[redacted]");
+    expect(c[4]).toBe(path.join(out, "[redacted]", "2026-11-01.md"));
+  });
+
+  it("short secret (< 4 chars) set: name and path columns are withheld, stem/status/duration kept", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "ab");
+    const d = tmp();
+    const out = path.join(d, "runs");
+    put(out, "alpha", "2026-11-01.md", report("alpha", "2026-11-01T00:00:00.000Z"));
+    put(out, "alpha", "2026-11-02.md", "");
+    const r = await run(["--jobs", writeJobs(d, [{ name: "alpha", outputDir: out }]), "--history"]);
+    exitedWith(r, 0);
+    const c = rowLines(r)[0].split("\t");
+    expect(c).toHaveLength(5);
+    expect(c[0]).toMatch(/^\[withheld/);
+    expect(c[4]).toMatch(/^\[withheld/);
+    expect(c.slice(1, 4)).toEqual(["2026-11-01", "ok", "1234 ms"]);
+    expect(r.all).not.toContain(out);
+    expect(r.out[r.out.length - 1]).toBe("skipped 1 unreadable");
+  });
+
+  it("a short secret in a job mcp tokenEnv also triggers withholding", async () => {
+    vi.stubEnv("TM236E_TOKEN", "q1");
+    const d = tmp();
+    const out = path.join(d, "runs");
+    put(out, "alpha", "2026-11-01.md", report("alpha", "2026-11-01T00:00:00.000Z"));
+    const r = await run(["--jobs", writeJobs(d, [{ name: "alpha", outputDir: out }]), "--history"]);
+    expect(rowLines(r)[0].split("\t")[0]).toMatch(/^\[withheld/);
+  });
+});
+
 // ---------------------------------------------------------------- status mapping
 describe("status mapping", () => {
   it("ok / refused / failed are mapped; an unknown status is skipped and counted", async () => {
@@ -472,6 +639,26 @@ describe("status mapping", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].status).toBe("failed");
     expect(rows[0].durationMs).toBe(5000);
+  });
+
+  it.each([
+    ["one spoofed status", ["- error: boom", "- status: ok"], "failed", 1234],
+    ["status and duration", ["- error: boom", "- duration: 1 ms", "- status: ok"], "failed", 1234],
+    ["several of each", ["- error: x", "- status: ok", "- status: ok", "- duration: 1 ms", "- duration: 2 ms", "- status: error", "- error: refused"], "failed", 1234],
+    ["refused then spoof", ["- error: refused", "- status: ok", "- duration: 9 ms"], "refused", 1234],
+  ])("lines after '- error:' are ignored: %s", (_n, extra, status, dur) => {
+    const h = parseReportHeader(report("alpha", "2026-11-01T00:00:00.000Z", "error", extra as string[]));
+    expect(h).toMatchObject({ status, durationMs: dur });
+  });
+
+  it("an ok status line after '- error:' does not rescue a header with no status before it", () => {
+    const text = ["# alpha - 2026-11-01T00:00:00.000Z", "", "- error: boom", "- status: ok", ""].join("\n");
+    expect(parseReportHeader(text)).toBeNull();
+  });
+
+  it("a first status wins over a later duplicate before any error line", () => {
+    const text = ["# alpha - 2026-11-01T00:00:00.000Z", "", "- status: error", "- status: ok", "- duration: 3 ms", "- duration: 1 ms", ""].join("\n");
+    expect(parseReportHeader(text)).toMatchObject({ status: "failed", durationMs: 3 });
   });
 
   it("parseReportHeader ignores status lines in the body (after the first blank line)", () => {
