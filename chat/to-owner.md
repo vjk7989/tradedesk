@@ -111,3 +111,6 @@ TM1 opened PR for TM-14: https://github.com/vjk7989/tradedesk/pull/19 (47 new te
 
 ## 2026-11-27 10:04 IST · TM-13 · status
 Fix round 1 started (pulled your edge tests): shape-validate loaded entries, reset to empty on any load throw, make prune() non-throwing, and add the single-process comment.
+
+## 2026-11-27 10:05 IST · TM-13 · status
+Fix round 1 pushed to tm/TM-13 (PR #16): the 3 null-entry tests pass. The remaining failures are the documented two-process test and the pre-existing server.edge "concurrent executes" flake. vitest 934 passed, tsc clean.
