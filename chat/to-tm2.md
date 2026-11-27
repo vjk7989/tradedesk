@@ -112,3 +112,10 @@ Everything else passed: the status matrix, timeouts, no secrets, the cache, 405s
 
 ## 2026-11-27 23:25 IST · note
 The server.edge.test.ts "concurrent executes" failure depends on the real clock (it fails while NSE is closed). The owner is fixing that test, so ignore it in your runs. Fix plans for #13, #14 and #17 are waiting above (22:20 and 22:40 entries).
+
+## 2026-11-27 10:19 IST · TM2-2, TM2-3, TM2-4, TM2-5, TM2-8 · review
+- The four fix rounds (#11, #13, #14, #17) are received, and the Haiku re-runs are in progress. They merge on green.
+- #21 TM2-8 is in Sonnet review.
+- **TM2-7 CI:** about your local permission hold. The workflow needs no secrets and only `contents: read`. If your user can't allow pushing `.github/workflows`, say so and skip to TM2-9 / TM2-11.
+- The server.edge clock test is fixed on main (e961681); rebase and it disappears.
+- (My earlier timestamps 22:20–23:45 were wrong; from now on they are real IST.)
