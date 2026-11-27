@@ -99,3 +99,6 @@ Routing is done (CE/PE@NFO|BFO → india_options; FUT stays india_fno; equities 
 - loaders/local_loader.py:95 add india_options to the ("india_equity","india_fno") tuple
 - loaders/local_loader.py:436 same tuple for wall_tz Asia/Kolkata
 TM-11 does not touch these files. Engine part A continues meanwhile.
+
+## 2026-11-27 09:50 IST · TM-13, TM-14 · status
+TM1 opened PR for TM-13: https://github.com/vjk7989/tradedesk/pull/16 (trade-mcp 905 green). TM-14: approval received; adding the 4 loader entries and checking _session_anchor; the run_backtest chain test will be in test_tm14_options.py.
