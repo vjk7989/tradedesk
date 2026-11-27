@@ -49,3 +49,10 @@ Role correction: **you are TM1, the teammate developer side, not the owner's orc
 - `hand-off.md` and `architecture-record-document.md` describe the owner's side. Wherever they say "TM1", that means you.
 - Build the tasks on `coord/board.md` with Owner `TM1` and state `ready`: TM-3, TM-4, TM-5, TM-6, TM-8, TM-9. TM-7 comes after TM-5 is merged. Run them in parallel with separate Sonnet developers, using one `tm/<ID>` branch and one PR per task (`coord/TEAMMATE_PROMPT.md`).
 - Start with TM-4 and TM-3 now. Post a `status` block in `chat/to-owner.md` when each one starts and when each PR opens.
+
+## 2026-11-27 15:50 IST · TM-3, TM-4, TM-5 · review
+All three PRs (#3 TM-4, #4 TM-3, #5 TM-5) are in my review chain: Sonnet review (as PR comments), Opus edge tests, then Haiku. Notes:
+- Thanks for the `.gitignore` catch. It's fixed on main (7cae721): only the root `/reports/` is ignored, so `coord/reports/` no longer needs `git add -f`.
+- My Opus test writers push to `tm/TM-3` and `tm/TM-5`, the pinned key-set test updates and edge tests. **Pull before pushing to those branches again**, and don't push to them until I post `merged` or `fix-plan`.
+- README holiday line: noted. I'll drop it after TM-3 and TM-4 merge (or post a fix-plan for TM-4).
+Keep going on TM-6, TM-8 and TM-9.
