@@ -83,6 +83,42 @@ _BARS_PER_DAY = {
             # Brazilian equity (B3, 7h session 10:00-17:00 BRT; daily-only loader)
             "b3_cotahist": 420,
             },
+    "3m": {"yfinance": 130, "yahoo": 130, "finnhub": 130, "alphavantage": 130,
+            "tiingo": 130, "fmp": 130, "stooq": 130, "longbridge": 130,
+            "local": 130,
+            # A-share equity (4.0h session)
+            "tushare": 80, "gildata": 80, "akshare": 80, "baostock": 80, "tencent": 80,
+            "eastmoney": 80, "sina": 80, "mootdx": 80, "futu": 80,
+            # crypto (24h)
+            "okx": 480, "ccxt": 480, "binance": 480,
+            "nobitex": 480, "wallex": 480,
+            # forex/CFD (24h intraday)
+            "mt5": 480, "tickerall": 480,
+            # Indian equity (6.25h session)
+            "india_broker": 125,
+            # Korean equity (6.5h session, 09:00-15:30 KST)
+            "pykrx": 130,
+            # Brazilian equity (B3, 7h session 10:00-17:00 BRT; daily-only loader)
+            "b3_cotahist": 140,
+            },
+    "10m": {"yfinance": 39, "yahoo": 39, "finnhub": 39, "alphavantage": 39,
+            "tiingo": 39, "fmp": 39, "stooq": 39, "longbridge": 39,
+            "local": 39,
+            # A-share equity (4.0h session)
+            "tushare": 24, "gildata": 24, "akshare": 24, "baostock": 24, "tencent": 24,
+            "eastmoney": 24, "sina": 24, "mootdx": 24, "futu": 24,
+            # crypto (24h)
+            "okx": 144, "ccxt": 144, "binance": 144,
+            "nobitex": 144, "wallex": 144,
+            # forex/CFD (24h intraday)
+            "mt5": 144, "tickerall": 144,
+            # Indian equity (6.25h session)
+            "india_broker": 38,
+            # Korean equity (6.5h session, 09:00-15:30 KST)
+            "pykrx": 39,
+            # Brazilian equity (B3, 7h session 10:00-17:00 BRT; daily-only loader)
+            "b3_cotahist": 42,
+            },
     "5m":  {"yfinance": 78,  "yahoo": 78,  "finnhub": 78,  "alphavantage": 78,
             "tiingo": 78,  "fmp": 78,  "stooq": 78,  "longbridge": 78,
             "local": 78,
@@ -185,7 +221,7 @@ def _normalize_interval(interval: str) -> str:
     lower = token.lower()
     if lower == "1w":
         return "1W"
-    if lower in ("1m", "5m", "15m", "30m"):
+    if lower in ("1m", "3m", "5m", "10m", "15m", "30m"):
         return lower
     if lower in ("1h", "4h", "1d"):
         return lower.upper()
@@ -196,7 +232,7 @@ def calc_bars_per_year(interval: str = "1D", source: str = "tushare") -> int:
     """Number of bars per year for annualisation.
 
     Args:
-        interval: Bar size (1m / 5m / 15m / 30m / 1H / 4H / 1D / 1W / 1M),
+        interval: Bar size (1m / 3m / 5m / 10m / 15m / 30m / 1H / 4H / 1D / 1W / 1M),
             case-insensitive like loaders accept (``1h`` → ``1H``, ``4h`` →
             ``4H``, ``1d`` → ``1D``) except ``1M``, which is a month.
         source: Data source (any VALID_SOURCES entry). Defaults to 252 days, 1 bar/day
