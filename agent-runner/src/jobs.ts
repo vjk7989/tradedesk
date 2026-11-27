@@ -24,7 +24,7 @@ export interface Job {
 
 export const OFFSET_MIN: Record<Schedule["tz"], number> = { "Asia/Kolkata": 330, UTC: 0 };
 
-const BACKENDS = ["claude", "codex", "gemini", "api", "api-openai"];
+const BACKENDS = ["claude", "codex", "gemini", "api", "api-openai", "api-gemini"];
 
 export class JobsError extends Error {}
 
@@ -48,7 +48,7 @@ export function parseJobs(raw: unknown): Job[] {
     }
     if (typeof s.time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time)) bad("schedule.time must be HH:MM");
     if (s.tz !== "Asia/Kolkata" && s.tz !== "UTC") bad('schedule.tz must be "Asia/Kolkata" or "UTC"');
-    if (!BACKENDS.includes(o.backend)) bad("backend must be claude|codex|gemini|api|api-openai");
+    if (!BACKENDS.includes(o.backend)) bad("backend must be claude|codex|gemini|api|api-openai|api-gemini");
     if (typeof o.prompt !== "string" || !o.prompt.trim()) bad("prompt must be a non-empty string");
     if (!validMcpSpec(o.mcp)) bad("invalid mcp {name,url,tokenEnv}");
     if (o.timeoutMs !== undefined && !(typeof o.timeoutMs === "number" && o.timeoutMs > 0)) bad("timeoutMs must be positive");
