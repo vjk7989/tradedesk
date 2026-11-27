@@ -134,7 +134,7 @@ def test_registry_and_routing(env):
     assert "openalgo" in registry.LOADER_REGISTRY
     assert registry.FALLBACK_CHAINS["india_equity"][0] == "openalgo"
     assert registry.resolve_loader("india_equity").name == "openalgo"
-    assert _detect_market("NIFTY28NOV2524000CE@NFO") == "india_equity"
+    assert _detect_market("NIFTY28NOV2524000CE@NFO") == "india_options"
     assert _detect_market("CRUDEOIL25DECFUT@MCX") == "india_fno"
     assert _detect_market("BTCUSD@CRYPTO") == "crypto"
     assert _detect_market("RELIANCE.NS") == "india_equity"

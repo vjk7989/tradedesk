@@ -78,7 +78,7 @@ def test_nse_file_starting_1530():
     "SENSEX25DECFUT@BFO", "NIFTY25DEC24000CE@NFO", "reliance@nse",
 ])
 def test_indian_non_mcx_symbols_use_0915(symbol):
-    assert matched_market(symbol) in ("india_equity", "india_fno")
+    assert matched_market(symbol) in ("india_equity", "india_fno", "india_options")
     out = _run(_frame(_mins("2025-04-01 11:07", 30)), "10m", symbol)
     assert out.index[0] == T("2025-04-01 11:05")
     assert all(_on_grid(t, 9, 15) for t in out.index)

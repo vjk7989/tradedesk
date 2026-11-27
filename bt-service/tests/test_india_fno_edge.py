@@ -93,9 +93,9 @@ def final(r):
     ("NIFTYFUT@NSE", "india_equity"),           # NSE is not an F&O exchange
     ("NIFTY25DECFUT@BSE", "india_equity"),
     ("NIFTY25DECFUT@CDS", "india_equity"),
-    ("NIFTY28NOV2524000CE@NFO", "india_equity"),  # options stay on india_equity
-    ("NIFTY28NOV2524000PE@NFO", "india_equity"),
-    ("SENSEX25DEC80000CE@BFO", "india_equity"),
+    ("NIFTY28NOV2524000CE@NFO", "india_options"),  # TM-14: options engine
+    ("NIFTY28NOV2524000PE@NFO", "india_options"),
+    ("SENSEX25DEC80000CE@BFO", "india_options"),
     ("RELIANCE.NS", "india_equity"),
     ("RELIANCE@NSE", "india_equity"),
     ("M&M@NSE", "india_equity"),
