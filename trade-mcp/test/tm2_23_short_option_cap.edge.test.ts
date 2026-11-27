@@ -1,11 +1,11 @@
 // TM2-23 edge tests (independent test writer): optional maxShortOptionQtyPerOrder cap
 // on SELLs of NFO/BFO ...CE / ...PE symbols. Clock is always pinned via RiskEngine `now`.
-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { RiskEngine, type RiskOrder } from "../src/risk/engine.js";
 import { loadConfig, riskSchema, ConfigError, type Config, type RiskConfig } from "../src/config.js";
 import { lintRisk, main as lintMain } from "../src/risk/lint.js";
@@ -276,27 +276,7 @@ describe("interaction with other checks", () => {
   });
 });
 
-// --- Equivalence with main ---------------------------------------------------
-// The engine as it is on origin/main, loaded from git at test time.
-let MainEngine: any;
-let mainNote = "";
-beforeAll(async () => {
-  let src: string;
-  try {
-    const base = execSync("git merge-base HEAD origin/main", { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    src = execSync(`git show ${base}:trade-mcp/src/risk/engine.ts`, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  } catch {
-    mainNote = "origin/main not available";
-    return;
-  }
-  const hours = pathToFileURL(path.join(ROOT, "src/risk/hours.ts")).href;
-  src = src.replace(/from "\.\/hours\.js"/, `from ${JSON.stringify(hours)}`).replace(/^import type .*$/m, "");
-  const d = mkdtempSync(path.join(tmpdir(), "tm2-23-main-"));
-  const f = path.join(d, "engine-main.ts");
-  writeFileSync(f, src);
-  MainEngine = (await import(/* @vite-ignore */ pathToFileURL(f).href)).RiskEngine;
-});
-
+// --- Key absent vs key set: git-free oracle on the same engine ---------------
 function matrix(): RiskOrder[] {
   const out: RiskOrder[] = [];
   const syms: [string, string][] = [
@@ -312,48 +292,82 @@ function matrix(): RiskOrder[] {
   return out;
 }
 
-describe("key absent: identical to main", () => {
-  it("main reference engine is loaded whenever origin/main is reachable", () => {
-    if (mainNote) return; // no origin/main in this checkout (e.g. shallow CI clone)
-    expect(typeof MainEngine).toBe("function");
-    expect(new MainEngine(baseRisk(), { mode: "paper", killSwitchFile: path.join(dir, "k"), stateFile: path.join(dir, "s.json"), now: () => OPEN })).toBeTruthy();
+// Independent statement of the rule from the brief.
+function capApplies(o: RiskOrder, cap: number): boolean {
+  const ex = o.exchange.trim().toUpperCase();
+  const sym = o.symbol.trim().toUpperCase();
+  const isShortOpt = String(o.side).trim().toUpperCase() === "SELL" && (ex === "NFO" || ex === "BFO") && (sym.endsWith("CE") || sym.endsWith("PE"));
+  return isShortOpt && o.quantity > cap;
+}
+
+describe("key set vs key absent (same engine)", () => {
+  const r = baseRisk({ maxQtyPerOrder: 100, maxNotionalPerOrder: 50000, maxNotionalPerDay: 200000 });
+
+  it("matrix is the expected size", () => {
+    expect(matrix().length).toBe(1440);
   });
 
   it.each([
     ["open", OPEN, false],
     ["closed", CLOSED, false],
     ["kill switch", OPEN, true],
-  ])("matrix of orders, %s", (_n, now, kill) => {
-    if (!MainEngine) {
-      console.warn(`skipping main comparison: ${mainNote}`);
-      return;
+    ["weekend + kill switch", SATURDAY, true],
+  ])("key set = key absent plus exactly the new reason after the maxQtyPerOrder reason, %s", (_n, now, kill) => {
+    const absent = engine(r, now as Date, kill as boolean);
+    const set = engine({ ...r, maxShortOptionQtyPerOrder: CAP }, now as Date, kill as boolean);
+    let capped = 0;
+    for (const o of matrix()) {
+      const a = check(absent, o);
+      const s = check(set, o);
+      const msg = JSON.stringify(o);
+      const applies = capApplies(o, CAP);
+      expect(a.reasons.some((x) => x.startsWith("short option qty")), msg).toBe(false);
+      if (applies) {
+        capped++;
+        // insertion point: right after the quantity reasons (positive-integer / maxQtyPerOrder),
+        // which come after kill switch / exchange / product / symbol reasons.
+        let at = 0;
+        for (let i = 0; i < a.reasons.length; i++) {
+          const x = a.reasons[i];
+          if (x === "kill switch active" || /^exchange .* not allowed$/.test(x) || /^product .* not allowed$/.test(x) ||
+              /^symbol .* (is denied|not in allow list)$/.test(x) || x === "quantity must be a positive integer" ||
+              /^quantity .* exceeds maxQtyPerOrder /.test(x)) at = i + 1;
+        }
+        const expected = [...a.reasons.slice(0, at), REASON(o.quantity, CAP), ...a.reasons.slice(at)];
+        expect(s.reasons, msg).toEqual(expected);
+      } else {
+        expect(s.reasons, msg).toEqual(a.reasons);
+      }
+      expect(s.allow, msg).toBe(a.allow && !applies);
     }
-    const r = baseRisk({ maxQtyPerOrder: 100, maxNotionalPerOrder: 50000, maxNotionalPerDay: 200000, allowedExchanges: ["NSE", "BSE", "NFO", "BFO", "MCX", "CRYPTO"] });
-    const cur = engine(r, now as Date, kill as boolean);
-    const ref = engine(r, now as Date, kill as boolean, MainEngine);
-    const orders = matrix();
-    for (const o of orders) expect(check(cur, o), JSON.stringify(o)).toEqual(ref.checkOrder(o, { ordersThisRun: 0 }));
+    expect(capped).toBeGreaterThan(0);
   });
 
-  it("key set: result equals main plus exactly the new reason where the rule applies", () => {
-    if (!MainEngine) return;
-    const r = baseRisk({ maxQtyPerOrder: 100, maxNotionalPerOrder: 50000 });
-    for (const [now, kill] of [[OPEN, false], [CLOSED, true]] as const) {
-      const cur = engine({ ...r, maxShortOptionQtyPerOrder: CAP }, now, kill);
-      const ref = engine(r, now, kill, MainEngine);
-      for (const o of matrix()) {
-        const a = check(cur, o);
-        const b = ref.checkOrder(o, { ordersThisRun: 0 });
-        const ex = o.exchange.trim().toUpperCase();
-        const sym = o.symbol.trim().toUpperCase();
-        const shortOpt = String(o.side).trim().toUpperCase() === "SELL" && (ex === "NFO" || ex === "BFO") && /(CE|PE)$/.test(sym);
-        const expectCap = shortOpt && o.quantity > CAP;
-        const extra = a.reasons.filter((x) => x.startsWith("short option qty"));
-        expect(extra, JSON.stringify(o)).toEqual(expectCap ? [REASON(o.quantity, CAP)] : []);
-        expect(a.reasons.filter((x) => !x.startsWith("short option qty")), JSON.stringify(o)).toEqual(b.reasons);
-        expect(a.allow, JSON.stringify(o)).toBe(b.allow && !expectCap);
-      }
-    }
+  it("a huge cap never changes any result", () => {
+    const absent = engine(r);
+    const set = engine({ ...r, maxShortOptionQtyPerOrder: Number.MAX_SAFE_INTEGER });
+    for (const o of matrix()) expect(check(set, o), JSON.stringify(o)).toEqual(check(absent, o));
+  });
+
+  // Pinned baseline of reason ordering with the key absent (and the same orders with it set).
+  const R = baseRisk({ maxQtyPerOrder: 100, maxNotionalPerOrder: 1000, maxNotionalPerDay: 1500, allowedExchanges: ["NSE", "NFO"] });
+  it.each([
+    ["clean short CE", OPEN, false, opt({ quantity: 60 }), [], [REASON(60, CAP)]],
+    ["kill + qty + notional", OPEN, true, opt({ quantity: 200, price: 10 }),
+      ["kill switch active", "quantity 200 exceeds maxQtyPerOrder 100", "notional 2000 exceeds per-order limit 1000", "day notional 2000 exceeds maxNotionalPerDay 1500"],
+      ["kill switch active", "quantity 200 exceeds maxQtyPerOrder 100", REASON(200, CAP), "notional 2000 exceeds per-order limit 1000", "day notional 2000 exceeds maxNotionalPerDay 1500"]],
+    ["BFO not allowed + closed", CLOSED, false, opt({ exchange: "BFO", symbol: "SENSEX26JAN80000PE", quantity: 60 }),
+      ["exchange BFO not allowed", "market closed for BFO"],
+      ["exchange BFO not allowed", REASON(60, CAP), "market closed for BFO"]],
+    ["no price, closed", CLOSED, false, opt({ quantity: 60, price: undefined }),
+      ["price required for notional check", "market closed for NFO"],
+      [REASON(60, CAP), "price required for notional check", "market closed for NFO"]],
+    ["BUY over everything", OPEN, true, opt({ side: "BUY", quantity: 200, price: 10 }),
+      ["kill switch active", "quantity 200 exceeds maxQtyPerOrder 100", "notional 2000 exceeds per-order limit 1000", "day notional 2000 exceeds maxNotionalPerDay 1500"],
+      ["kill switch active", "quantity 200 exceeds maxQtyPerOrder 100", "notional 2000 exceeds per-order limit 1000", "day notional 2000 exceeds maxNotionalPerDay 1500"]],
+  ] as const)("pinned ordering: %s", (_n, now, kill, o, absentReasons, setReasons) => {
+    expect(check(engine(R, now, kill), o).reasons).toEqual(absentReasons);
+    expect(check(engine({ ...R, maxShortOptionQtyPerOrder: CAP }, now, kill), o).reasons).toEqual(setReasons);
   });
 });
 
