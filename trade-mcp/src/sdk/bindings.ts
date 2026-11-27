@@ -14,6 +14,7 @@ export interface BindingDeps {
   risk: RiskEngine;
   cfg: Config;
   auditFile: string;
+  scope?: "full" | "readonly";
 }
 
 const STRATEGY = "trade-mcp";
@@ -191,7 +192,7 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
     return { symbol: str(a, "symbol", what), exchange: str(a, "exchange", what) };
   };
 
-  return {
+  const bindings: LooseBindings & Bindings = {
     market: {
       quote: async (args) => (await client.quotes(symEx(args, "market.quote"))),
       depth: async (args) => (await client.depth(symEx(args, "market.depth"))),
@@ -341,4 +342,7 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
       status: async () => risk.status(),
     },
   };
+  // readonly scope: the trade namespace does not exist in the sandbox at all
+  if (deps.scope === "readonly") delete bindings.trade;
+  return bindings;
 }
