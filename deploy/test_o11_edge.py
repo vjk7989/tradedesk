@@ -86,7 +86,6 @@ def test_runbook_busy_quotes_are_accurate():
         assert msg.startswith(q), q
 
 
-@pytest.mark.xfail(strict=True, reason="runbook quotes a truncated busy message (O-11 follow-up)")
 def test_runbook_quotes_exact_busy_message():
     assert _busy_message() in RUNBOOK.read_text(encoding="utf-8")
 
