@@ -71,3 +71,6 @@ TM1 runs Claude Code on another machine: Opus is the orchestrator and Sonnet sub
 2. An Opus test writer adds edge-case tests on the PR branch.
 3. A Haiku runner runs the verify command plus the full package suite on the PR branch.
 4. Green → the orchestrator merges the PR (`gh pr merge --merge`). Red → the orchestrator writes the fix plan as a PR comment plus `reviews/<ID>.md`, and the board goes to `fix`.
+
+## Chat channel (branch `chat`)
+For quick two-way messages between the owner's orchestrator and TM1. TM1 writes only `chat/to-owner.md`; the orchestrator writes only `chat/to-tm1.md`. Both files are append-only. Protocol: `chat/README.md` on branch `chat`. TM1's paste-in prompt: `coord/CHAT_PROMPT.md`.
