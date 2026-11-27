@@ -128,6 +128,9 @@ _CN_FUTURES_DATED3_PATTERN = r"^(?:{})\d{{3}}$".format(
 )
 
 _MARKET_PATTERNS = [
+    # Local addition: OpenAlgo explicit-exchange symbols (SYMBOL@EXCHANGE).
+    (re.compile(r"^[A-Z0-9&_\-]+@CRYPTO$", re.I), "crypto"),
+    (re.compile(r"^[A-Z0-9&_\-]+@(NSE|BSE|NFO|BFO|CDS|BCD|MCX)$", re.I), "india_equity"),
     (re.compile(r"^[A-Z0-9]{4}\.T$", re.I), "jp_equity"),
     (re.compile(r"^\d{6}\.(SZ|SH|BJ)$", re.I), "a_share"),
     (re.compile(r"^(51|15|56)\d{4}\.(SZ|SH)$", re.I), "a_share"),

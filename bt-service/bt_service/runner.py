@@ -58,11 +58,15 @@ def _runs_root() -> Path:
     return root.resolve()
 
 
-def _child_env() -> dict[str, str]:
-    return {
+def _child_env(run_dir: Path | None = None) -> dict[str, str]:
+    env = {
         k: v for k, v in os.environ.items()
         if k.upper() in _ENV_ALLOW or k.upper().startswith(_ENV_PREFIXES)
     }
+    # Library caches must stay inside run_dir (the child audit hook blocks other writes).
+    if run_dir is not None:
+        env["XDG_CACHE_HOME"] = str(run_dir / ".cache")
+    return env
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
@@ -154,7 +158,7 @@ def run_backtest(
         try:
             proc = subprocess.run(
                 [sys.executable, "-I", "-m", "bt_service._child", str(run_dir)],
-                capture_output=True, text=True, timeout=timeout_s, env=_child_env(), cwd=str(run_dir),
+                capture_output=True, text=True, timeout=timeout_s, env=_child_env(run_dir), cwd=str(run_dir),
             )
         except subprocess.TimeoutExpired:
             return _fail("timeout")
