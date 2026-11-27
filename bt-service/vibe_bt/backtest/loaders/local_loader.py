@@ -92,7 +92,7 @@ _SESSION_ANCHORED_RULES = {"3min", "10min"}
 
 def _session_anchor(symbol: str, market: str | None) -> pd.Timestamp:
     """Fixed-date origin whose time-of-day is the market session open."""
-    if market in ("india_equity", "india_fno"):
+    if market in ("india_equity", "india_fno", "india_options"):
         if symbol.upper().endswith("@MCX"):
             return pd.Timestamp("2000-01-03 09:00")
         return pd.Timestamp("2000-01-03 09:15")
@@ -433,7 +433,7 @@ class DataLoader:
         from vibe_bt.backtest.engines._market_hooks import matched_market
 
         market = matched_market(symbol)
-        wall_tz = "Asia/Kolkata" if market in ("india_equity", "india_fno") else "UTC"
+        wall_tz = "Asia/Kolkata" if market in ("india_equity", "india_fno", "india_options") else "UTC"
         if src_type == "duckdb":
             db_path = str(Path(entry.get("db_path", "")).expanduser())
             query = entry.get("query", "").strip()
