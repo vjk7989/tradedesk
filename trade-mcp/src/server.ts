@@ -16,6 +16,8 @@ export interface ServerDeps {
   auditFile: string;
   bt?: BacktestClient;
   executeTimeoutMs?: number;
+  /** "readonly" removes the trade namespace; default (stdio) is full. */
+  scope?: "full" | "readonly";
 }
 
 const MAX_CODE_BYTES = 100 * 1024;
@@ -27,7 +29,7 @@ const text = (s: string, isError = false) => ({
 });
 
 export function createMcpServer(deps: ServerDeps): McpServer {
-  const secrets = [deps.cfg.openalgoApiKey, deps.cfg.mcpToken, deps.cfg.btToken].filter((x): x is string => !!x);
+  const secrets = [deps.cfg.openalgoApiKey, deps.cfg.mcpToken, deps.cfg.mcpTokenReadonly, deps.cfg.btToken].filter((x): x is string => !!x);
   const redact = (t: string) => secrets.reduce((acc, sec) => acc.split(sec).join("[redacted]"), t);
   const server = new McpServer({ name: "trade-mcp", version: "0.1.0" });
 
@@ -39,7 +41,7 @@ export function createMcpServer(deps: ServerDeps): McpServer {
       inputSchema: { query: z.string() },
       annotations: { readOnlyHint: true },
     },
-    async ({ query }) => text(redact(searchApi(query))),
+    async ({ query }) => text(redact(searchApi(query, deps.scope === "readonly" ? "readonly" : "full"))),
   );
 
   server.registerTool(

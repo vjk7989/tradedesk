@@ -412,7 +412,7 @@ def test_resolve_picks_openalgo_when_env_set(env):
 
 @pytest.mark.parametrize("code,market", [
     ("BTCUSD@CRYPTO", "crypto"), ("btcusd@crypto", "crypto"),
-    ("X@NSE", "india_equity"), ("X@BSE", "india_equity"), ("NIFTY25FUT@NFO", "india_equity"),
+    ("X@NSE", "india_equity"), ("X@BSE", "india_equity"), ("NIFTY25FUT@NFO", "india_fno"),
     ("X@BFO", "india_equity"), ("X@CDS", "india_equity"), ("X@BCD", "india_equity"),
     ("CRUDEOIL@MCX", "india_equity"), ("M&M@NSE", "india_equity"),
 ])

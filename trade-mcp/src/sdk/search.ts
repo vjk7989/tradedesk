@@ -1,4 +1,4 @@
-import { API_DOCS, API_HEADER, type ApiDoc } from "./api-docs.js";
+import { API_DOCS as ALL_DOCS, API_HEADER, type ApiDoc } from "./api-docs.js";
 
 const MAX = 20;
 
@@ -13,7 +13,8 @@ function render(entries: ApiDoc[]): string {
     .join("\n\n");
 }
 
-export function searchApi(query: string): string {
+export function searchApi(query: string, scope: "full" | "readonly" = "full"): string {
+  const API_DOCS = ALL_DOCS.filter((d) => scope === "full" || d.ns !== "trade");
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) {
     const nss = [...new Set(API_DOCS.map((d) => d.ns))];

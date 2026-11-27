@@ -58,8 +58,8 @@ Detailed plan: `plan.md`.
 
 ## P3 Crypto
 - P3.1 · trade-mcp · Delta Exchange via OpenAlgo: CRYPTO exchange in risk config (USD notional), symbol docs in `search` (97402ae) [x]
-- P3.2 · bt-service · crypto backtest path verified (binance/okx loaders, funding, fees) with offline fixtures (fix f1 queued to D2 after P7.1: -SWAP route, negative fees, leverage≤0) [.]
-- P3.3 · trade-mcp · (optional) ccxt spot trading binding [ ]
+- P3.2 · bt-service · crypto backtest path verified (binance/okx loaders, funding, fees) with offline fixtures (78d038d) [x]
+- P3.3 · trade-mcp · (optional) ccxt spot trading binding (deferred: not needed, YAGNI — Delta via OpenAlgo covers crypto trading) [x]
 
 ## P4 Deploy (VPS)
 - P4.1 · deploy · docker-compose (openalgo, trade-mcp, bt-service, caddy), Dockerfiles, `.env.example` (b1f5d45) [x]
@@ -72,11 +72,11 @@ Detailed plan: `plan.md`.
 
 ## P6 Fincept
 - P6.1 · Fincept · install release v4.5.3, configure Claude Code harness + our MCP via mcp-remote [ ]
-- P6.2 · Fincept · (optional, source build) OpenAlgoBroker : IBroker + remote backtest provider [ ]
+- P6.2 · Fincept · (optional, source build) OpenAlgoBroker : IBroker + remote backtest provider (deferred: needs Qt source build, ~6 GB disk free; revisit on request) [x]
 
 ## P7 Advanced backtesting
-- P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (D2 building) [.]
-- P7.2 · bt-service · intraday interval support [ ]
+- P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (78d038d) [x]
+- P7.2 · bt-service · intraday interval support (testing) [.]
 - P7.3 · bt-service · walk-forward / out-of-sample endpoint [ ]
 
 ## P8 AI drivers (ADR-7)
@@ -84,5 +84,7 @@ Detailed plan: `plan.md`.
 - P8.2 · agent-runner · interface + `cli` backend (claude -p / codex exec / gemini -p headless, stream parse, timeout, trade-mcp attached) (965b822) [x]
 - P8.3 · agent-runner · `api` backend (Anthropic/OpenAI/Gemini keys) behind the same interface (dcbdc99; Anthropic only) [x]
 - P8.4 · agent-runner · scheduled jobs (pre-market brief, EOD review, strategy backtest refresh) (357fb45) [x]
-- P8.5 · trade-mcp · read-only MCP token scope (MCP_TOKEN_READONLY → trade.* bindings absent) for scheduled jobs (D1 building) [.]
+- P8.5 · trade-mcp · read-only MCP token scope (MCP_TOKEN_READONLY → trade.* bindings absent) for scheduled jobs (fa9f210) [x]
 - P5.2 · deploy · Caddy routes for OAuth paths + OAUTH_* env in compose/.env.example + runbook note (trade-mcp port never published) [ ]
+- P8.6 · docs+trade-mcp · document MCP_TOKEN_READONLY for jobs (connect-clients, agent-runner README), F&O lot_sizes/margin_pct + crypto costs in backtest API docs (3c5ef41) [x]
+- P7.2b · bt-service · add 3m and 10m intervals (_VALID_INTERVALS, _INTERVAL_SECONDS, _normalize_interval, _BARS_PER_DAY) — OpenAlgo supports them (D1 building) [.]

@@ -10,6 +10,7 @@ Market rules:
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,13 @@ class CryptoEngine(BaseEngine):
     """
 
     def __init__(self, config: dict):
+        for key in ("maker_rate", "taker_rate", "commission", "slippage"):
+            val = config.get(key)
+            if val is not None and not (isinstance(val, (int, float)) and math.isfinite(val) and val >= 0):
+                raise ValueError(f"{key} must be a finite number >= 0, got {val!r}")
+        lev = config.get("leverage")
+        if lev is not None and not (isinstance(lev, (int, float)) and math.isfinite(lev) and lev > 0):
+            raise ValueError(f"leverage must be a finite number > 0, got {lev!r}")
         super().__init__(config)
         self.maker_rate: float = config.get("maker_rate", config.get("commission", 0.0002))
         self.taker_rate: float = config.get("taker_rate", config.get("commission", 0.0005))

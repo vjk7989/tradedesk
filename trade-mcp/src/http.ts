@@ -46,16 +46,17 @@ export function createHttpServer(
 ): Server {
   const oauth: OAuthRuntime | undefined = oauthCfg ? createOAuth(oauthCfg) : undefined;
 
-  async function allowed(req: IncomingMessage): Promise<boolean> {
-    if (authorized(req, deps.cfg.mcpToken)) return true;
-    if (!oauth) return false;
+  async function scopeOf(req: IncomingMessage): Promise<"full" | "readonly" | null> {
+    if (authorized(req, deps.cfg.mcpToken)) return "full";
+    if (deps.cfg.mcpTokenReadonly && authorized(req, deps.cfg.mcpTokenReadonly)) return "readonly";
+    if (!oauth) return null;
     const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? "");
-    if (!m) return false;
+    if (!m) return null;
     try {
       await oauth.provider.verifyAccessToken(m[1]);
-      return true;
+      return "full";
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -68,7 +69,8 @@ export function createHttpServer(
       }
       if (path === "/healthz" && req.method === "GET") return json(res, 200, { ok: true, mode: deps.cfg.mode });
       if (path !== "/mcp") return json(res, 404, { error: "not found" });
-      if (!(await allowed(req))) {
+      const scope = await scopeOf(req);
+      if (!scope) {
         return json(
           res,
           401,
@@ -96,7 +98,7 @@ export function createHttpServer(
       }
 
       // stateless: fresh server + transport per request
-      const server = createMcpServer(deps);
+      const server = createMcpServer({ ...deps, scope });
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on("close", () => {
         void transport.close();

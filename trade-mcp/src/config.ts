@@ -37,6 +37,7 @@ export interface Config {
   openalgoUrl: string;
   openalgoApiKey: string;
   mcpToken: string;
+  mcpTokenReadonly?: string;
   btUrl?: string;
   btToken?: string;
   port: number;
@@ -69,6 +70,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const openalgoApiKey = req(env, "OPENALGO_API_KEY");
   const mcpToken = req(env, "MCP_TOKEN");
   if (mcpToken.trim().length < 24) throw new ConfigError("MCP_TOKEN must be at least 24 characters");
+  const mcpTokenReadonly = env.MCP_TOKEN_READONLY?.trim() ? env.MCP_TOKEN_READONLY.trim() : undefined;
+  if (mcpTokenReadonly !== undefined) {
+    if (mcpTokenReadonly.trim().length < 24) throw new ConfigError("MCP_TOKEN_READONLY must be at least 24 characters");
+    if (mcpTokenReadonly === mcpToken.trim()) throw new ConfigError("MCP_TOKEN_READONLY must differ from MCP_TOKEN");
+  }
 
   const portRaw = env.PORT ?? "8787";
   const port = Number(portRaw);
@@ -112,6 +118,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     openalgoUrl,
     openalgoApiKey,
     mcpToken,
+    mcpTokenReadonly,
     btUrl: env.BT_URL || undefined,
     btToken: env.BT_TOKEN || undefined,
     port,
