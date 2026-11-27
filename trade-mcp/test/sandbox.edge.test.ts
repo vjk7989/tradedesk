@@ -374,8 +374,8 @@ describe("sandbox limits", () => {
 
   // TM2-37: under load (2 full suites in parallel) one run measured p50 ~28 ms, p99 ~175 ms,
   // max ~570 ms, and a whole 50-run loop took up to ~3.9 s, so the old 5 s default flaked.
-  // The timeout is ~3x the loaded worst case. Wall time is not the leak signal: the run-to-run
-  // degradation check, the memory check and the handle check are.
+  // Round 2 saw a whole test take 7.2 s under heavier load, so the timeout is ~3x that. Wall time
+  // is not the leak signal: the degradation, memory and handle checks are.
   it("50 sequential runs: fresh context each, every run ok, no leak or degradation", async () => {
     v8.setFlagsFromString("--expose-gc");
     const gc = nodeVm.runInNewContext("gc") as () => void;
@@ -406,14 +406,22 @@ describe("sandbox limits", () => {
     gc();
     const end = process.memoryUsage();
     const MB = 1024 * 1024;
-    // Same tolerance as the O-9 200-run RSS-flat test: a per-run leak of a context/module is several MB each.
-    expect(end.rss - base.rss, "rss growth").toBeLessThan(64 * MB);
-    expect(end.external - base.external, "external growth").toBeLessThan(32 * MB);
+    // Limits after forced GC (round 2). Healthy maxima over 50 measured runs (alone, loaded, full file):
+    // RSS +16.9 MB, external +0.0 MB, heapUsed +0.0 MB.
+    // Retaining 1 MB of JS heap or Buffer per run (+50 MB) fails; 0.5 MB/run of heap fails on heapUsed.
+    expect(end.rss - base.rss, "rss growth").toBeLessThan(32 * MB);
+    expect(end.external - base.external, "external growth").toBeLessThan(8 * MB);
+    expect(end.heapUsed - base.heapUsed, "heapUsed growth").toBeLessThan(10 * MB);
     // No timers/handles left behind per run.
     expect(process.getActiveResourcesInfo().length, "active handles").toBeLessThanOrEqual(baseHandles + 2);
-    // Degradation: the last 10 runs are not slower than 2x the first 10 (medians, robust to load spikes).
+    // Degradation: medians of the last 10 vs the first 10 runs. 2x alone false-fails when load steps up
+    // mid-test (quiet ~8 ms first runs, loaded ~30-60 ms last runs), so an absolute floor is allowed too.
+    // FLOOR_MS = 50: a load step measured a gap of up to 30 ms, while a 2 ms/run growing slowdown makes ~80 ms.
+    const FLOOR_MS = 50;
     const first = median(ms.slice(0, 10));
     const last = median(ms.slice(-10));
-    expect(last, `median last10 ${last.toFixed(1)} ms vs first10 ${first.toFixed(1)} ms`).toBeLessThanOrEqual(2 * first);
-  }, 12_000);
+    expect(last, `median last10 ${last.toFixed(1)} ms vs first10 ${first.toFixed(1)} ms`).toBeLessThanOrEqual(
+      Math.max(2 * first, first + FLOOR_MS),
+    );
+  }, 21_000);
 });
