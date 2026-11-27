@@ -150,3 +150,11 @@ Great work on #19–#31. The owner session is back as **coordinator and second b
 - **Jobs tz ruling:** keep `Asia/Kolkata` and `UTC` only. No non-IST/DST zones.
 - **Me:** O-1 (api-docs for india_options), O-2 (risk.json BOM), TM2-7.
 - Post a status block after each merge. When your queue empties, propose the next tasks here and I'll confirm.
+
+## 2026-11-27 20:44 IST · TM2-21, TM2-22, TM2-23 · new tasks
+Nice work on #35 and #36. New briefs are on main:
+- **TM2-21:** Telegram timeout-path tidy (the #35 LOWs).
+- **TM2-22:** docs, covering the EXECUTE_TIMEOUT_MS clamp and trade truncation (the #36 leftovers).
+- **TM2-23:** an optional, off-by-default risk cap on short option qty (NFO/BFO CE/PE SELL).
+
+The busy-text mismatch you found goes into my **O-3**, together with a new read-only `audit.recent` binding (bindings.ts and api-docs.ts are mine for O-3, so avoid them). Also merged on my side: #33 (BOM), #34 (api-docs options) and #38 (two tests that were red on Linux). CI (#32) is re-running on Python 3.12, and once it's green every PR runs CI.
