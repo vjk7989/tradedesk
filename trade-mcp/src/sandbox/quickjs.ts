@@ -20,11 +20,15 @@ export interface RunResult {
 const TIMEOUT = Symbol("timeout");
 const MIN_MEMORY = 1024 * 1024;
 // runtime.setMemoryLimit does not count ArrayBuffer/TypedArray backing stores, so the WASM linear
-// memory itself is also capped: baseline (after context creation) + memoryBytes + this headroom.
-const WASM_HEADROOM = 1024 * 1024;
+// memory itself is also capped: memoryBytes + this headroom (absolute WASM size).
+const WASM_HEADROOM = 16 * 1024 * 1024;
 const MEMORY_ERROR = "memory limit exceeded";
 // Binary-buffer surface that trading scripts never need (shared memory, raw views, wasm).
-const REMOVED_GLOBALS = ["SharedArrayBuffer", "DataView", "Atomics", "WebAssembly"];
+const REMOVED_GLOBALS = [
+  "ArrayBuffer", "SharedArrayBuffer", "DataView", "Atomics", "WebAssembly",
+  "Int8Array", "Uint8Array", "Uint8ClampedArray", "Int16Array", "Uint16Array", "Int32Array", "Uint32Array",
+  "Float16Array", "Float32Array", "Float64Array", "BigInt64Array", "BigUint64Array",
+];
 
 export async function runCode(code: string, bindings: Bindings, opts: RunOpts = {}): Promise<RunResult> {
   const timeoutMs = opts.timeoutMs ?? 30_000;
@@ -77,7 +81,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
       vm.unwrapResult(vm.evalCode(`delete globalThis[${JSON.stringify(g)}]`)).dispose();
     }
     const wasmMemory = QuickJS.getWasmMemory();
-    const wasmCeiling = wasmMemory.buffer.byteLength + memoryBytes + WASM_HEADROOM;
+    const wasmCeiling = memoryBytes + WASM_HEADROOM;
     runtime.setInterruptHandler(() => {
       if (wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
       return memoryExceeded || Date.now() > deadline;
