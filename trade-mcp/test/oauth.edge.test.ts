@@ -329,6 +329,8 @@ describe("oauth edge (http)", () => {
       const reg = await (await c.register([REDIRECT])).json();
       return (await c.authorize(reg.client_id, pkce().challenge)).rid;
     }
+    // TM2-44: 6 sequential logins, each running production-cost scrypt (no test seam for the cost).
+    // Measured whole-test worst case under 2 parallel full suites: 3.98 s; timeout ~3x that.
     it("exactly 5 failures allowed, 6th -> 429 with Retry-After", async () => {
       const rid = await freshRid();
       const ip = rndIp();
@@ -336,7 +338,7 @@ describe("oauth edge (http)", () => {
       const r = await c.login(rid, "bad", ip);
       expect(r.status).toBe(429);
       expect(r.headers.get("retry-after")).toBe("900");
-    });
+    }, 12_000);
     it("4 failures then correct password still succeeds (boundary below limit)", async () => {
       const ip = rndIp();
       const rid = await freshRid();

@@ -289,6 +289,8 @@ describe("TM-13 edge: rate limit across restart", () => {
     expect((await s.login(rid, PASSWORD)).status).toBe(429);
   });
 
+  // TM2-44: 6 production-cost scrypt logins plus a restart (no test seam for the cost).
+  // Measured whole-test worst case under 2 parallel full suites: 5.13 s; timeout ~3x that.
   it("4 failures then restart: 5th attempt is still allowed (boundary below the limit)", async () => {
     const dir = dirOf();
     let s = await boot(dir);
@@ -298,7 +300,7 @@ describe("TM-13 edge: rate limit across restart", () => {
     await s.stop(); s = await boot(dir);
     expect((await s.login(rid, "bad")).status).toBe(401);
     expect((await s.login(rid, PASSWORD)).status).toBe(429);
-  });
+  }, 15_000);
 
   it("block holds 1 ms before 15 min across restart and lifts at 15 min", async () => {
     fakeDate(T0);

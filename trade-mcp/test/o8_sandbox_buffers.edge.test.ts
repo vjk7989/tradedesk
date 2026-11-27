@@ -106,7 +106,6 @@ describe("O-8 large allocations through routes still available", () => {
     ["Array(1e8).fill(0)", `const a = Array(1e8).fill(0); return a.length;`, MEM],
     ["new Array(2**32-1) then fill", `const a = new Array(2**32-1); a.fill(0); return a.length;`, MEM_OR_TIMEOUT],
     ["JSON.parse of a huge built string", `const s = "[" + "1,".repeat(5e7) + "1]"; return JSON.parse(s).length;`, MEM],
-    ["JSON.parse of growing chunks", `const a=[]; for(;;) a.push(JSON.parse("[" + "1,".repeat(1e5) + "1]"));`, MEM],
     ["Map flood", `const m = new Map(); for (let i = 0; ; i++) m.set(i, { i });`, MEM],
     ["Set flood", `const s = new Set(); for (let i = 0; ; i++) s.add("k" + i);`, MEM],
     ["padEnd with a huge length", `return "".padEnd(2**29, "ab").length;`, MEM],
@@ -124,6 +123,36 @@ describe("O-8 large allocations through routes still available", () => {
       expect(await runCode(`return [1, 2, 3].map((x) => x * 2);`, {})).toMatchObject({ ok: true, result: [2, 4, 6] });
     }, 45_000);
   }
+
+  // O-12: was an unbounded loop of 1e5-element parses (~55 s, timed out under load). Now a bounded number of
+  // large parses of one pre-built string sized against memoryBytes: one parse fits, PARSES kept copies do not.
+  describe("JSON.parse of growing chunks (bounded)", () => {
+    const memoryBytes = 16 * MB;
+    const N = memoryBytes / 16; // array elements per parse
+    const PARSES = 8; // 2 fit in practice; 4 already exceed the cap, 8 leaves margin
+    const build = `const s = "[" + "1,".repeat(${N - 1}) + "1]";`;
+
+    it("control: one parse of the same pre-built string fits under memoryBytes", async () => {
+      const r = await runCode(`${build} return JSON.parse(s).length;`, {}, { memoryBytes, timeoutMs: 20_000 });
+      expect(r).toMatchObject({ ok: true, result: N });
+    }, 15_000);
+
+    it("JSON.parse of growing chunks -> memory error, host survives, next run works (fast, bounded)", async () => {
+      const t = Date.now();
+      const r = await runCode(
+        `${build} const keep = []; for (let i = 0; i < ${PARSES}; i++) keep.push(JSON.parse(s)); return keep.length;`,
+        {},
+        { memoryBytes, timeoutMs: 20_000 },
+      );
+      expect(r.ok).toBe(false);
+      expect(r.result).toBeUndefined();
+      expect(r.error).toMatch(MEM);
+      expect(r.error).not.toMatch(/timeout/i);
+      expect(r.error).not.toMatch(HOST_CRASH_TEXT);
+      expect(Date.now() - t).toBeLessThan(10_000);
+      expect(await runCode(`return [1, 2, 3].map((x) => x * 2);`, {})).toMatchObject({ ok: true, result: [2, 4, 6] });
+    }, 15_000);
+  });
 
   it("new Array(2**32-1) is sparse: succeeds without allocating", async () => {
     const before = host();

@@ -149,7 +149,10 @@ def test_timeframe_delta_equals_old_value(key):
     assert isinstance(new, pd.Timedelta)
     assert new == old
     assert new.value == old.value == NS[key] * 10**9
-    assert new.unit == old.unit == "ns"
+    # TM2-41 policy: the loader table is pinned to ns. A freshly built Timedelta is
+    # ns on pandas 2.x but us on pandas 3, so the old side is compared at ns.
+    assert new.unit == "ns"
+    assert new == old.as_unit("ns") and new.as_unit("ns").value == new.value
 
 
 def test_1M_is_31_days_not_minutes_and_1m_is_one_minute():

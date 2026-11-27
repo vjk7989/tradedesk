@@ -394,7 +394,8 @@ def resample_bars(frame: pd.DataFrame, interval: str) -> pd.DataFrame:
             columns[column] = values.last()
     out = pd.DataFrame(columns, columns=frame.columns)
     stamps = pd.Series(index, index=periods).groupby(level=0).max()
-    out.index = pd.DatetimeIndex(stamps.loc[out.index], name=frame.index.name)
+    # Pin ns so pandas 2.3 and 3.x agree (engines compare int64 ns epochs).
+    out.index = pd.DatetimeIndex(stamps.loc[out.index], name=frame.index.name).as_unit("ns")
     out.attrs = dict(frame.attrs)
     return out
 

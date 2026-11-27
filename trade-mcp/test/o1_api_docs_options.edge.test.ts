@@ -143,12 +143,16 @@ describe("O-1 edge: size", () => {
 // ---- protected sections pinned to a fixed baseline (O-7) ----
 // Baseline = api-docs.ts on main at 5daeac0 (before O-7). It is stored in this file, not read from git, so the check
 // no longer depends on which commit a branch was cut from. Intended changes since the baseline: the risk.status entry
-// (O-7, TM2-27 shape) and one kill-switch header line (O-7); trade.place may carry the O-5 short-option cap sentence.
+// (O-7, TM2-27 shape) and one kill-switch header line (O-7); trade.place may carry the O-5 short-option cap sentence;
+// backtest.walkForward carries the O-12 partial-fold sentence exactly once, appended to its "Result:" line (TM2-38).
 // Anything else fails. To accept a future intended change, update the baseline here in the same PR.
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const key = (d: { ns: string; name: string }) => `${d.ns}.${d.name}`;
 const PLACE_CAP =
   /Optional risk cap maxShortOptionQtyPerOrder limits NFO\/BFO CE\/PE SELL qty \(off when unset; also caps a SELL that closes a long\), denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'\. /;
+/** O-12: the one sentence allowed on top of the walkForward baseline, appended (after one space) to the "Result:" line. */
+const WF_PARTIAL =
+  " On ok:false, `folds` holds only the folds completed before the failure (possibly empty); summary and oosEquity are empty; check ok and error.";
 /** Header lines added on purpose after the baseline. Each may appear at most once. */
 const ALLOWED_ADDED_HEADER = [/^Kill switch: /];
 
@@ -201,7 +205,7 @@ const BASE_ORDER = [
   "risk.status",
 ];
 
-/** sha256(signature + "\n" + doc) per entry; backtest.run, trade.place, risk.status are checked separately. */
+/** sha256(signature + "\n" + doc) per entry; backtest.run, backtest.walkForward, trade.place, risk.status are checked separately. */
 const BASE_ENTRY_SHA: [string, string][] = [
   ["market.quote", "e21db937f7e5dd071d1d544c4382d61fc82ecd6ae775b9d7b5a058748e0a9312"],
   ["market.depth", "fa105e31d2ded881cd69c6aa7655755af28aa6fd8cc3f144cf6b584f21ac499a"],
@@ -216,9 +220,15 @@ const BASE_ENTRY_SHA: [string, string][] = [
   ["trade.modify", "699e901a720cfd1fba0ea92ccef959aba96cc7c63cdfe1ecf34c6840243ee7a2"],
   ["trade.cancel", "5a616ad8f47db81380285a173f982acddff8ce246e96f4aa725e710bb2492f3d"],
   ["trade.closePosition", "7754d0130f23eb9be3f77b1480c6a8e44b8a3f28ab207b0adc123ba4bdcd4fb7"],
-  ["backtest.walkForward", "cd568d9d727bd34f369c6a2daea0913c083c3577c9edb19b456ba8fd8de7b08f"],
   ["audit.recent", "49dc92ecc44e28c9ab1842ad4d674dd98a34e5009f52e0b12268b7a672c01dcd"],
 ];
+const BASE_WALKFORWARD_SHA = "cd568d9d727bd34f369c6a2daea0913c083c3577c9edb19b456ba8fd8de7b08f";
+/** walkForward doc minus the O-12 sentence equals the baseline; the sentence sits exactly once, at the end of "Result:". */
+const wfDocOk = (d: string) => {
+  if (d.split(WF_PARTIAL).length !== 2) return false;
+  const res = d.split("\n").find((l) => l.startsWith("Result: "));
+  return !!res && res.endsWith(WF_PARTIAL) && d.replace(WF_PARTIAL, "") === BASE_WALKFORWARD.doc;
+};
 const BASE_PLACE_SHA_WITHOUT_CAP = "a83d9ee4b7aabbb0f98325db329804e65d2be71c6afd76b1367778174e4e0b46";
 const BASE_RUN_SIGNATURE_SHA = "2da0ef813764de127e06ce218174e74bf88198f15e9cf07b447ea9d9b741498d";
 const BASE_RUN_NON_FNO_SHA = "8ce2c834324f5e3363640eda966aa3db3e396c1dd5efda38c80d4341d56fc287";
@@ -249,9 +259,10 @@ const headerOk = (header: string) => {
 describe("O-1 edge: walkForward and crypto sections unchanged vs pinned baseline", () => {
   it("baseline self-check: pinned tables are complete, ordered and well-formed", () => {
     expect(BASE_ORDER).toHaveLength(18);
-    const sep = ["backtest.run", "trade.place", "risk.status"];
+    const sep = ["backtest.run", "backtest.walkForward", "trade.place", "risk.status"];
     expect(BASE_ENTRY_SHA.map(([k]) => k)).toEqual(BASE_ORDER.filter((k) => !sep.includes(k)));
     for (const [, h] of BASE_ENTRY_SHA) expect(h).toMatch(/^[0-9a-f]{64}$/);
+    expect(sha(BASE_WALKFORWARD.signature + "\n" + BASE_WALKFORWARD.doc)).toBe(BASE_WALKFORWARD_SHA);
     expect(BASE_HEADER.length).toBeGreaterThan(0);
   });
 
@@ -282,21 +293,41 @@ describe("O-1 edge: walkForward and crypto sections unchanged vs pinned baseline
     expect(headerOk(API_HEADER.replace(CRYPTO_NOTE, CRYPTO_NOTE + " "))).toBe(false);
   });
 
-  it("walkForward entry identical (signature and doc)", () => {
+  it("walkForward entry identical (signature and doc) except the one O-12 partial-fold sentence", () => {
     const a = API_DOCS.find((d) => d.ns === "backtest" && d.name === "walkForward")!;
     expect(a).toBeDefined();
     expect(a.signature).toBe(BASE_WALKFORWARD.signature);
-    expect(a.doc).toBe(BASE_WALKFORWARD.doc);
+    expect(a.doc.split(WF_PARTIAL)).toHaveLength(2); // exactly once
+    expect(a.doc.replace(WF_PARTIAL, "")).toBe(BASE_WALKFORWARD.doc);
+    expect(a.doc.split("\n").find((l) => l.startsWith("Result: "))!.endsWith(WF_PARTIAL)).toBe(true);
+    expect(a.doc.split("\n")).toHaveLength(BASE_WALKFORWARD.doc.split("\n").length);
+    expect(wfDocOk(a.doc)).toBe(true);
     expect(a.doc).toContain("'backtest service busy, retry later'");
   });
 
-  it("every entry identical except the intended changes (risk.status; trade.place cap sentence), same order", () => {
+  it("strictness: walkForward without, with two, an edited or a moved O-12 sentence, or any other edit, is rejected", () => {
+    const cur = API_DOCS.find((d) => d.ns === "backtest" && d.name === "walkForward")!.doc;
+    expect(wfDocOk(BASE_WALKFORWARD.doc)).toBe(false); // sentence missing
+    expect(wfDocOk(cur + WF_PARTIAL)).toBe(false); // duplicated
+    expect(wfDocOk(cur.replace("(possibly empty)", "(never empty)"))).toBe(false); // sentence edited
+    expect(wfDocOk(cur.replace("summary and oosEquity are empty", "summary is empty"))).toBe(false);
+    expect(wfDocOk(BASE_WALKFORWARD.doc.replace("calendar days.", "calendar days." + WF_PARTIAL))).toBe(false); // wrong line
+    expect(wfDocOk(cur + "\nExtra line.")).toBe(false);
+    expect(wfDocOk(cur.replace("10-minute budget", "20-minute budget"))).toBe(false); // other text edited
+    expect(wfDocOk(cur.replace(WF_PARTIAL, WF_PARTIAL.trimStart()))).toBe(false); // spacing
+  });
+
+  it("every entry identical except the intended changes (risk.status; trade.place cap; walkForward O-12 sentence), same order", () => {
     expect(API_DOCS.map(key)).toEqual(BASE_ORDER);
     const byKey = new Map(API_DOCS.map((d) => [key(d), d] as const));
     for (const [k, h] of BASE_ENTRY_SHA) {
       const d = byKey.get(k)!;
       expect(sha(d.signature + "\n" + d.doc), `${k} changed`).toBe(h);
     }
+    // backtest.walkForward: with the O-12 sentence removed (exactly one copy), it equals the baseline
+    const wf = byKey.get("backtest.walkForward")!;
+    expect(wf.doc.split(WF_PARTIAL)).toHaveLength(2);
+    expect(sha(wf.signature + "\n" + wf.doc.replace(WF_PARTIAL, ""))).toBe(BASE_WALKFORWARD_SHA);
     // trade.place: with the O-5 cap sentence removed (at most one copy), it equals the baseline
     const place = byKey.get("trade.place")!;
     expect((place.doc.match(new RegExp(PLACE_CAP.source, "g")) ?? []).length).toBeLessThanOrEqual(1);
