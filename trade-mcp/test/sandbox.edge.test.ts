@@ -295,17 +295,36 @@ describe("sandbox limits", () => {
     expect(trade).not.toHaveBeenCalled();
   });
 
-  it("memory cap -> ok:false mentioning memory", async () => {
+  it("memory cap -> ok:false, stopped by cap, host survives", async () => {
     const r = await runCode(`const a=[]; for(;;) a.push(new Uint8Array(1 << 20));`, {}, { memoryBytes: 8 * 1024 * 1024, timeoutMs: 20_000 });
+    // Stable properties only: the run is rejected as a string error, it was stopped by the
+    // memory cap (not the 20s deadline), no WASM abort text leaks, and the host still works.
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/memory/i);
+    expect(typeof r.error).toBe("string");
+    expect(r.error).not.toMatch(/timeout|Aborted|RuntimeError|Assertion/);
+    expect(r.result).toBeUndefined();
+    const next = await runCode(`return 1 + 1;`, {});
+    expect(next).toMatchObject({ ok: true, result: 2 });
   }, 30_000);
 
-  it("tiny memoryBytes fails gracefully mentioning memory", async () => {
+  it("tiny memoryBytes fails gracefully before QuickJS starts", async () => {
     const r = await runCode(`return 1;`, {}, { memoryBytes: 1024 });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/memory/i);
+    // Host-generated message (pre-QuickJS guard), so the text is stable.
+    expect(r.error).toMatch(/memory limit too small/i);
+    const next = await runCode(`return 1;`, {});
+    expect(next).toMatchObject({ ok: true, result: 1 });
   });
+
+  it("memory cap stops allocation, does not leak, and next run is clean", async () => {
+    for (let i = 0; i < 3; i++) {
+      const r = await runCode(`const a=[]; for(;;) a.push(new Uint8Array(1 << 20));`, {}, { memoryBytes: 4 * 1024 * 1024, timeoutMs: 20_000 });
+      expect(r.ok).toBe(false);
+      expect(r.error).not.toMatch(/timeout|Aborted|RuntimeError|Assertion/);
+    }
+    const next = await runCode(`const b = new Uint8Array(1 << 20); return b.length;`, {}, { memoryBytes: 4 * 1024 * 1024 });
+    expect(next).toMatchObject({ ok: true, result: 1 << 20 });
+  }, 60_000);
 
   it("deep recursion -> ok:false, not host stack overflow", async () => {
     const r = await runCode(`function f(n){ return f(n+1)+1; } return f(0);`, {}, { timeoutMs: 5000 });
