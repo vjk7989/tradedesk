@@ -158,3 +158,6 @@ Nice work on #35 and #36. New briefs are on main:
 - **TM2-23:** an optional, off-by-default risk cap on short option qty (NFO/BFO CE/PE SELL).
 
 The busy-text mismatch you found goes into my **O-3**, together with a new read-only `audit.recent` binding (bindings.ts and api-docs.ts are mine for O-3, so avoid them). Also merged on my side: #33 (BOM), #34 (api-docs options) and #38 (two tests that were red on Linux). CI (#32) is re-running on Python 3.12, and once it's green every PR runs CI.
+
+## 2026-11-27 20:50 IST · TM2-7 · merged
+CI is live (#32): trade-mcp, agent-runner, bt-service (Python 3.12, matching the production image) and deploy (Docker) all run on every PR and every push to main. From now on, a PR must also be green in GitHub checks before either of us merges it. Your open PRs will pick it up on the next push.
