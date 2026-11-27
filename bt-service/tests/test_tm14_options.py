@@ -239,3 +239,81 @@ def test_e2e_auto_chain_openalgo_then_local(env, monkeypatch):
                      source="auto", costs=NO_COST)
     assert r["ok"], r.get("error")
     assert r["trades"]
+
+
+# ── short margin basis: underlying close (no look-ahead) else strike ──
+
+def _short_engine(und_closes, mapped=True):
+    dates = pd.bdate_range("2025-11-10", periods=len(und_closes))
+    dm = {PE: frame(dates, [100.0] * len(dates))}
+    cfg = {"initial_cash": CAP, "slippage": 0}
+    if mapped:
+        cfg["underlying"] = {"NIFTY": IDX}
+        dm[IDX] = frame(dates, und_closes, und_closes)
+    e = IndiaOptionsEngine(cfg)
+    return e, dm, dates
+
+
+def _short_margin(und_closes, mapped=True):
+    e, dm, dates = _short_engine(und_closes, mapped)
+    drive(e, dm, {PE: [-1.0] * len(dates)}, [PE])
+    return e.trades[0].entry_margin, e.trades[0].size
+
+
+def test_short_margin_uses_underlying_close():
+    margin, size = _short_margin([20000.0, 20000.0])
+    assert margin == pytest.approx(0.15 * 20000.0 * 65 * size)
+    assert size == 5  # floor(1e6 / (0.15 * 20000 * 65 = 195,000)); the strike basis would give 4
+    margin2, size2 = _short_margin([30000.0, 30000.0])  # underlying moved up
+    assert margin2 == pytest.approx(0.15 * 30000.0 * 65 * size2) and size2 == 3
+
+
+def test_short_margin_strike_fallback_without_underlying():
+    margin, size = _short_margin([20000.0, 20000.0], mapped=False)
+    assert margin == pytest.approx(0.15 * 24000.0 * 65 * size) and size == 4
+
+
+def test_short_margin_no_look_ahead():
+    # entry on bar 0; the spike on bar 2 must not touch the margin booked at entry
+    calm, _ = _short_margin([20000.0, 20000.0, 20000.0])
+    spiked, _ = _short_margin([20000.0, 20000.0, 90000.0])
+    assert spiked == calm
+    # and the basis is the close at or before the entry bar, not a later one
+    assert _short_margin([20000.0, 90000.0])[0] == calm
+
+
+def test_short_margin_frozen_over_position_life():
+    e, dm, dates = _short_engine([20000.0, 20000.0, 40000.0, 40000.0])
+    drive(e, dm, {PE: [-1.0, -1.0, 0.0, 0.0]}, [PE])
+    t = e.trades[0]
+    assert t.entry_margin == pytest.approx(t.exit_margin)
+    assert e.capital == pytest.approx(CAP - t.commission)  # flat premium: only costs, no margin leak
+
+
+# ── composite: equity + option basket ──
+
+def test_e2e_equity_plus_option_basket(tmp_path, monkeypatch):
+    csv = (FIXTURES / "nifty_opt_1d.csv").as_posix()
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "sources:\n"
+        + "".join(
+            f'  - symbol: "{s}"\n    type: csv\n    path: "{csv}"\n    date_format: "%Y-%m-%d"\n'
+            for s in ("RELIANCE.NS", OPT)
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("BT_LOCAL_DATA_CONFIG", str(cfg))
+    monkeypatch.setenv("BT_RUNS_DIR", str(tmp_path / "runs"))
+    monkeypatch.setenv("VIBE_TRADING_DATA_CACHE", "false")
+    r = run_backtest(_code(0.2), ["RELIANCE.NS", OPT], "2025-11-03", "2025-11-28", capital=CAP,
+                     source="local", costs={"slippage": 0})
+    assert r["ok"], r.get("error")
+    opt = [t for t in r["trades"] if t.get("code") == OPT]
+    assert opt, r["trades"]
+    buy, sell = opt[0], opt[-1]
+    # lot-priced: 200,000 / (first open * 65) lots, P&L scaled by the 65-unit lot
+    assert buy["qty"] == int(200_000 // (buy["price"] * 65))
+    assert sell["pnl"] == pytest.approx((sell["price"] - buy["price"]) * 65 * buy["qty"], rel=1e-6)
+    eq = [t for t in r["trades"] if t.get("code") == "RELIANCE.NS"]
+    assert eq and eq[0]["qty"] > buy["qty"]  # equity leg sized in shares, not lots

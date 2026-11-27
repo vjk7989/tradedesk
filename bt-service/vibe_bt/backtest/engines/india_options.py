@@ -11,10 +11,10 @@ Model:
     table (VERIFY CURRENT NSE LOT SIZES). A root in neither gets lot 1 with a
     warning and is listed under ``pricing_assumptions``.
   - Margin: a long position pays the full premium (leverage 1). A short position
-    blocks ``opt_short_margin_pct`` (default 0.15) x strike x lot x lots. The
-    strike is the underlying-notional basis: the engine's margin hook has no
-    access to the underlying series, so the strike (the notional at which the
-    option is struck) is always used. A basket that does not fit the available
+    blocks ``opt_short_margin_pct`` (default 0.15) x underlying price x lot x lots.
+    The underlying price is the close at or before the entry bar of the series
+    mapped by config ``underlying: {ROOT: symbol}`` (frozen while the position is
+    open), else the strike. A basket that does not fit the available
     capital is scaled down in whole lots by the base engine's fitter.
   - Expiry: ``YYMON`` monthly expiry is taken to be the LAST TUESDAY of the month
     (NSE moved index derivatives expiries to Tuesday from Sep 2025; VERIFY
@@ -120,7 +120,8 @@ class IndiaOptionsEngine(FuturesBaseEngine):
             str(k).upper(): str(v) for k, v in (config.get("underlying") or {}).items()
         }
         self._assumed_roots: set[str] = set()
-        self._plan_dir: dict[str, int] = {}
+        self._plan: dict[str, tuple[int, float]] = {}
+        self._data_map: dict = {}
         self.in_opt_brokerage = _non_negative("in_opt_brokerage", config.get("in_opt_brokerage", 20.0))
         self.in_opt_stt = _non_negative("in_opt_stt", config.get("in_opt_stt", 0.0015))
         self.in_opt_exchange_txn = _non_negative("in_opt_exchange_txn", config.get("in_opt_exchange_txn", 0.0003503))
@@ -149,19 +150,46 @@ class IndiaOptionsEngine(FuturesBaseEngine):
             {"product": r, "field": "lot_size", "value": 1} for r in sorted(self._assumed_roots)
         ]}
 
-    # ── margin: long = premium, short = pct x strike notional ──
+    # ── margin: long = premium, short = pct x underlying notional ──
 
-    def _plan_open_order(self, symbol, target_weight, *args, **kwargs):
-        # _calc_margin has no direction argument; remember the one being planned.
-        self._plan_dir[symbol] = 1 if target_weight > 0 else -1
-        return super()._plan_open_order(symbol, target_weight, *args, **kwargs)
+    def before_rebalance_bar(self, timestamp, data_map, codes) -> bool:
+        # _calc_margin has no data access; remember the bar being executed.
+        self._data_map = data_map
+        return False
+
+    def note_plan(self, symbol: str, target_weight: float, ts) -> None:
+        """Fix direction and short-margin basis for a position about to be planned.
+
+        The basis (underlying price per unit) is the underlying close at or before
+        ``ts`` when config ``underlying`` maps the root and that series is in the
+        cached data_map, else the strike. It is frozen while the position is open so
+        the margin debited at entry equals the margin credited at close. (The
+        close of bar ``ts`` counts as "at or before"; no later bar is ever read.)
+        """
+        if symbol in self.positions:
+            return
+        spec = parse_option(symbol)
+        basis = spec.strike if spec else 0.0
+        if spec is not None:
+            und = self._data_map.get(self.underlying.get(spec.root, ""))
+            if und is not None and ts is not None:
+                hist = und.loc[und.index <= ts, "close"]
+                if len(hist):
+                    basis = float(hist.iloc[-1])
+        self._plan[symbol] = (1 if target_weight > 0 else -1, basis)
+
+    def _plan_open_order(self, symbol, target_weight, df, ts, *args, **kwargs):
+        self.note_plan(symbol, target_weight, ts)
+        return super()._plan_open_order(symbol, target_weight, df, ts, *args, **kwargs)
 
     def _calc_margin(self, symbol: str, size: float, price: float, leverage: float) -> float:
         pos = self.positions.get(symbol)
-        direction = pos.direction if pos is not None else self._plan_dir.get(symbol, 1)
         spec = parse_option(symbol)
+        direction, basis = self._plan.get(symbol, (1, spec.strike if spec else 0.0))
+        if pos is not None:
+            direction = pos.direction
         if direction < 0 and spec is not None:
-            return self.short_margin_pct * spec.strike * self.get_contract_multiplier(symbol) * size
+            return self.short_margin_pct * basis * self.get_contract_multiplier(symbol) * size
         return super()._calc_margin(symbol, size, price, leverage)
 
     # ── execution rules ──
@@ -202,14 +230,18 @@ class IndiaOptionsEngine(FuturesBaseEngine):
         frame = data_map[code]
         return float(frame.loc[:timestamp, "close"].iloc[-1])
 
-    def after_rebalance_bar(self, timestamp, data_map, codes) -> bool:
-        stop = super().after_rebalance_bar(timestamp, data_map, codes)
+    def settle_expired(self, host, data_map, timestamp, codes) -> None:
+        """Close expired options on ``host`` (this engine, or the composite owning the book)."""
         for code in codes:
-            pos = self.positions.get(code)
+            pos = host.positions.get(code)
             spec = parse_option(code)
             if pos is None or spec is None or code not in data_map:
                 continue
             if pd.Timestamp(timestamp).date() >= spec.expiry:
                 price = self._settlement_price(code, spec, data_map, timestamp)
-                self._close_position(code, price, timestamp, "expiry")
+                host._close_position(code, price, timestamp, "expiry")
+
+    def after_rebalance_bar(self, timestamp, data_map, codes) -> bool:
+        stop = super().after_rebalance_bar(timestamp, data_map, codes)
+        self.settle_expired(self, data_map, timestamp, codes)
         return stop
