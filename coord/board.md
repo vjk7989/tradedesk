@@ -9,7 +9,7 @@
 | O-3 | OWNER | done | coord/tasks/O-3.md | audit.recent binding + exact busy text |
 | TM2-21 | TM2 | merged #39 | coord/tasks/TM2-21.md | Telegram timeout-path tidy |
 | TM2-22 | TM2 | merged #42 | coord/tasks/TM2-22.md | docs: EXECUTE_TIMEOUT_MS clamp + trade truncation |
-| TM2-23 | TM2 | in progress | coord/tasks/TM2-23.md | optional short-option qty risk cap |
+| TM2-23 | TM2 | merged #40 | coord/tasks/TM2-23.md | optional short-option qty risk cap |
 | O-1 | OWNER | done | coord/tasks/O-1.md | api-docs: document india_options |
 | O-2 | OWNER | done | coord/tasks/O-2.md | risk.json UTF-8 BOM accepted |
 | TM2-17 | TM2 | in progress | coord/tasks/TM2-17.md | explicit datetime format, india_broker_loader |
