@@ -1,0 +1,130 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import type { RiskConfig } from "../config.js";
+import { isMarketOpen, istParts } from "./hours.js";
+
+export interface RiskOrder {
+  symbol: string;
+  exchange: string;
+  product: string;
+  quantity: number;
+  price?: number; // ltp or limit
+  side: "BUY" | "SELL";
+}
+
+export interface RiskOpts {
+  mode: "paper" | "live";
+  killSwitchFile: string;
+  stateFile: string;
+  now?: () => Date;
+}
+
+interface Day {
+  date: string;
+  orders: number;
+  notional: number;
+}
+
+const norm = (s: string) => s.trim().toUpperCase();
+const minor = (n: number) => Math.round(n * 100);
+
+export class RiskEngine {
+  private day: Day;
+
+  constructor(private readonly cfg: RiskConfig, private readonly opts: RiskOpts) {
+    this.day = this.load();
+  }
+
+  private now(): Date {
+    return this.opts.now ? this.opts.now() : new Date();
+  }
+
+  private load(): Day {
+    const date = istParts(this.now()).date;
+    try {
+      const j = JSON.parse(readFileSync(this.opts.stateFile, "utf8"));
+      if (j && j.date === date && Number.isFinite(j.orders) && Number.isFinite(j.notional)) {
+        return { date, orders: j.orders, notional: j.notional };
+      }
+    } catch {
+      /* missing or corrupt: start at zero */
+    }
+    return { date, orders: 0, notional: 0 };
+  }
+
+  private roll(): void {
+    const date = istParts(this.now()).date;
+    if (this.day.date !== date) this.day = { date, orders: 0, notional: 0 };
+  }
+
+  private save(): void {
+    const dir = path.dirname(this.opts.stateFile);
+    mkdirSync(dir, { recursive: true });
+    const tmp = `${this.opts.stateFile}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(this.day));
+    renameSync(tmp, this.opts.stateFile);
+  }
+
+  /** Product must always be in allowedProducts, CRYPTO included. */
+  checkOrder(
+    o: RiskOrder,
+    run: { ordersThisRun: number },
+    dayPnl?: number,
+  ): { allow: boolean; reasons: string[] } {
+    this.roll();
+    const c = this.cfg;
+    const r: string[] = [];
+    const ex = o.exchange.trim().toUpperCase();
+    const sym = norm(o.symbol);
+    const product = o.product.trim();
+    const crypto = ex === "CRYPTO";
+
+    if (existsSync(this.opts.killSwitchFile)) r.push("kill switch active");
+    if (!c.allowedExchanges.some((e) => e.toUpperCase() === ex)) r.push(`exchange ${o.exchange} not allowed`);
+    if (!c.allowedProducts.includes(product)) r.push(`product ${o.product} not allowed`);
+    if (c.symbolDeny.some((s) => norm(s) === sym)) r.push(`symbol ${o.symbol} is denied`);
+    if (c.symbolAllow.length > 0 && !c.symbolAllow.some((s) => norm(s) === sym)) {
+      r.push(`symbol ${o.symbol} not in allow list`);
+    }
+    if (!Number.isInteger(o.quantity) || o.quantity <= 0) r.push("quantity must be a positive integer");
+    else if (o.quantity > c.maxQtyPerOrder) r.push(`quantity ${o.quantity} exceeds maxQtyPerOrder ${c.maxQtyPerOrder}`);
+
+    if (o.price === undefined || !Number.isFinite(o.price) || o.price <= 0) {
+      r.push("price required for notional check");
+    } else if (Number.isFinite(o.quantity)) {
+      const n = o.quantity * o.price;
+      const cap = crypto ? c.maxNotionalPerOrderUsd : c.maxNotionalPerOrder;
+      if (minor(n) > minor(cap)) r.push(`notional ${n} exceeds per-order limit ${cap}`);
+      if (!crypto && minor(this.day.notional + n) > minor(c.maxNotionalPerDay)) {
+        r.push(`day notional ${this.day.notional + n} exceeds maxNotionalPerDay ${c.maxNotionalPerDay}`);
+      }
+    }
+
+    if (this.day.orders + 1 > c.maxOrdersPerDay) r.push(`maxOrdersPerDay ${c.maxOrdersPerDay} reached`);
+    if (run.ordersThisRun + 1 > c.maxOrdersPerRun) r.push(`maxOrdersPerRun ${c.maxOrdersPerRun} reached`);
+    if (dayPnl !== undefined) {
+      if (!Number.isFinite(dayPnl)) r.push("day P&L unavailable/invalid");
+      else if (dayPnl <= -c.maxDailyLoss) r.push(`daily loss limit ${c.maxDailyLoss} hit`);
+    }
+    if (!isMarketOpen(ex, this.now())) r.push(`market closed for ${o.exchange}`);
+
+    return { allow: r.length === 0, reasons: r };
+  }
+
+  recordOrder(o: RiskOrder, notional: number): void {
+    this.roll();
+    this.day.orders += 1;
+    if (o.exchange.toUpperCase() !== "CRYPTO") this.day.notional += notional;
+    this.save();
+  }
+
+  status() {
+    this.roll();
+    return {
+      mode: this.opts.mode,
+      killSwitch: existsSync(this.opts.killSwitchFile),
+      limits: this.cfg,
+      today: { date: this.day.date, orders: this.day.orders, notional: this.day.notional },
+    };
+  }
+}
