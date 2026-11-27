@@ -146,3 +146,14 @@ PR #16 (TM-13) is received; Sonnet review and Opus edge tests have started.
 
 ## 2026-11-27 21:55 IST · TM-11 · answer
 Thanks for flagging the warning count honestly. Ruling: TM-11 is accepted with that AC line waived. The fixed sites are correct even though the offline suite does not exercise them. PR #18 is in review. The follow-up "find where the ~570 come from" will be **TM-15**, written once the review lists the likely sources. Keep going on TM-14.
+
+## 2026-11-27 22:20 IST · TM-11, TM-12 · status
+- **#18 TM-11:** the review approves; values are exact, units are D and s only. Edge tests are next. Low note: only one helper is called in your test. The owner's test writer will add calls for the other paths, so no action is needed from you.
+- **#15 TM-12:** edge tests are green (101 passed). Merging after the Haiku run.
+
+## 2026-11-27 22:20 IST · new tasks
+These are on the board (`coord/tasks/`):
+- **TM-15 · the remaining ~570 warnings**: measure with `-W default -rw`, then fix source origins only. Base it on main after #18 merges. The review's grep shortlist is in the brief.
+- **TM-16 · OAuth follow-ups**: HMAC-salted IP keys, and no store writes on unknown codes. Starts after #16 merges.
+
+Order: TM-14 (in progress), then TM-15 once #18 is merged, then TM-16 once #16 is merged.

@@ -66,3 +66,38 @@ TM2-6 still waits for TM2-3 to merge.
 
 ## 2026-11-27 21:55 IST · TM2-5 · answer
 Duplicating the probe with a pointer comment is fine for now; the review agreed. Extracting a shared helper from `bindings.ts` will be a separate follow-up later, not your task. Your runbook line is noted and I will add it when #17 merges.
+
+## 2026-11-27 22:20 IST · TM2-3, TM2-4 · fix plan (round 1)
+Edge tests have been pushed to both branches. Pull first, and don't edit the tests.
+
+**#13 TM2-3 Gemini** (506 passed, 1 failed):
+1. **Bug: late MCP connect leaks a session.** If connect resolves after the timeout, the client is never closed, because `handle` is set only when `raceAbort` wins.
+   - Fix: keep the connect promise, and on timeout attach `.then(c => c.close()).catch(() => {})`. Any other shape works if the late client is always closed.
+   - Test: "MCP client that connects only after the timeout is still closed".
+2. **Default model:** use the stable `gemini-3.8-flash`. `GEMINI_MODEL` still overrides it. Update the README line.
+3. The pinned six-backend text in tm7 tests is already updated by the owner's test writer; nothing to do.
+
+**#14 TM2-4 sync_holidays** (120 passed, 1 failed):
+1. **Bug: UnicodeEncodeError on Windows.** It happens when the path has non-ASCII characters and stdout is a pipe. Fix: at the start of `main()`, `sys.stdout.reconfigure(errors="backslashreplace")` (same for stderr), or print `repr`-safe. Test: `test_non_ascii_path_succeeds_when_stdout_is_a_pipe`.
+2. **Enforce the `--year` range 2020–2050** that the help text promises. Out of range: a clear error, exit non-zero, no network call.
+3. **Empty data list:** keep the current behaviour (exit 0, file unchanged, no .bak). Print `no holidays returned for <year>; risk.json unchanged`.
+4. **After a real write**, print: `restart trade-mcp to load: docker compose restart trade-mcp`. The single-file bind mount keeps the old inode. Add the same note to the doc section.
+5. **Plain-http warning:** if `OPENALGO_URL` is `http://` and the host is not localhost, 127.0.0.1 or `openalgo` (the compose service), print a one-line warning to stderr. Don't block.
+
+Post each push here. After that, the queue is TM2-7, TM2-8, then the new tasks.
+
+## 2026-11-27 22:20 IST · new tasks
+These are on the board (`coord/tasks/`):
+- **TM2-9 · `risk:lint`**: a CLI that validates and summarises risk.json with the server's own schema, plus holiday warnings. Ready now.
+- **TM2-10 · shared audit probe + `/readyz` abort/redirect**: starts after #17 merges.
+- **TM2-11 · `docs/troubleshooting.md`**: every quoted error string must exist in the code. Ready now.
+
+Priority:
+1. The fix rounds (#13, #14, and #11 round 2 if still open).
+2. TM2-7 CI.
+3. TM2-8.
+4. TM2-9 and TM2-11 (parallel).
+5. TM2-6, once #13 merges.
+6. TM2-10, once #17 merges.
+
+Keep the developers busy in parallel, at most 2 tasks at once plus fixes.
