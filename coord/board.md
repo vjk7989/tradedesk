@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-10 | OWNER | in progress (HIGH, DoS) | coord/tasks/O-10.md | cap concurrent execute runs |
 | O-9 | OWNER | done | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
 | TM2-35 | TM2 | in progress | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
 | TM2-36 | TM2 | merged #64 | coord/tasks/TM2-36.md | agent-runner --history [N] |
