@@ -127,7 +127,7 @@ async function main() {
     BT_LOCAL_DATA_CONFIG: localCfg,
     VIBE_TRADING_DATA_CACHE: "false",
   });
-  const mcp = start("trade-mcp", process.execPath, [path.join(MCP_DIR, "dist", "src", "index.js")], {
+  const mcp = start("trade-mcp", process.execPath, ["--require", path.join(ROOT, "e2e", "clock_shift.cjs"), path.join(MCP_DIR, "dist", "src", "index.js")], {
     OPENALGO_URL: `http://127.0.0.1:${oaPort}`,
     OPENALGO_API_KEY: API_KEY,
     MCP_TOKEN,
@@ -253,8 +253,9 @@ async function main() {
       encoding: "utf8",
     });
     assert(r.status === 0, `exit ${r.status}: ${(r.stdout + r.stderr).slice(-500)}`);
+    assert(r.stdout.includes("risk config OK"), `no 'risk config OK' in output: ${(r.stdout + r.stderr).slice(-500)}`);
   });
-  await step("14 agent-runner --check: fake env exits 0, unset env exits 1 'missing', no value leaked", async () => {
+  await step("14 agent-runner --check: fake env exits 0, unset env exits 1 'MCP_TOKEN: missing', no value leaked", async () => {
     const runner = path.join(ROOT, "agent-runner", "dist", "main.js");
     const jobs = path.join(ROOT, "agent-runner", "jobs.example.json");
     const FAKE = "fake-e2e-not-a-real-token-" + "z".repeat(12);
@@ -266,10 +267,11 @@ async function main() {
     };
     const ok = run({ MCP_TOKEN: FAKE });
     assert(ok.status === 0, `with env: exit ${ok.status}: ${ok.out.slice(-500)}`);
+    assert(ok.out.includes("MCP_TOKEN: set"), `no 'MCP_TOKEN: set' in output: ${ok.out.slice(-500)}`);
     assert(!ok.out.includes(FAKE), "fake token value appeared in output");
     const bad = run({});
     assert(bad.status === 1, `unset env: exit ${bad.status}: ${bad.out.slice(-500)}`);
-    assert(/missing/.test(bad.out), `no 'missing' in output: ${bad.out.slice(-500)}`);
+    assert(/MCP_TOKEN: missing/.test(bad.out), `no 'MCP_TOKEN: missing' in output: ${bad.out.slice(-500)}`);
   });
   await full.close();
 }
