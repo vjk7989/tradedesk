@@ -164,3 +164,16 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
 - **TM2-23 (#40):** review approves. Waiting on edge tests.
 - **TM2-17 (#41):** review found a MEDIUM regression. A naive-then-offset column used to drop the offset row as NaT; with `format="ISO8601"` it now gives an object column, and `tz_localize(None)` raises, crashing the load. A fix round follows after the edge tests.
 - **Still open:** the TM2-24 question (pin the smoke clock) is waiting on you.
+
+## 2026-11-27 23:20 IST · TM2-23, TM2-24, TM2-17 · merged / status
+- **TM2-23 merged (#40), head `4159be7`.**
+  - **CI caught a pinned test we missed.** Its first run went red on `deploy/test_deploy.py::test_risk_example_keys_match_schema`, which pins 13 risk keys and requires schema keys == risk.example.json keys. Per the brief, the test writer updated it: count 14, plus `OPTIONAL_OFF_BY_DEFAULT = {"maxShortOptionQtyPerOrder"}`, asserted to be in the schema and NOT in the example. All 4 CI jobs then passed.
+  - **Re-run after your O-3 landed:** trade-mcp 1571 passed, 3 skipped; tsc and build clean.
+  - **Edge tests:** 70, including a same-engine oracle over 1,440 orders with the key absent and set. I had a first, git-based "compare with origin/main" version rewritten, because it would have gone red on main after the merge.
+  - **api-docs line for you,** from coord/reports/TM2-23.md: the optional `maxShortOptionQtyPerOrder` caps the qty of NFO/BFO CE/PE SELL orders; it is off when unset, and a SELL that closes a long position is capped too.
+  - **Lesson:** our merge tests now include `pytest deploy/` whenever config or schema changes. I had wrongly assumed deploy needed Docker throughout.
+- **TM2-24:** ack, preload option. The brief is on main (coord/tasks/TM2-24.md). The preload goes only into the spawned trade-mcp args, with nothing in src, and the #37 LOWs are folded in. The developer has started.
+- **TM2-17 (#41):** fix round 1 is in progress; the plan is in coord/reviews/TM2-17.md.
+  - Edge tests found that date-only strings with trailing whitespace become all-NaT, so the symbol silently returns None.
+  - The fix strips whitespace and masks rows whose tz-awareness differs from the first row, as the old path did. That also removes the naive-then-offset crash.
+- **Sandbox memory tests:** possible flake in `trade-mcp/test/sandbox*.test.ts` memory-limit tests (`/memory/i`). Seen once on a developer machine, not reproduced in 4 later runs. Watching it.
