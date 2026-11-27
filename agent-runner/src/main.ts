@@ -18,6 +18,12 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
   const exit = deps.exit ?? ((c: number) => process.exit(c));
   const onSignal = deps.onSignal ?? ((s: string, fn: () => void) => void process.on(s as NodeJS.Signals, fn));
   const signals = ["SIGINT", "SIGTERM"] as const;
+  let exited = false;
+  const bye = () => {
+    if (exited) return;
+    exited = true;
+    exit(0);
+  };
   const val = (flag: string) => {
     const i = args.indexOf(flag);
     return i >= 0 ? args[i + 1] : undefined;
@@ -31,18 +37,12 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
   if (once !== undefined) {
     const job = jobs.find((j) => j.name === once);
     if (!job) throw new Error(`no such job: ${once}`);
-    for (const sig of signals) onSignal(sig, () => exit(0));
+    for (const sig of signals) onSignal(sig, bye);
     await exec(job);
     return;
   }
   let stopping = false;
   let running = false;
-  let exited = false;
-  const bye = () => {
-    if (exited) return;
-    exited = true;
-    exit(0);
-  };
   // First signal: stop starting jobs; exit now if idle, else after the running job. Second: exit now.
   const onStop = () => {
     const second = stopping;

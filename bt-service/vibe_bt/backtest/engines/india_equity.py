@@ -31,6 +31,7 @@ broker schedule before relying on absolute cost figures:
 from __future__ import annotations
 
 import math
+import numbers
 
 import pandas as pd
 
@@ -81,7 +82,7 @@ class IndiaEquityEngine(BaseEngine):
         self.in_mis_stt: float = config.get("in_mis_stt", 0.00025)  # verify current rate
         self.in_mis_stamp_duty: float = config.get("in_mis_stamp_duty", 0.00003)  # verify current rate
         if (isinstance(self.in_mis_stamp_duty, bool)
-                or not isinstance(self.in_mis_stamp_duty, (int, float))
+                or not isinstance(self.in_mis_stamp_duty, numbers.Real)
                 or not math.isfinite(self.in_mis_stamp_duty)
                 or self.in_mis_stamp_duty < 0):
             raise ValueError(
