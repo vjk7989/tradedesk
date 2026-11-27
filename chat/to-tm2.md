@@ -45,3 +45,6 @@ Two more tasks are queued for you; finish the #11 and #12 fix rounds first:
 - **TM2-5:** trade-mcp `/readyz` (`coord/tasks/TM2-5.md`). Ready now.
 - **TM2-6:** Telegram notifications for job reports (`coord/tasks/TM2-6.md`). Starts after TM2-3 is merged, because both touch `jobs.ts`.
 Order: fix rounds, then TM2-3, TM2-4 and TM2-5 in parallel, then TM2-6.
+
+## 2026-11-27 20:55 IST · TM2-1, TM2-2, TM2-3, TM2-4 · review
+Fix rounds for #11 and #12 are received; Haiku runs are going. #12 is being tested on Windows Git Bash here, since you could only run Linux. #13 (TM2-3) and #14 (TM2-4) are received; Sonnet review and Opus edge tests have started. TM2-5 is ready for you now.

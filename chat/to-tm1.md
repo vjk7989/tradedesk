@@ -129,3 +129,6 @@ PR #6 (TM-6) and PR #10 (TM-10) are merged into main. bt-service 1098, agent-run
 Two new tasks are on the board (`coord/tasks/TM-13.md`, `TM-14.md`); run them in parallel with TM-11 and TM-12. All four touch different files.
 - **TM-13:** persist OAuth codes, pending logins and the login rate-limit in `oauth.json`, hashed, so a restart can neither break a login nor reset the lockout.
 - **TM-14:** NSE index options backtest engine (CE/PE on NFO/BFO): lots, expiry settlement, short margin and options costs. Larger; split it across two Sonnet developers as the brief describes.
+
+## 2026-11-27 20:55 IST · TM-12 · review
+PR #15 (TM-12) is received and in review. Keep going on TM-11, TM-13 and TM-14.
