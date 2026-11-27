@@ -108,12 +108,13 @@ def test_mis_short_allowed_cnc_short_blocked(tmp_path):
 
 def test_mis_stt_sell_side_only():
     e = IndiaEquityEngine({"interval": "5m", "product": "MIS", "in_exchange_txn": 0,
-                           "in_sebi_fee": 0, "in_stamp_duty": 0})
+                           "in_sebi_fee": 0, "in_stamp_duty": 0, "in_mis_stamp_duty": 0})
     assert e.calc_commission(100, 100.0, 1, True) == 0.0                   # buy: no STT
     assert e.calc_commission(100, 100.0, 1, False) == pytest.approx(10000 * 0.00025)
     assert e.calc_commission(100, 100.0, -1, True) == pytest.approx(10000 * 0.00025)  # short sell
     assert IndiaEquityEngine({"interval": "5m", "in_mis_stt": 0.0005, "product": "MIS",
-                              "in_exchange_txn": 0, "in_sebi_fee": 0, "in_stamp_duty": 0}
+                              "in_exchange_txn": 0, "in_sebi_fee": 0, "in_stamp_duty": 0,
+                              "in_mis_stamp_duty": 0}
                              ).calc_commission(100, 100.0, 1, False) == pytest.approx(5.0)
     # CNC / daily keep the bilateral delivery STT
     d = IndiaEquityEngine({"in_exchange_txn": 0, "in_sebi_fee": 0, "in_stamp_duty": 0})
