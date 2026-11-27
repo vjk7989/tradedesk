@@ -39,6 +39,23 @@ function mainSearchApi(query: string, scope: Scope = "full"): string {
 const tokensOf = (q: string) => q.toLowerCase().split(/\s+/).filter(Boolean);
 /** Header lines a query should match (plain substring, case-insensitive), in header order. */
 const expectedRuleLines = (q: string) => HEADER_LINES.filter((l) => tokensOf(q).some((t) => l.toLowerCase().includes(t)));
+/**
+ * TM2-32 oracle (independent of search.ts): score = distinct tokens a line contains; take score levels from the
+ * highest down, filling up to 8 slots in header order within each level (= ties to the earlier line); emit in header order.
+ */
+function rankedRuleLines(q: string): string[] {
+  const uniq = Array.from(new Set(tokensOf(q)));
+  const scores = HEADER_LINES.map((l) => {
+    let n = 0;
+    for (const t of uniq) if (l.toLowerCase().indexOf(t) !== -1) n++;
+    return n;
+  });
+  const chosen = new Set<number>();
+  for (let level = uniq.length; level >= 1 && chosen.size < 8; level--) {
+    for (let i = 0; i < HEADER_LINES.length && chosen.size < 8; i++) if (scores[i] === level) chosen.add(i);
+  }
+  return HEADER_LINES.filter((_, i) => chosen.has(i));
+}
 
 function split(out: string): { rules: string[]; rest: string } {
   if (!out.startsWith(PREFIX)) return { rules: [], rest: out };
@@ -75,11 +92,17 @@ describe("TM2-25 edge: Rules block shape", () => {
     expect(out.split("// Rules:").length - 1).toBe(rules.length ? 1 : 0);
   });
 
-  it.each(SCOPES)("%s: Rules block is exactly the first 8 matching header lines", (scope) => {
+  // TM2-32 AC change: was "exactly the first 8 matching header lines"; now the top 8 by distinct-token score
+  // (ties to the earlier line), output in header order. With <=8 matches it must still equal the first-8 set.
+  it.each(SCOPES)("%s: Rules block is the top 8 header lines by distinct-token score, in header order", (scope) => {
+    let ranked = 0;
     for (const q of QUERIES) {
-      const exp = expectedRuleLines(q).slice(0, 8);
+      const exp = rankedRuleLines(q);
       expect(split(searchApi(q, scope)).rules, q).toEqual(exp);
+      if (expectedRuleLines(q).length <= 8) expect(exp, q).toEqual(expectedRuleLines(q));
+      else ranked++;
     }
+    expect(ranked).toBeGreaterThan(0); // the >8-match path is exercised
   });
 
   it("a broad query is capped at 8 rule lines (header has more than 8 lines)", () => {
@@ -88,11 +111,17 @@ describe("TM2-25 edge: Rules block shape", () => {
     expect(split(searchApi("e")).rules).toHaveLength(8);
   });
 
-  // Observation: the cap is by header order, not relevance. A broad token can push a specific token's line out.
-  it("cap is by header order: 'e maxShortOptionQtyPerOrder' drops the cap line (last header line)", () => {
+  // TM2-32 AC change (flipped): the cap is by relevance now, so a broad token can no longer push out the cap line.
+  it("cap is by relevance: 'e maxShortOptionQtyPerOrder' includes the cap line (last header line)", () => {
     const capLine = HEADER_LINES.find((l) => l.includes("maxShortOptionQtyPerOrder"))!;
     expect(HEADER_LINES.indexOf(capLine)).toBeGreaterThanOrEqual(8);
-    expect(split(searchApi("e maxShortOptionQtyPerOrder")).rules).not.toContain(capLine);
+    expect(expectedRuleLines("e maxShortOptionQtyPerOrder").length).toBeGreaterThan(8);
+    for (const scope of SCOPES) {
+      const rules = split(searchApi("e maxShortOptionQtyPerOrder", scope)).rules;
+      expect(rules).toContain(capLine);
+      expect(rules).toHaveLength(8);
+      expect(rules[rules.length - 1]).toBe(capLine); // still in header order: cap line is last
+    }
   });
 
   it("rules block is followed by exactly one blank line, then the entries", () => {
@@ -109,7 +138,9 @@ describe("TM2-25 edge: compatibility with main", () => {
     for (const q of QUERIES) {
       const out = searchApi(q, scope);
       const old = mainSearchApi(q, scope);
-      const exp = expectedRuleLines(q).slice(0, 8);
+      const exp = rankedRuleLines(q);
+      // <=8 matches: the ranked block is byte-identical to TM2-25's first-8 block
+      if (expectedRuleLines(q).length <= 8) expect(exp, q).toEqual(expectedRuleLines(q).slice(0, 8));
       if (!exp.length) expect(out, q).toBe(old);
       else if (old.startsWith("No API entries match")) expect(out, q).toBe(`${PREFIX}${exp.join("\n")}`);
       else expect(out, q).toBe(`${PREFIX}${exp.join("\n")}\n\n${old}`);
