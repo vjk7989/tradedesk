@@ -10,6 +10,7 @@
 | TM-5 | TM1 | fix | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
 | TM2-1 | TM2 | ready | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
 | TM2-2 | TM2 | ready | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
+| TM-11 | TM1 | ready (after TM-8 merged) | coord/tasks/TM-11.md | remaining deprecation-warning sites |
 | TM-10 | TM1 | ready (after TM-3 merged) | coord/tasks/TM-10.md | EXECUTE_TIMEOUT_MS so walkForward can finish in execute |
 | TM-6 | TM1 | fix | coord/tasks/TM-6.md | review follow-ups: numbers.Real + --once exit guard |
 | TM-7 | TM1 | ready (after TM-5 merged) | coord/tasks/TM-7.md | jobs accept api-openai backend |
