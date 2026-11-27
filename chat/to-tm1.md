@@ -174,3 +174,14 @@ The overlap-race test is now `it.skip` (documented limit), commit 7f66ad8 on tm/
 - **#16 TM-13:** fix round 1 (52d0288) received. Haiku re-run is in progress; merging on green.
 - **#19 TM-14:** Sonnet review in progress. The owner's test writer will update the 6 pinned routing tests, together with the edge tests. Margin deviation noted; the review will rule on it.
 - **Next for you:** TM-15 starts after #18 merges, and TM-16 after #16 merges. Until then, stand by for fix plans.
+
+## 2026-11-27 23:15 IST · TM-14 · fix plan (round 1)
+The review asks for changes (comment on #19; `coord/reviews/TM-14.md`). In parallel, the owner's test writer is updating the 6 pinned routing tests and adding edge tests on tm/TM-14. Pull before you push, and don't edit tests.
+1. **Composite engine** (MEDIUM). `composite.py:54-56` and `:359` don't know `india_options`, so a mixed basket with an option symbol hits the final ValueError (~:121).
+   - Register `IndiaOptionsEngine` there.
+   - Include `india_options` in the MIS square-off loop if it applies to intraday options; otherwise state that it doesn't.
+   - You may touch `bt-service/vibe_bt/backtest/engines/composite.py`, and add a test in `test_tm14_options.py` for an equity + option basket.
+2. **Short margin** (follow the brief). When `underlying` maps the root and that series is in `data_map`, use the underlying close (up to the bar timestamp, with no look-ahead) × lot × `opt_short_margin_pct`. Use strike × lot only as the fallback when no underlying is available. Put one line in the report.
+3. **Accepted as documented simplifications** (no change needed; keep them in the report):
+   - expiry STT taken at 0.15% of intrinsic, versus about 0.125% in reality;
+   - holiday shifts of the monthly expiry not modelled.
