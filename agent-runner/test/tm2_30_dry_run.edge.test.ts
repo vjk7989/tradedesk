@@ -146,6 +146,7 @@ const noStack = (r: R) => {
   expect(r.all).not.toMatch(/\n\s+at /);
   expect(r.all).not.toMatch(/\.ts:\d+|\.js:\d+:\d+/);
 };
+const WITHHELD = "[withheld: a referenced secret is shorter than 4 characters]";
 const promptOf = (out: string) => out.split("\nprompt:\n")[1];
 const absent = (r: R, ...vals: string[]) => {
   for (const v of vals) {
@@ -205,7 +206,7 @@ describe("TM2-30 edge: --dry-run never prints secret values", () => {
     absent(r, TG, CHAT, "ABCdefGHI", "998877");
   });
 
-  // BUG (leak): TELEGRAM_BOT_TOKEN is only treated as a secret when the job has `notify`.
+  // BUG (leak): TELEGRAM_BOT_TOKEN is only treated as a secret when the job has `notify`. [fixed in round 1]
   it("job WITHOUT notify: Telegram bot token value in the prompt is still not printed", async () => {
     clearEnv();
     vi.stubEnv("TM230E_TOKEN", TOK);
@@ -215,7 +216,7 @@ describe("TM2-30 edge: --dry-run never prints secret values", () => {
     absent(r, TG);
   });
 
-  // BUG (leak): only the job's own backend key is redacted; other set API keys are printed verbatim.
+  // BUG (leak): only the job's own backend key is redacted; other set API keys are printed verbatim. [fixed in round 1]
   it("API key of a different backend that is set in env is not printed either", async () => {
     clearEnv();
     vi.stubEnv("TM230E_TOKEN", TOK);
@@ -250,7 +251,7 @@ describe("TM2-30 edge: --dry-run never prints secret values", () => {
     expect(r.out).toContain("token env: TM230E_TOKEN (set)");
   });
 
-  // BUG (leak): the MCP url line is printed raw, so a token embedded in the url is shown.
+  // BUG (leak): the MCP url line is printed raw, so a token embedded in the url is shown. [fixed in round 1]
   it("token value that also appears in the MCP url is not printed", async () => {
     clearEnv();
     vi.stubEnv("TM230E_TOKEN", "fake-url-tok-5521");
@@ -285,14 +286,24 @@ describe("TM2-30 edge: --dry-run never prints secret values", () => {
     expect(r.out).toContain("token env: TM230E_TOKEN (missing)");
   });
 
-  // BUG (over-redaction): a 1-2 char env value is redacted inside ordinary words, mangling the prompt.
-  it.each([["a"], ["e"], ["10"]])("very short env value %j does not mangle normal prompt text", async (v) => {
+  // Fix round 1 AC: a set secret shorter than 4 chars is never used for replacement; prompt and url are withheld.
+  it.each([["a"], ["e"], ["10"]])("very short env value %j: prompt and url withheld, nothing mangled, exit 0", async (v) => {
     clearEnv();
     vi.stubEnv("TM230E_TOKEN", v);
     const prompt = "Review a balance sheet for the 10 best entries";
-    const r = await run(["--jobs", writeJobs([{ name: "a", prompt }]), "--dry-run", "a"]);
+    const r = await run(["--jobs", writeJobs([{ name: "job1", prompt, url: "https://mcp.example.com/mcp?q=10" }]), "--dry-run", "job1"]);
     ok(r);
-    expect(promptOf(r.out)).toBe(prompt);
+    expect(r.out).toContain(`prompt: ${WITHHELD}`);
+    expect(r.out).toContain(`mcp url: ${WITHHELD}`);
+    expect(r.out).not.toContain(prompt);
+    expect(r.out).not.toContain("mcp.example.com");
+    expect(r.out).not.toContain("[redacted]");
+    // the other lines are printed intact (no character-level redaction of ordinary words)
+    expect(r.out).toContain("job: job1");
+    expect(r.out).toContain("backend: claude");
+    expect(r.out).toContain("model: backend CLI default (none configured)");
+    expect(r.out).toContain("token env: TM230E_TOKEN (set)");
+    expect(r.out).toMatch(/^schedule: Mon,Tue,Wed,Thu,Fri,Sat,Sun 08:45 Asia\/Kolkata$/m);
   });
 
   it("prompt with no secret is printed verbatim (multi-line, unicode, trailing spaces)", async () => {
@@ -345,7 +356,7 @@ describe("TM2-30 edge: --dry-run argument errors", () => {
     fail(await run(["--jobs", file(), "--dry-run", ""]), /.+/);
   });
 
-  // BUG: `--dry-run=<name>` is not recognised; main falls through and STARTS THE SCHEDULER.
+  // BUG: `--dry-run=<name>` is not recognised; main falls through and STARTS THE SCHEDULER. [fixed in round 1]
   it.each(["--dry-run=alpha", "--dry-run="])("%s is either accepted as a dry run or rejected; it never starts the scheduler", async (flag) => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const stdout: string[] = [];
@@ -443,6 +454,136 @@ describe("TM2-30 edge: next run with a pinned clock", () => {
     // Sun 2026-11-29 00:00 IST = Sat 2026-11-28 18:30Z
     expect(await at("2026-11-28T12:00:00Z", { name: "a", tz: "Asia/Kolkata", time: "00:00", days: ["Sun"] }))
       .toBe("next run: 2026-11-29 00:00 Asia/Kolkata | 2026-11-28T18:30:00.000Z");
+  });
+});
+
+// ---- fix round 1 edges ----
+describe("TM2-30 edge (fix 1): short-secret threshold", () => {
+  it.each([
+    ["exactly 4 chars", "Zq9w"],
+    ["4 chars after trim", "  Zq9w \t"],
+  ])("%s is replaced, not withheld", async (_d, v) => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", v);
+    const r = await run(["--jobs", writeJobs([{ name: "a", prompt: "x Zq9w y", url: "https://mcp.example.com/Zq9w" }]), "--dry-run", "a"]);
+    ok(r);
+    expect(r.out).not.toContain("withheld");
+    expect(promptOf(r.out)).toBe("x [redacted] y");
+    expect(r.out).toContain("mcp url: https://mcp.example.com/[redacted]");
+    absent(r, "Zq9w");
+  });
+  it.each([
+    ["exactly 3 chars", "Zq9"],
+    ["3 chars after trim (padded to 6)", " Zq9  "],
+  ])("%s triggers withholding", async (_d, v) => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", v);
+    const r = await run(["--jobs", writeJobs([{ name: "a", prompt: "x Zq9 y", url: "https://mcp.example.com/Zq9" }]), "--dry-run", "a"]);
+    ok(r);
+    expect(r.out).toContain(`prompt: ${WITHHELD}`);
+    expect(r.out).toContain(`mcp url: ${WITHHELD}`);
+    absent(r, "Zq9", "[redacted]");
+  });
+  it("a short secret in one env plus a long one in another: still withheld, long one still redacted elsewhere", async () => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", "ab1");
+    vi.stubEnv("ANTHROPIC_API_KEY", "fake-long-key-1234");
+    const r = await run([
+      "--jobs", writeJobs([{ name: "fake-long-key-1234", backend: "api", prompt: "k fake-long-key-1234 ab1", url: "https://mcp.example.com/fake-long-key-1234" }]),
+      "--dry-run", "fake-long-key-1234",
+    ]);
+    ok(r);
+    expect(r.out).toContain(`prompt: ${WITHHELD}`);
+    expect(r.out).toContain(`mcp url: ${WITHHELD}`);
+    expect(r.out).toContain("job: [redacted]");
+    absent(r, "fake-long-key-1234", "ab1");
+  });
+  it("short value in an unrelated job's token env still withholds (all jobs' secrets are considered)", async () => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", "fake-long-tok-5678");
+    vi.stubEnv("TM230E_T2", "zz");
+    const r = await run(["--jobs", writeJobs([{ name: "a", prompt: "hello" }, { name: "b", tokenEnv: "TM230E_T2" }]), "--dry-run", "a"]);
+    ok(r);
+    expect(r.out).toContain(`prompt: ${WITHHELD}`);
+  });
+});
+
+describe("TM2-30 edge (fix 1): --dry-run=<name> form", () => {
+  const file = () => writeJobs([{ name: "alpha" }, { name: "beta_2" }]);
+  it("--dry-run=alpha prints the job and exits 0", async () => {
+    const r = await run(["--jobs", file(), "--dry-run=alpha"]);
+    ok(r);
+    expect(r.out).toMatch(/^job: alpha$/m);
+    expect(r.out).toMatch(/^prompt:$/m);
+  });
+  it("--dry-run=beta_2 before --jobs works", async () => {
+    const r = await run(["--dry-run=beta_2", "--jobs", file()]);
+    ok(r);
+    expect(r.out).toMatch(/^job: beta_2$/m);
+  });
+  it("--dry-run= (empty name) exits 1", async () => {
+    fail(await run(["--jobs", file(), "--dry-run="]), /requires a job name/);
+  });
+  it("--dry-run= followed by a positional does not take the next arg as the name", async () => {
+    fail(await run(["--jobs", file(), "--dry-run=", "alpha"]), /requires a job name/);
+  });
+  it("--dry-run=--once is a missing name, never a run", async () => {
+    fail(await run(["--jobs", file(), "--dry-run=--once"]), /--dry-run/);
+  });
+  it("--dry-run=unknown exits 1 and lists valid names", async () => {
+    const r = await run(["--jobs", file(), "--dry-run=gamma"]);
+    fail(r, /gamma/);
+    expect(r.err).toContain("alpha");
+    expect(r.err).toContain("beta_2");
+  });
+  const conflicts: [string, string[]][] = [
+    ["--once", ["--once", "alpha"]],
+    ["--check", ["--check"]],
+    ["--next", ["--next", "3"]],
+    ["--next", ["--next"]],
+  ];
+  for (const [flag, extra] of conflicts) {
+    it(`--dry-run=alpha then ${extra.join(" ")} exits 1 naming ${flag}`, async () => {
+      fail(await run(["--jobs", file(), "--dry-run=alpha", ...extra]), new RegExp(`--dry-run.*${flag}`));
+    });
+    it(`${extra.join(" ")} then --dry-run=alpha exits 1 naming ${flag}`, async () => {
+      fail(await run(["--jobs", file(), ...extra, "--dry-run=alpha"]), new RegExp(`--dry-run.*${flag}`));
+    });
+  }
+});
+
+describe("TM2-30 edge (fix 1): secrets in non-prompt fields", () => {
+  it("secret equal to the job name is redacted on the job line", async () => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", "fakeJobNameTok");
+    const r = await run(["--jobs", writeJobs([{ name: "fakeJobNameTok" }]), "--dry-run", "fakeJobNameTok"]);
+    ok(r);
+    expect(r.out).toContain("job: [redacted]");
+    absent(r, "fakeJobNameTok");
+  });
+  it("secret equal to the schedule time is redacted on the schedule and next-run lines", async () => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", "07:05");
+    const r = await run(["--jobs", writeJobs([{ name: "a", tz: "UTC", time: "07:05", days: ["Mon", "Wed"] }]), "--dry-run", "a"]);
+    ok(r);
+    absent(r, "07:05");
+    expect(r.out).toMatch(/^schedule: Mon,Wed \[redacted\] UTC$/m);
+  });
+  it("secret equal to the day list / timeout is redacted", async () => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", "Mon,Wed");
+    vi.stubEnv("ANTHROPIC_API_KEY", "98765");
+    const r = await run(["--jobs", writeJobs([{ name: "a", backend: "api", days: ["Mon", "Wed"], timeoutMs: 98765 }]), "--dry-run", "a"]);
+    ok(r);
+    absent(r, "Mon,Wed", "98765");
+  });
+  // BUG (leak, low severity): the unknown-name error lists every job name unredacted.
+  it("unknown-name error does not print a job name that equals a secret", async () => {
+    clearEnv();
+    vi.stubEnv("TM230E_TOKEN", "fakeJobNameTok");
+    const r = await run(["--jobs", writeJobs([{ name: "fakeJobNameTok" }, { name: "other" }]), "--dry-run", "nope"]);
+    fail(r, /other/);
+    absent(r, "fakeJobNameTok");
   });
 });
 
