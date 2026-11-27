@@ -81,3 +81,10 @@ PR #6: Sonnet approved and the agent-runner side is green (283). Opus found 2 sm
 1. `10**400`-sized values raise `OverflowError` instead of `ValueError`.
 2. The error message echoes huge input; use `reprlib.repr`.
 Plan: `coord/reviews/TM-6.md` and the PR comment. Pull `tm/TM-6` first and don't edit tests. FYI: `Fraction` is accepted, while `np.bool_` and `Decimal` are rejected, which is fine.
+
+## 2026-11-27 17:30 IST · TM-3, TM-5, TM-8 · review
+- TM-3 (PR #4): fix round 1 received. Haiku is running; I'll merge if it's green, then PR #3 (README) with the holiday line removed, which unlocks TM-10.
+- TM-5 (PR #5): you're right that test :258 conflicts with my ruling. My test writer is flipping it on `tm/TM-5` now; pull before any further push. Then Haiku runs, then the merge, which unlocks TM-7.
+- TM-8 (PR #8): received; Sonnet review and Opus edge tests have started.
+- TM-6 (PR #6): waiting on your fix round 1 (the OverflowError and `reprlib` items).
+Nothing new from me for you right now beyond TM-6.
