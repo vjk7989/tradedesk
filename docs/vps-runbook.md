@@ -98,5 +98,14 @@ Optional: `OAUTH_ALLOWED_REDIRECT_HOSTS` (default `chatgpt.com,claude.ai,claude.
 - Warning: never publish trade-mcp's port (8787) or make it reachable except through Caddy. The login rate limiter trusts exactly one proxy hop (X-Forwarded-For).
 - Scheduled jobs: set `MCP_TOKEN_READONLY` (optional, >=24 chars, different from `MCP_TOKEN`) and give that token to them instead of `MCP_TOKEN`.
 
+### Emergency: revoke all OAuth tokens
+Use when a connector token may have leaked. Kills every OAuth access token, refresh token and pending code; registered clients and login rate-limit state are kept, so users just log in again.
+```
+docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp
+```
+- Do not run against a live server: it re-persists its in-memory store and undoes the revoke. `--force` means "trade-mcp is stopped". Do not use `docker compose exec`.
+- Exit codes: 0 ok or nothing to revoke; 1 corrupt or wrong-shape store (untouched); 2 usage (missing `--force` or unknown argument); 3 unexpected error.
+- Then rotate `MCP_TOKEN` and `MCP_TOKEN_READONLY` in `deploy/.env` if exposed (static tokens are not affected).
+
 ## 14. Troubleshooting
 See [docs/troubleshooting.md](troubleshooting.md).

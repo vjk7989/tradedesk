@@ -7,30 +7,44 @@ import { TradeOAuthProvider } from "./provider.js";
 const out = (s: string) => process.stdout.write(s + "\n");
 const err = (s: string) => process.stderr.write(s + "\n");
 
+const USAGE = "usage: revoke-cli.js --force   (--force confirms trade-mcp is STOPPED; revoking while it runs is undone by the server)";
+const RUNBOOK =
+  "docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
+
+/** Exit codes: 0 ok / nothing to revoke, 1 corrupt or wrong-shape store, 2 usage, 3 unexpected error. */
 export function run(argv: string[], env: NodeJS.ProcessEnv = process.env): number {
-  if (!argv.includes("--force")) {
+  const unknown = argv.filter((a) => a !== "--force");
+  if (unknown.length) {
+    err("Unknown argument. " + USAGE);
+    return 2;
+  }
+  if (!argv.length) {
     err(
       "Refusing to run without --force.\n" +
-        "trade-mcp keeps the OAuth store in memory and rewrites oauth.json on every change; a second process\n" +
-        "would be overwritten by (or overwrite) the running server, so the revocation could be silently undone.\n" +
-        "Either: stop trade-mcp, run this command, then start trade-mcp;\n" +
-        "or, if you are sure, run it with --force (e.g. docker compose exec trade-mcp npm run oauth:revoke-all -- --force)\n" +
-        "and restart trade-mcp straight afterwards.",
+        "--force confirms trade-mcp is STOPPED. Revoking while it runs is undone by the server: it keeps the OAuth store in memory\n" +
+        "and rewrites oauth.json on its next write, even an unauthenticated /authorize, which restores the revoked tokens.\n" +
+        "Supported procedure (stop, run, start):\n  " + RUNBOOK,
     );
     return 2;
   }
-  const stateFile = path.join(env.DATA_DIR || "./runtime", "oauth.json");
-  if (!existsSync(stateFile)) {
-    out("No OAuth store found; nothing to revoke.");
-    out("Static MCP_TOKEN / MCP_TOKEN_READONLY are unaffected: rotate MCP_TOKEN in .env separately.");
-    return 0;
-  }
   try {
-    JSON.parse(readFileSync(stateFile, "utf8"));
-  } catch {
-    err("OAuth store is unreadable or corrupt; refusing to rewrite it (registered clients would be lost). Nothing changed.");
-    return 1;
-  }
+    const stateFile = path.join(env.DATA_DIR || "./runtime", "oauth.json");
+    if (!existsSync(stateFile)) {
+      out("No OAuth store found; nothing to revoke.");
+      out("Static tokens are unaffected: rotate MCP_TOKEN and MCP_TOKEN_READONLY in .env separately if exposed.");
+      return 0;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(stateFile, "utf8"));
+    } catch {
+      err("OAuth store is unreadable or corrupt; refusing to rewrite it (registered clients would be lost). Nothing changed.");
+      return 1;
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      err("OAuth store has an unexpected shape (not a JSON object); refusing to rewrite it. Nothing changed.");
+      return 1;
+    }
   // The password hash only keys the in-memory rate limiter; persisted limiter entries are copied through as-is.
   const provider = new TradeOAuthProvider({
     issuerUrl: new URL("https://invalid.example"),
@@ -41,9 +55,13 @@ export function run(argv: string[], env: NodeJS.ProcessEnv = process.env): numbe
   const c = provider.revokeAll();
   out(`revoked ${c.access} access, ${c.refresh} refresh, ${c.codes} codes (also cleared ${c.pending} pending logins, ${c.rotated} rotation markers)`);
   out("Registered clients and login rate-limit state were kept; users only need to log in again.");
-  out("Static MCP_TOKEN / MCP_TOKEN_READONLY are unaffected: rotate MCP_TOKEN in .env separately.");
-  out("Restart trade-mcp now so the running process drops its in-memory copy.");
+  out("Static tokens are unaffected: rotate MCP_TOKEN and MCP_TOKEN_READONLY in .env separately if exposed.");
+  out("Now start trade-mcp (docker compose start trade-mcp).");
   return 0;
+  } catch {
+    err("Unexpected error; nothing was revealed and the store was not intentionally changed. Check DATA_DIR permissions.");
+    return 3;
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
