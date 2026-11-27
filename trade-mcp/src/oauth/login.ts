@@ -21,8 +21,13 @@ export class LoginLimiter {
     return Object.fromEntries(this.fails);
   }
 
+  clear(): void {
+    this.fails.clear();
+  }
+
   /** Restores a snapshot, dropping entries outside the window. */
   load(d: Record<string, number[]>, now = Date.now()): void {
+    if (typeof d !== "object" || d === null) return;
     for (const [k, v] of Object.entries(d)) {
       const list = Array.isArray(v) ? v.filter((t) => typeof t === "number" && now - t < WINDOW_MS) : [];
       if (list.length) this.fails.set(k, list);

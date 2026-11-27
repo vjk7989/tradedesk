@@ -75,6 +75,7 @@ export function redirectAllowed(uri: string, allowedHosts: string[]): boolean {
   return allowedHosts.some((a) => h === a || h.endsWith("." + a));
 }
 
+// Single process per DATA_DIR: concurrent processes are not supported (codes could be redeemed twice).
 export class TradeOAuthProvider implements OAuthServerProvider {
   private clients = new Map<string, OAuthClientInformationFull>();
   private access = new Map<string, TokenRec>(); // key: sha256(token)
@@ -89,16 +90,30 @@ export class TradeOAuthProvider implements OAuthServerProvider {
     if (existsSync(cfg.stateFile)) {
       try {
         const d = JSON.parse(readFileSync(cfg.stateFile, "utf8")) as Persisted;
-        for (const [k, v] of Object.entries(d.clients ?? {})) this.clients.set(k, v);
-        for (const [k, v] of Object.entries(d.access ?? {})) this.access.set(k, v);
-        for (const [k, v] of Object.entries(d.refresh ?? {})) this.refresh.set(k, v);
-        for (const [k, v] of Object.entries(d.rotated ?? {})) this.rotated.set(k, v);
-        for (const [k, v] of Object.entries(d.codes ?? {})) this.codes.set(k, v);
-        for (const [k, v] of Object.entries(d.pending ?? {})) this.pending.set(k, v);
+        const obj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+        const strs = (x: unknown) => Array.isArray(x) && x.every((e) => typeof e === "string");
+        const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
+        const load = <T>(src: unknown, into: Map<string, T>, ok: (v: Record<string, unknown>) => boolean) => {
+          if (!obj(src)) return;
+          for (const [k, v] of Object.entries(src)) if (obj(v) && ok(v)) into.set(k, v as T);
+        };
+        const tok = (v: Record<string, unknown>) =>
+          typeof v.clientId === "string" && typeof v.familyId === "string" && strs(v.scopes) && num(v.expiresAt);
+        const chal = (v: Record<string, unknown>) =>
+          typeof v.clientId === "string" && typeof v.redirectUri === "string" && typeof v.codeChallenge === "string" &&
+          strs(v.scopes) && num(v.expiresAt);
+        load(d.clients, this.clients, (v) => typeof v.client_id === "string");
+        load(d.access, this.access, tok);
+        load(d.refresh, this.refresh, tok);
+        load(d.rotated, this.rotated, (v) => typeof v.familyId === "string" && num(v.expiresAt));
+        load(d.codes, this.codes, chal);
+        load(d.pending, this.pending, chal);
         this.limiter.load(d.loginFailures ?? {});
         this.prune();
       } catch {
-        /* corrupt state: start empty */
+        /* corrupt state: start fully empty */
+        for (const m of [this.clients, this.access, this.refresh, this.rotated, this.codes, this.pending]) m.clear();
+        this.limiter.clear();
       }
     }
   }
