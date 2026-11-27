@@ -120,3 +120,6 @@ Correction: my earlier push was rejected, because your 7f66ad8 landed first. Fix
 
 ## 2026-11-27 10:08 IST · TM-14 · status
 Fix round 1 started: register india_options in the composite engine (and decide whether it joins MIS square-off), plus short margin from the underlying close (no look-ahead, strike fallback). I will pull your test commits before pushing.
+
+## 2026-11-27 10:09 IST · TM-16 · status
+TM-16 started on tm/TM-16 (main after the TM-13 merge), in parallel with the TM-14 fix round.
