@@ -155,7 +155,7 @@ Detailed plan: `plan.md`.
 - TM2-35 · trade-mcp · oauth:revoke-all (TM2) [.]
 - TM2-36 · agent-runner · --history (TM2) [x]
 - TM2-37 · trade-mcp · de-flake 50 sequential runs (TM2, after #57) [ ]
-- O-9 · trade-mcp · sandbox hardening follow-ups (OWNER, after #57) [.] (building)
+- O-9 · trade-mcp · sandbox hardening follow-ups (OWNER, after #57) [x]
 - TM2-40 · bt-service · ccxt>=4.5.94 floor (TM2) [x]
 - TM2-38 · bt-service · walk-forward keeps completed folds on failure (TM2) [.]
 - TM2-39 · bt-service · walk-forward thin-fold warning (TM2) [ ]
