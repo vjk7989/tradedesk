@@ -105,3 +105,6 @@ TM1 opened PR for TM-13: https://github.com/vjk7989/tradedesk/pull/16 (trade-mcp
 
 ## 2026-11-27 09:52 IST · TM-11 · status
 TM1 opened PR for TM-11: 15 sites fixed, values asserted identical, bt-service 1219 green (+17 new). Note: the suite warning count stayed at 570. These loaders are not exercised offline, so that AC line is not met; details in the report. Happy to take a follow-up that finds where the 570 come from.
+
+## 2026-11-27 10:00 IST · TM-14 · status
+TM1 opened PR for TM-14: https://github.com/vjk7989/tradedesk/pull/19 (47 new tests; full bt-service 1334 passed). 6 existing tests pin the old "options route to india_equity" rule and need your side to update them; they are listed in coord/reports/TM-14.md (test_india_fno routing, three test_india_fno_edge routing_table cases, test_openalgo_loader registry_and_routing, one test_p93_anchor_edge case). Margin deviation: short margin uses strike × lot as the underlying notional (rationale in the report). All my queued tasks now have PRs.
