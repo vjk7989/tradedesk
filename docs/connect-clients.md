@@ -65,7 +65,7 @@ env = { OPENALGO_URL = "http://127.0.0.1:5000", OPENALGO_API_KEY = "...", MCP_TO
 The no-space `Authorization:${AUTH}` form avoids an argument-with-space bug on Windows. (verify: `npx mcp-remote --help`.)
 
 ## ChatGPT (developer-mode connectors) and claude.ai custom connectors
-These require OAuth, not a static bearer token. OAuth is built in but off by default: enable it with `OAUTH_ENABLED=1`, `OAUTH_ISSUER_URL` (https) and `OAUTH_PASSWORD_HASH` (see `vps-runbook.md`), then add the connector URL `https://mcp.<DOMAIN>/mcp`. Default allowed redirect hosts are `chatgpt.com,claude.ai,claude.com` (`OAUTH_ALLOWED_REDIRECT_HOSTS`). OAuth tokens get full access.
+These require OAuth, not a static bearer token. OAuth is built in but off by default: enable it with `OAUTH_ENABLED=1`, `OAUTH_ISSUER_URL` (https) and `OAUTH_PASSWORD_HASH` (see `vps-runbook.md`), then add the connector URL `https://mcp.<DOMAIN>/mcp`. Default allowed redirect hosts are `chatgpt.com,claude.ai,claude.com` (`OAUTH_ALLOWED_REDIRECT_HOSTS`). OAuth tokens get full access. Put these variables in `deploy/.env`, generate `OAUTH_PASSWORD_HASH` as in `vps-runbook.md` section 13, and never publish trade-mcp's port 8787: it is reached only through Caddy.
 
 ## Fincept Terminal
 Fincept's MCP client is stdio-only. Settings -> MCP servers -> add a stdio server:
@@ -105,7 +105,7 @@ In `execute`, both calls also work with the read-only token:
 - `risk.status()` returns `{ mode, killSwitch, limits, today: { date, orders, notional } }`. Prompt: "Use `risk.status` and tell me how much of today's order and notional limits is used."
 
 ## Health
-`GET https://mcp.<DOMAIN>/readyz` (no token) returns 200 or 503 with `{ "ok": boolean, "checks": { "openalgo": "ok"|"fail", "bt": "ok"|"fail"|"not_configured", "auditWritable": "ok"|"fail" } }`. `/healthz` returns `{ ok, mode }`. If something fails, see `troubleshooting.md` (sections 2-5); for backtest limits see `backtesting.md` section 5.
+Only `/healthz` is public (`curl https://mcp.<DOMAIN>/healthz` returns `{ ok, mode }`). `/readyz` is internal only (Caddy does not route it); run `docker compose exec trade-mcp wget -qO- http://127.0.0.1:8787/readyz`. It needs no token and returns 200 or 503 with `{ "ok": boolean, "checks": { "openalgo": "ok"|"fail", "bt": "ok"|"fail"|"not_configured", "auditWritable": "ok"|"fail" } }`. If something fails, see `troubleshooting.md` (sections 2-5); for backtest limits see `backtesting.md` section 5.
 
 ## Timeouts
 `execute` stops code that runs longer than `EXECUTE_TIMEOUT_MS` (default 60000 ms, clamped to 5000-900000). Walk-forward backtests can take up to ~10 minutes, so set `EXECUTE_TIMEOUT_MS=660000` or more on the server. Your MCP client may also enforce its own tool-call timeout; raise it too if long backtests get cut off.
