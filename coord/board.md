@@ -9,7 +9,7 @@
 | TM2-37 | TM2 | ready (after #57) | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
 | O-8 | OWNER | in progress (HIGH, security) | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
 | O-7 | OWNER | done | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
-| TM2-32 | TM2 | in progress | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
+| TM2-32 | TM2 | merged #61 | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
 | TM2-33 | TM2 | merged #60 | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |
 | TM2-34 | TM2 | in progress | coord/tasks/TM2-34.md | pandas 3 readiness report (no upgrade) |
 | O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
