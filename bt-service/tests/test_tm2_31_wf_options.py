@@ -248,6 +248,20 @@ def test_fold_after_expiry_has_no_option_data_and_reports_which_fold(results):
     assert res["ok"] is False
     assert res["error"].startswith("fold 1: test run failed")
     assert "missing: ['NIFTY25NOV24000CE@NFO']" in res["error"]
-    # Pins current behaviour: the completed fold 0 is dropped from a failed result
-    # (follow-up: walkforward keep completed folds on a failed fold).
-    assert "folds" not in res
+    # The completed fold 0 is kept in the failed result (was dropped before; fixed by TM2-38).
+    # Fold 0 here has the same windows and sole candidate as fold 2 of the "ce" scenario, so it
+    # reuses that scenario's golden values and must equal that fold exactly.
+    assert len(res["folds"]) == 1
+    f = res["folds"][0]
+    assert (f["train"], f["test"]) == FOLD_WINDOWS[1]
+    assert f["chosen"] == LARGE
+    assert f["train_score"] == pytest.approx(0.09620341287062018, rel=1e-6)
+    m = f["test_metrics"]
+    assert m["total_return"] == pytest.approx(0.005447064364884069, rel=1e-6)
+    assert m["final_value"] == pytest.approx(1005447.064364884, rel=1e-6)
+    assert m["sharpe"] == pytest.approx(2.8658715368885455, rel=1e-6)
+    assert m["trade_count"] == 1.0
+    assert m["max_drawdown"] == pytest.approx(-0.0073351897696574565, rel=1e-6)
+    assert f == results["ce"]["folds"][1]
+    assert res["warnings"] == []
+    assert "oos_equity" not in res and "summary" not in res

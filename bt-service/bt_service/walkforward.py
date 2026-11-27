@@ -141,7 +141,7 @@ def walk_forward(
                 best_idx, best_score = idx, score
         if best_idx is None:
             detail = f": {first_error}" if first_error else ""
-            return {"ok": False, "error": f"fold {i}: no candidate produced a finite {metric}{detail}"}
+            return {"ok": False, "error": f"fold {i}: no candidate produced a finite {metric}{detail}", "folds": folds, "warnings": warnings}
 
         chosen = candidates[best_idx]
         remaining = deadline - clock()
@@ -161,7 +161,12 @@ def walk_forward(
         )
         warnings.extend(f"fold {i}: {w}" for w in (test_res.get("warnings") or []))
         if not test_res.get("ok"):
-            return {"ok": False, "error": f"fold {i}: test run failed: {test_res.get('error', 'unknown error')}"}
+            return {
+                "ok": False,
+                "error": f"fold {i}: test run failed: {test_res.get('error', 'unknown error')}",
+                "folds": folds,
+                "warnings": warnings,
+            }
 
         test_metrics = test_res.get("metrics")
         if not isinstance(test_metrics, dict):
