@@ -1,6 +1,7 @@
 import { API_DOCS as ALL_DOCS, API_HEADER, type ApiDoc } from "./api-docs.js";
 
 const MAX = 20;
+const MAX_RULES = 8;
 
 function render(entries: ApiDoc[]): string {
   const byNs = new Map<string, ApiDoc[]>();
@@ -25,5 +26,13 @@ export function searchApi(query: string, scope: "full" | "readonly" = "full"): s
     const hay = `${d.ns} ${d.name} ${d.doc}`.toLowerCase();
     return tokens.some((t) => hay.includes(t));
   }).slice(0, MAX);
-  return hits.length ? render(hits) : `No API entries match "${query}".`;
+  const rules = API_HEADER.split("\n")
+    .filter((l) => {
+      const low = l.toLowerCase();
+      return tokens.some((t) => low.includes(t));
+    })
+    .slice(0, MAX_RULES);
+  const rulesBlock = rules.length ? `// Rules:\n${rules.join("\n")}` : "";
+  if (!hits.length) return rulesBlock || `No API entries match "${query}".`;
+  return rulesBlock ? `${rulesBlock}\n\n${render(hits)}` : render(hits);
 }
