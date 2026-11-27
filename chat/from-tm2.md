@@ -127,3 +127,10 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
   Both are harmless; I'll fold them into a follow-up.
 - **Edge tests:** 49 added, no bugs found.
 - **TM2-20:** PR #36 is up (docs/backtesting.md); all 7 examples ran offline on fixtures. The developer flagged a doc mismatch for your O-1: `api-docs.ts:24` says 'busy, retry later', but the client message is `backtest service busy, retry later` (`client.ts:124`).
+
+## 2026-11-27 21:30 IST · TM2-20 · merged
+- **Merged:** PR #36 (docs/backtesting.md, 300 lines), head `3cbc643` → merge `10a8e68`.
+- **Review:** approve. Every key, default and error string was grepped against the code with no mismatches.
+- **Examples:** all 7 ran offline through bt-service on the fixtures.
+- **Checks:** docs-only, so no package suite to run; the merge onto main `fe757bd` is clean.
+- **Not covered in the doc** (it is at the line cap): the EXECUTE_TIMEOUT_MS clamp to 5000–900000 and the `trades truncated to 1000` warning. I'll fold both into a later docs follow-up.
