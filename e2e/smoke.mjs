@@ -98,6 +98,11 @@ class SignalEngine:
         return out
 `;
 
+const SMA_P = SMA.replace(
+  "    def generate",
+  "    def __init__(self, fast=20, slow=50):\n        self.fast, self.slow = fast, slow\n\n    def generate",
+).replace("rolling(20)", "rolling(self.fast)").replace("rolling(50)", "rolling(self.slow)");
+
 async function main() {
   const [oaPort, btPort, mcpPort] = [await freePort(), await freePort(), await freePort()];
   const dataDir = path.join(tmp, "data");
@@ -203,6 +208,37 @@ async function main() {
     const t = readFileSync(f, "utf8");
     assert(t.trim().length > 0, "audit.jsonl empty");
     for (const s of [API_KEY, BT_TOKEN, MCP_TOKEN, MCP_RO]) assert(!t.includes(s), "secret found in audit log");
+  });
+  const wf = (cands) =>
+    `return await backtest.walkForward({code:${JSON.stringify(SMA_P)},symbols:["AAPL.US"],start:"2024-01-02",end:"2024-02-29",trainDays:30,testDays:10,candidates:${JSON.stringify(cands)},source:"local"});`;
+  const C2 = [{ fast: 5, slow: 20 }, { fast: 10, slow: 30 }];
+  await step("9 backtest.walkForward 2 candidates (full token)", async () => {
+    const r = await exec(full, wf(C2));
+    const w = r.result;
+    assert(r.ok && w && w.ok === true, JSON.stringify(r).slice(0, 600));
+    assert(w.folds.length >= 1 && w.oosEquity.length >= 1, `folds ${w.folds.length} oos ${w.oosEquity.length}`);
+  });
+  await step("10 OAuth disabled: metadata 404, /mcp no token 401 w/o resource_metadata", async () => {
+    const base = `http://127.0.0.1:${mcpPort}`;
+    const m = await fetch(`${base}/.well-known/oauth-authorization-server`);
+    assert(m.status === 404, `metadata status ${m.status}`);
+    const p = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    assert(p.status === 401, `/mcp status ${p.status}`);
+    const h = p.headers.get("www-authenticate") ?? "";
+    assert(!h.includes("resource_metadata"), `WWW-Authenticate: ${h}`);
+  });
+  await step("11 readonly token walkForward 1 candidate", async () => {
+    const ro = await connect(MCP_RO);
+    try {
+      const r = await exec(ro, wf([{ fast: 5, slow: 20 }]));
+      assert(r.ok && r.result && r.result.ok === true, JSON.stringify(r).slice(0, 600));
+    } finally {
+      await ro.close();
+    }
   });
   await full.close();
 }
