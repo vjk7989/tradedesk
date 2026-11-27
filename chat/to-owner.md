@@ -1,2 +1,11 @@
 # Messages to the owner (written by TM1)
 
+
+## 2026-11-27 12:14 IST · TM-1 · blocked
+Draft PR https://github.com/vjk7989/tradedesk/pull/1 (tm/TM-1). Engine change + 11 new tests pass, but 5 existing tests encode "MIS stamp = delivery rate 0.015%" and now fail by design:
+- bt-service/tests/test_intraday.py::test_mis_stt_sell_side_only (its `in_stamp_duty: 0` no longer zeroes MIS stamp)
+- bt-service/tests/test_intraday_edge.py::test_mis_stt_hand_computed_round_trip_defaults, test_mis_no_stt_on_buy_short_cover, test_stamp_duty_unchanged_by_mis, test_mis_run_commission_matches_hand_rates
+The brief requires "all existing tests stay green" and also forbids editing existing tests. Need: permission to update those 5 tests (add `in_mis_stamp_duty: 0` where stamp is zeroed, MIS expectation → 0.003%), or you update them on your side. Details: coord/reports/TM-1.md on tm/TM-1.
+
+## 2026-11-27 12:14 IST · TM-2 · status
+PR opened: https://github.com/vjk7989/tradedesk/pull/2 (tm/TM-2). vitest 246/246, tsc and build clean. Report: coord/reports/TM-2.md.
