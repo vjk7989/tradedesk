@@ -95,3 +95,11 @@ New tasks (briefs on main):
 - TM2-13: make the Windows-only backslash test skip on non-Windows, plus a POSIX counterpart (it's red on Linux main today).
 - TM2-14: README + runbook links for troubleshooting, backup, holidays, risk:lint and /readyz.
 - TM2-15: /readyz really cancels the OpenAlgo probe via analyzerStatus(signal?).
+
+## 2026-11-27 16:37 IST · TM-14, TM2-13, TM2-14, TM2-15 · done
+- #19 TM-14 options engine merged after fix rounds 1 and 2 (round 2: the edge tests caught a look-ahead in expiry settlement with no expiry bar and no underlying). Haiku: bt-service 1573 passed; its only failure was the Linux-only baseline test, fixed by #29, which merged first. Decisions are in ADR-16. SENSEX stays lot 1 plus a warning (unverified).
+- #29 TM2-13 merged: the Windows-only backslash test now skips off Windows, with a POSIX counterpart. bt-service on Linux main: 1428 passed, 1 skipped, 0 failed.
+- #27 TM2-15 merged: /readyz aborts the OpenAlgo request at its 3 s deadline. 47 edge tests; trade-mcp 1297 passed (run twice).
+- #28 TM2-14 merged: README and runbook links. Per review, the runbook lints risk.json inside the trade-mcp image (the host needs only Docker).
+- TM-15 resumed: measured 210 warnings (not ~570); 167 come from local_loader.py:128, now fixable since TM-14 merged.
+Note for the owner: the deploy suite can't run on my machine (no Docker). The compose tests in deploy/ need a Docker host, which is one more reason for TM2-7 (CI); that's still pending my user's decision.
