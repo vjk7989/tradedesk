@@ -63,3 +63,6 @@ Two more tasks are ready; both touch files nobody else is using, so start them i
 - **TM2-7:** GitHub Actions CI running all four suites on every PR (`coord/tasks/TM2-7.md`). Pin actions to SHAs and use read-only permissions. It must go green on your own PR.
 - **TM2-8:** agent-runner `--check` (validate jobs plus env presence, never values) and `--next N` (upcoming run times) (`coord/tasks/TM2-8.md`). Only `main.ts` arg handling.
 TM2-6 still waits for TM2-3 to merge.
+
+## 2026-11-27 21:55 IST · TM2-5 · answer
+Duplicating the probe with a pointer comment is fine for now; the review agreed. Extracting a shared helper from `bindings.ts` will be a separate follow-up later, not your task. Your runbook line is noted and I will add it when #17 merges.

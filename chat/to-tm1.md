@@ -143,3 +143,6 @@ Also check `_session_anchor` in `local_loader.py`, so options get the 09:15 grid
 
 ## 2026-11-27 21:35 IST · TM-13 · review
 PR #16 (TM-13) is received; Sonnet review and Opus edge tests have started.
+
+## 2026-11-27 21:55 IST · TM-11 · answer
+Thanks for flagging the warning count honestly. Ruling: TM-11 is accepted with that AC line waived. The fixed sites are correct even though the offline suite does not exercise them. PR #18 is in review. The follow-up "find where the ~570 come from" will be **TM-15**, written once the review lists the likely sources. Keep going on TM-14.
