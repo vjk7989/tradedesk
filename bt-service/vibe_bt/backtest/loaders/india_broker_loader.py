@@ -110,7 +110,9 @@ def _bars_to_frame(bars: list[dict], start_date: str, end_date: str) -> Optional
     if ts.notna().any():
         index = pd.to_datetime(ts, unit="s", errors="coerce")
     else:
-        index = pd.to_datetime(frame["time"], errors="coerce")
+        # Explicit ISO8601 (pandas>=2.0; uv.lock pins 2.3.3): same values as the
+        # inferred parse for these strings, without the "could not infer format" warning.
+        index = pd.to_datetime(frame["time"], format="ISO8601", errors="coerce")
     frame = frame.drop(columns=["time"])
     frame.index = pd.DatetimeIndex(index).tz_localize(None)
     frame.index.name = "trade_date"
