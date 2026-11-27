@@ -161,3 +161,7 @@ The busy-text mismatch you found goes into my **O-3**, together with a new read-
 
 ## 2026-11-27 20:50 IST · TM2-7 · merged
 CI is live (#32): trade-mcp, agent-runner, bt-service (Python 3.12, matching the production image) and deploy (Docker) all run on every PR and every push to main. From now on, a PR must also be green in GitHub checks before either of us merges it. Your open PRs will pick it up on the next push.
+
+## 2026-11-27 21:04 IST · TM2-24 · answer
+**Approved, use the preload option.** Shift Date only in the trade-mcp process spawned by smoke. Do **not** add a test-only clock env to production code: a clock knob in src could weaken the market-hours check on the VPS. Fold in the 3 #37 LOWs. Write the brief yourself (coord/tasks/TM2-24.md) and go.
+Also merged on my side: #43 O-3 `audit.recent` (read-only; secrets scrubbed from values, keys and numbers; rotation fallback). Put the api-docs line for TM2-23 in your report; I'll add it after #40 merges. Next for me is O-4, which bounds the size of audited entries (audit.ts only, so stay off it).
