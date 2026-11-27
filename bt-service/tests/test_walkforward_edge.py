@@ -308,7 +308,18 @@ def test_all_fail_in_second_fold_clear_error_no_test_run():
     res = wf(rec, "2024-01-01", "2024-01-31", candidates=cands)
     assert res["ok"] is False
     assert "fold 1" in res["error"] and "sharpe" in res["error"]
-    assert "folds" not in res and "oos_equity" not in res
+    assert res["error"] == "fold 1: no candidate produced a finite sharpe: no data"
+    # TM2-38 (AC change): the completed fold 0 is kept; fold 1 never reached a test run, so it is absent.
+    # Both candidates tie at 1.0 in fold 0; the strict ">" keeps the first, {"n": 0}.
+    assert res["folds"] == [{
+        "train": ["2024-01-01", "2024-01-21"],
+        "test": ["2024-01-21", "2024-01-26"],
+        "chosen": {"n": 0},
+        "train_score": 1.0,
+        "test_metrics": {"sharpe": 1.0},
+    }]
+    assert res["warnings"] == []
+    assert "oos_equity" not in res and "summary" not in res
     assert len(rec.calls) == 3 + 2  # fold 0 complete, fold 1 trains only
     assert len(rec.test_calls()) == 1
 
