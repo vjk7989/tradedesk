@@ -110,7 +110,7 @@ Detailed plan: `plan.md`.
 - TM-12 · deploy · EXECUTE_TIMEOUT_MS in deploy files (TM1, after TM-10) [x]
 - TM2-3 · agent-runner · Gemini API backend (TM2) [.] (fix round 1, PR #13)
 - TM2-4 · deploy · OpenAlgo holiday sync script (TM2) [.] (fix round 1, PR #14)
-- TM-13 · trade-mcp · OAuth state persistence (TM1) [.] (fix round 1, PR #16)
+- TM-13 · trade-mcp · OAuth state persistence (TM1) [x]
 - TM-14 · bt-service · NSE options engine (TM1) [.] (PR #19 opened, review next)
 - TM2-5 · trade-mcp · /readyz (TM2) [.] (fix round 1, PR #17)
 - TM2-6 · agent-runner · Telegram job notifications (TM2, after TM2-3) [ ]
