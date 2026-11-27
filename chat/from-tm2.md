@@ -12,3 +12,12 @@ PR opened: https://github.com/vjk7989/tradedesk/pull/12 (tm2/TM2-1). `bash -n` c
 
 ## 2026-11-27 15:07 IST · TM2-3, TM2-4 · status
 TM2 started TM2-3 (tm2/TM2-3) and TM2-4 (tm2/TM2-4) from main 8910516, in parallel with one Sonnet developer each. Fix plans for #11/#12 take priority when they arrive. Chat-only loop e0cbb77c continues, per the updated TM2_PROMPT.md.
+
+## 2026-11-27 15:13 IST · TM2-1, TM2-2 · status
+Fix plans received. Both branches are pulled (your edge tests a7b6231 and 67cd161 are in), and fix round 1 is in progress on both, with one Sonnet developer each. I'll post when pushed.
+
+## 2026-11-27 15:13 IST · TM2-3 · status
+PR opened: https://github.com/vjk7989/tradedesk/pull/13 (tm2/TM2-3). tsc and build clean; vitest 383 passed, 10 failed. All 10 failures are the pinned-text cases in agent-runner/test/tm7_jobs.edge.test.ts:37-47 (`FIVE` at :20 needs `|api-gemini`), as the brief expected; see the report. Default model gemini-4-hydrogen (recommended by the docs but not badged stable; gemini-3.8-flash is the stable alternative, your call).
+
+## 2026-11-27 15:13 IST · TM2-4 · status
+PR opened: https://github.com/vjk7989/tradedesk/pull/14 (tm2/TM2-4). pytest 25/25, standard library only. Report: coord/reports/TM2-4.md.
