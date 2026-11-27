@@ -1,7 +1,10 @@
 """India F&O futures (NFO / BFO / MCX) backtest engine, daily bars.
 
 Scope: **futures only** (symbols such as ``NIFTY25DECFUT@NFO``). Options are out
-of scope for this engine. Intraday bars are not modelled (daily only).
+of scope for this engine. Intraday intervals ignore bars outside the session
+(NSE/BFO 09:15-15:30 IST, MCX 09:00-23:30). Positions are held overnight
+(NRML) unless ``product: "MIS"``, which squares off at the last bar <= 15:20 IST
+(MCX 23:20) with reason ``mis_squareoff``.
 
 Model:
   - Positions are counted in lots (contracts). One contract = ``lot`` units of
@@ -39,6 +42,13 @@ from typing import Any, Dict
 import pandas as pd
 
 from vibe_bt.backtest.engines.futures_base import FuturesBaseEngine
+from vibe_bt.backtest.engines.india_session import (
+    after_squareoff,
+    in_session,
+    is_intraday,
+    resolve_product,
+    squareoff_all,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +90,9 @@ class IndiaFnoEngine(FuturesBaseEngine):
             **{str(k).upper(): _lot_size(k, v) for k, v in (config.get("lot_sizes") or {}).items()},
         }
         self._assumed_roots: set[str] = set()
+        self.intraday: bool = is_intraday(config.get("interval", "1D"))
+        self.product: str = resolve_product(config, "india_fno")  # validates even at 1D
+        self.mis: bool = self.intraday and self.product == "MIS"
         self.in_fno_brokerage: float = config.get("in_fno_brokerage", 20.0)
         self.in_fno_stt: float = config.get("in_fno_stt", 0.0002)
         self.in_fno_exchange_txn: float = config.get("in_fno_exchange_txn", 0.0000183)
@@ -113,8 +126,23 @@ class IndiaFnoEngine(FuturesBaseEngine):
         }
 
     def can_execute(self, symbol: str, direction: int, bar: pd.Series) -> bool:
-        """Futures trade T+0 in both directions; no price bands are modelled."""
+        """Futures trade T+0 in both directions; no price bands are modelled.
+
+        Intraday: bars outside the session are ignored; MIS takes no new
+        entries from the square-off time on.
+        """
+        if self.intraday:
+            if not in_session(bar.name, symbol):
+                return False
+            if self.mis and direction != 0 and after_squareoff(bar.name, symbol):
+                return False
         return True
+
+    def after_rebalance_bar(self, timestamp, data_map, codes) -> bool:
+        stop = super().after_rebalance_bar(timestamp, data_map, codes)
+        if self.mis:
+            squareoff_all(self, data_map, timestamp, codes)
+        return stop
 
     def round_size(self, raw_size: float, price: float) -> float:
         """Whole lots, rounded down."""

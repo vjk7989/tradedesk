@@ -33,6 +33,13 @@ import pandas as pd
 
 from vibe_bt.backtest.engines.base import BaseEngine
 from vibe_bt.backtest.engines.china_a import _blocked_by_limit
+from vibe_bt.backtest.engines.india_session import (
+    after_squareoff,
+    in_session,
+    is_intraday,
+    resolve_product,
+    squareoff_all,
+)
 
 
 class IndiaEquityEngine(BaseEngine):
@@ -44,6 +51,12 @@ class IndiaEquityEngine(BaseEngine):
       - slippage: default 0.001
       - in_brokerage / in_stt / in_exchange_txn / in_sebi_fee /
         in_stamp_duty / in_gst / in_dp_charge
+      - product: "CNC" (default) or "MIS" (other values raise ValueError);
+        ``product_by_market["india_equity"]`` overrides it in a composite run. MIS only changes behaviour at
+        intraday intervals: same-day exits and shorting are allowed, positions
+        are squared off at the last bar <= 15:20 IST (reason ``mis_squareoff``)
+        and STT is ``in_mis_stt`` (default 0.025%, sell side; verify current rate).
+    Intraday intervals ignore bars outside 09:15-15:30 IST.
     """
 
     def __init__(self, config: dict):
@@ -60,6 +73,18 @@ class IndiaEquityEngine(BaseEngine):
         self.in_stamp_duty: float = config.get("in_stamp_duty", 0.00015)
         self.in_gst: float = config.get("in_gst", 0.18)
         self.in_dp_charge: float = config.get("in_dp_charge", 0.0)
+        self.in_mis_stt: float = config.get("in_mis_stt", 0.00025)  # verify current rate
+        self.intraday: bool = is_intraday(config.get("interval", "1D"))
+        self.product: str = resolve_product(config, "india_equity")  # validates even at 1D
+        self.mis: bool = self.intraday and self.product == "MIS"
+        if self.mis:
+            self.allow_short = True
+
+    def after_rebalance_bar(self, timestamp, data_map, codes) -> bool:
+        stop = super().after_rebalance_bar(timestamp, data_map, codes)
+        if self.mis:
+            squareoff_all(self, data_map, timestamp, codes)
+        return stop
 
     def can_execute(self, symbol: str, direction: int, bar: pd.Series) -> bool:
         """India delivery execution rules.
@@ -92,9 +117,12 @@ class IndiaEquityEngine(BaseEngine):
         exchange_txn = notional * self.in_exchange_txn        # bilateral
         sebi_fee = notional * self.in_sebi_fee                # bilateral
         gst = (brokerage + exchange_txn + sebi_fee) * self.in_gst
-        stt = notional * self.in_stt                          # bilateral (delivery)
-        comm = brokerage + exchange_txn + sebi_fee + gst + stt
         is_buy = (direction > 0) if is_open else (direction < 0)
+        if self.mis:
+            stt = 0.0 if is_buy else notional * self.in_mis_stt  # MIS: sell side only
+        else:
+            stt = notional * self.in_stt                      # bilateral (delivery)
+        comm = brokerage + exchange_txn + sebi_fee + gst + stt
         if is_buy:
             comm += notional * self.in_stamp_duty             # stamp duty: buy-only
         else:
@@ -135,13 +163,21 @@ def india_can_execute(state, rules, symbol: str, direction: int, bar: pd.Series)
     sub-engine's always-empty positions and let same-day sells through
     (#1292).
     """
+    # 0. Intraday: ignore bars outside the session; MIS takes no new entries
+    # from the square-off time on.
+    if rules.intraday:
+        if not in_session(bar.name, symbol):
+            return False
+        if rules.mis and direction != 0 and after_squareoff(bar.name, symbol):
+            return False
+
     # 1. Short selling: blocked unless explicitly modelling intraday (MIS).
     if direction == -1 and not rules.allow_short:
         return False
 
     # 2. T+1: can't sell shares bought today (delivery).
     pos = state.positions.get(symbol) if direction == 0 else None
-    if pos is not None:
+    if pos is not None and not rules.mis:
         bar_date = _bar_date(bar)
         entry_date = pos.entry_time.date() if hasattr(pos.entry_time, "date") else None
         if bar_date is not None and entry_date is not None and bar_date == entry_date:
