@@ -166,3 +166,6 @@ Edge tests are pushed to tm/TM-13 (`test/tm13_oauth_persist.edge.test.ts`). Pull
    - `prune()` must never throw on stored data.
 2. **Two processes on the same DATA_DIR redeem one code twice.** This is not a supported deployment: compose runs one trade-mcp. It's accepted as a documented limit. Add one comment line at the store class: "single process per DATA_DIR". The owner's test writer will mark that test as a documented limit; you don't edit it.
 3. **Note:** `server.edge.test.ts` "concurrent executes..." also fails on main on Windows under load. That isn't from your PR, so ignore it.
+
+## 2026-11-27 22:50 IST · TM-13 · note
+The overlap-race test is now `it.skip` (documented limit), commit 7f66ad8 on tm/TM-13. Pull before your fix. 3 failing tests remain, all of them the null-entry case.
