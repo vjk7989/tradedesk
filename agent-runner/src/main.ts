@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { runTask } from "./cli.js";
+import { DEFAULT_GEMINI_MODEL } from "./gemini.js";
 import { executeJob, OFFSET_MIN, parseJobs, type Job } from "./jobs.js";
 import { nextRun, runScheduler } from "./scheduler.js";
 
@@ -19,6 +20,36 @@ const wall = (d: Date, tz: Job["schedule"]["tz"]) =>
 const run = (job: Job) =>
   runTask({ backend: job.backend, prompt: job.prompt, mcp: job.mcp, timeoutMs: job.timeoutMs });
 const exec = (job: Job) => executeJob(job, { run }).then((f) => console.error(`job ${job.name}: wrote ${f}`));
+
+/** Model that would be used. Names the env var, never prints its value. */
+const modelLine = (b: string) =>
+  b === "api" ? "claude-opus-5-5"
+  : b === "api-openai" ? "gpt-5.5 (default; OPENAI_MODEL overrides if set)"
+  : b === "api-gemini" ? `${DEFAULT_GEMINI_MODEL} (default; GEMINI_MODEL overrides if set)`
+  : "backend CLI default (none configured)";
+
+/** Describes a job without running it. Redacts the values of every env var the job references. */
+function dryRun(job: Job): string {
+  const keyName = KEY_ENV[job.backend];
+  const refs = [job.mcp.tokenEnv, keyName, job.notify?.telegram.chatIdEnv, job.notify ? "TELEGRAM_BOT_TOKEN" : undefined];
+  const secrets = [
+    ...new Set(refs.flatMap((n) => (n && process.env[n]?.trim() ? [process.env[n] as string, (process.env[n] as string).trim()] : []))),
+  ].sort((a, b) => b.length - a.length);
+  const redact = (t: string) => secrets.reduce((acc, s) => acc.split(s).join("[redacted]"), t);
+  const next = nextRun(job.schedule, new Date());
+  return [
+    `job: ${job.name}`,
+    `backend: ${job.backend}`,
+    `model: ${modelLine(job.backend)}`,
+    `mcp url: ${job.mcp.url}`,
+    `token env: ${job.mcp.tokenEnv} (${state(job.mcp.tokenEnv)})`,
+    `timeout: ${job.timeoutMs !== undefined ? `${job.timeoutMs} ms` : "default"}`,
+    `schedule: ${job.schedule.days.join(",")} ${job.schedule.time} ${job.schedule.tz}`,
+    `next run: ${wall(next, job.schedule.tz)} | ${next.toISOString()}`,
+    "prompt:",
+    redact(job.prompt),
+  ].join("\n");
+}
 
 /** `args` are the CLI arguments after the script name. */
 export interface MainDeps {
@@ -41,8 +72,35 @@ export async function main(args: string[] = process.argv.slice(2), deps: MainDep
     return i >= 0 ? args[i + 1] : undefined;
   };
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>] [--check] [--next N]");
+    console.log("agent-runner: node dist/main.js --jobs jobs.json [--once <name>] [--check] [--next N] [--dry-run <name>]");
     return;
+  }
+  const dryIdx = args.indexOf("--dry-run");
+  if (dryIdx >= 0) {
+    const bad = ["--once", "--check", "--next"].filter((f) => args.includes(f));
+    if (bad.length) {
+      console.error(`--dry-run cannot be combined with ${bad.join(", ")}`);
+      return exit(1);
+    }
+    const name = args[dryIdx + 1];
+    if (name === undefined || name.startsWith("--")) {
+      console.error("--dry-run requires a job name");
+      return exit(1);
+    }
+    let jobs: Job[];
+    try {
+      jobs = parseJobs(JSON.parse(readFileSync(val("--jobs") ?? "jobs.json", "utf8")));
+    } catch (e) {
+      console.error(e instanceof Error ? e.message : String(e));
+      return exit(1);
+    }
+    const job = jobs.find((j) => j.name === name);
+    if (!job) {
+      console.error(`no such job: ${name}. valid names: ${jobs.map((j) => j.name).join(", ")}`);
+      return exit(1);
+    }
+    console.log(dryRun(job));
+    return exit(0);
   }
   const check = args.includes("--check");
   const nextIdx = args.indexOf("--next");
