@@ -8,12 +8,17 @@
 | TM-3 | TM1 | done | coord/tasks/TM-3.md | exchange holidays block orders (trade-mcp risk) |
 | TM-4 | TM1 | done | coord/tasks/TM-4.md | root README.md for the public repo |
 | TM-5 | TM1 | done | coord/tasks/TM-5.md | agent-runner OpenAI API backend (remote MCP) |
+| TM2-9 | TM2 | ready | coord/tasks/TM2-9.md | risk:lint CLI for risk.json |
+| TM2-10 | TM2 | ready (after #17 merged) | coord/tasks/TM2-10.md | shared audit probe + /readyz abort/redirect |
+| TM2-11 | TM2 | ready | coord/tasks/TM2-11.md | docs/troubleshooting.md |
+| TM-15 | TM1 | ready (after #18 merged) | coord/tasks/TM-15.md | find + remove remaining ~570 warnings |
+| TM-16 | TM1 | ready (after #16 merged) | coord/tasks/TM-16.md | OAuth follow-ups: HMAC IP hash, no persist on bad code |
 | TM2-7 | TM2 | ready | coord/tasks/TM2-7.md | GitHub Actions CI for all suites |
 | TM2-8 | TM2 | ready | coord/tasks/TM2-8.md | agent-runner --check / --next |
 | TM2-5 | TM2 | review | coord/tasks/TM2-5.md | trade-mcp /readyz |
 | TM2-6 | TM2 | ready (after TM2-3 merged) | coord/tasks/TM2-6.md | Telegram notifications for job reports |
-| TM2-3 | TM2 | review | coord/tasks/TM2-3.md | agent-runner Gemini API backend |
-| TM2-4 | TM2 | review | coord/tasks/TM2-4.md | sync OpenAlgo holidays into risk.json |
+| TM2-3 | TM2 | fix | coord/tasks/TM2-3.md | agent-runner Gemini API backend |
+| TM2-4 | TM2 | fix | coord/tasks/TM2-4.md | sync OpenAlgo holidays into risk.json |
 | TM2-1 | TM2 | done | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
 | TM2-2 | TM2 | fix | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
 | TM-13 | TM1 | review | coord/tasks/TM-13.md | persist OAuth codes/pending/rate-limit across restarts |
