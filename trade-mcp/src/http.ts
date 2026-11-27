@@ -1,9 +1,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { timingSafeEqual } from "node:crypto";
-import { closeSync, existsSync, mkdirSync, openSync, statSync } from "node:fs";
-import nodePath from "node:path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer, type ServerDeps } from "./server.js";
+import { probeAuditWritable } from "./risk/audit-probe.js";
 import { loadOAuthConfig } from "./oauth/config.js";
 import { createOAuth, OAUTH_PATHS, type OAuthRuntime } from "./oauth/provider.js";
 
@@ -57,6 +56,8 @@ export function createHttpServer(
   async function checkOpenalgo(): Promise<Check> {
     let timer: NodeJS.Timeout | undefined;
     try {
+      // Race only: analyzerStatus() takes no signal; the OpenAlgo request itself is bounded by the client's own internal timeout.
+      // (setTimeout, not AbortSignal.timeout: existing TM2-5 fake-timer tests drive this deadline.)
       const timeout = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("timeout")), READYZ_TIMEOUT_MS); });
       const r = await Promise.race([deps.client.analyzerStatus(), timeout]);
       return r?.status === "success" ? "ok" : "fail";
@@ -71,20 +72,17 @@ export function createHttpServer(
     const btUrl = deps.cfg.btUrl;
     if (!btUrl) return "not_configured";
     try {
-      const res = await fetch(`${btUrl.replace(/\/+$/, "")}/healthz`, { signal: AbortSignal.timeout(READYZ_TIMEOUT_MS) });
+      const res = await fetch(`${btUrl.replace(/\/+$/, "")}/healthz`, { signal: AbortSignal.timeout(READYZ_TIMEOUT_MS), redirect: "manual" });
+      if (res.type === "opaqueredirect" || res.status === 0 || (res.status >= 300 && res.status < 400)) return "fail";
       return res.ok ? "ok" : "fail";
     } catch {
       return "fail";
     }
   }
 
-  // Same logic as the audit writability probe in src/sdk/bindings.ts (private closure there).
   function checkAudit(): Check {
     try {
-      const auditFile = deps.auditFile;
-      mkdirSync(nodePath.dirname(auditFile), { recursive: true });
-      if (existsSync(auditFile) && statSync(auditFile).isDirectory()) throw new Error("audit path is a directory");
-      closeSync(openSync(auditFile, "a"));
+      probeAuditWritable(deps.auditFile);
       return "ok";
     } catch {
       return "fail";
