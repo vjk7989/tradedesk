@@ -50,3 +50,16 @@ Verify: `cd bt-service && uv run pytest -q tests/test_walkforward.py tests/test_
 
 ## Verdict (Opus): fix round 1
 OC1's fix is accepted. The 56 red tests were caused by my fix plan conflicting with the shipped edge tests, not by the code. Rulings: (1) `end = fold_end - 1 day` is correct; (2) keep `scored_folds`; (3) keep the 600 s budget default. The Opus test writer is updating the test expectations (A–E). After that comes the Haiku run and then the merge. No further action is needed from OC1 for this task.
+
+## Test run (Haiku)
+
+| command | result | time |
+|---|---|---|
+| `uv sync` | GREEN (exit 0, resolved 65 / audited 60) | <1 s |
+| `uv run pytest -q tests/test_walkforward.py tests/test_walkforward_edge.py tests/test_walkforward_budget.py tests/test_walkforward_fix.py` | GREEN, 172 passed, 0 failed (1 deprecation warning) | 2 s |
+| `uv run pytest -q` | GREEN, 616 passed, 0 failed (12 warnings) | 4 min 56 s |
+
+Overall: GREEN. No failures. Full log: G:\uday-demos\reports\OC-P7.3.md
+
+## Verdict (Opus)
+merged 1030290 into main (full suite 616 green).

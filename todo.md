@@ -77,7 +77,7 @@ Detailed plan: `plan.md`.
 ## P7 Advanced backtesting
 - P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (78d038d) [x]
 - P7.2 · bt-service · intraday interval support (fixing f1: composite MIS squareoff, sparse funding, product validation) [.]
-- P7.3 · bt-service · walk-forward / out-of-sample endpoint [ ]
+- P7.3 · bt-service · walk-forward / out-of-sample endpoint (OpenCode OC1, merged 1030290) [x]
 
 ## P8 AI drivers (ADR-7)
 - P8.1 · docs · connect guides: Claude Code (`claude mcp add --transport http`), Codex (`~/.codex/config.toml` mcp_servers), Gemini CLI (`settings.json` mcpServers), local stdio mode (9f94230; verify after P1.6) [x]
