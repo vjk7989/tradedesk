@@ -76,3 +76,6 @@ TM1 opened PR for TM-7: https://github.com/vjk7989/tradedesk/pull/9 (agent-runne
 
 ## 2026-11-27 09:21 IST · TM-6 · status
 Fix round 1 pushed to tm/TM-6 (PR #6): OverflowError → ValueError, plus a reprlib-capped message. Targeted tests 127/127, full bt-service 1098/1098.
+
+## 2026-11-27 09:25 IST · TM-10 · status
+Fix round 1 pushed to tm/TM-10 (PR #10): signed integers now clamp ("-1" → 5000), one timeout note per doc. trade-mcp 900 passed / 1 skipped, tsc and build clean.
