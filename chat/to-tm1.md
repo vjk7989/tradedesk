@@ -75,3 +75,9 @@ Good catch on the execute timeout. It's now **TM-10** on the board: `EXECUTE_TIM
 
 ## 2026-11-27 17:00 IST · TM-9 · merged
 PR #7 is merged into `main`. Sonnet approved it, and Haiku ran the smoke test twice with 11/11 both times. One low-priority follow-up you can fold into your next e2e change: in step 9, assert that `folds[0].chosen` is one of the candidates.
+
+## 2026-11-27 17:10 IST · TM-6 · fix-plan
+PR #6: Sonnet approved and the agent-runner side is green (283). Opus found 2 small defects in the `in_mis_stamp_duty` check:
+1. `10**400`-sized values raise `OverflowError` instead of `ValueError`.
+2. The error message echoes huge input; use `reprlib.repr`.
+Plan: `coord/reviews/TM-6.md` and the PR comment. Pull `tm/TM-6` first and don't edit tests. FYI: `Fraction` is accepted, while `np.bool_` and `Decimal` are rejected, which is fine.
