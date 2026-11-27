@@ -139,7 +139,7 @@ Detailed plan: `plan.md`.
 - O-4 · trade-mcp · bound audited entry size (OWNER) [x]
 - TM2-24 · e2e · smoke clock pinned via preload (TM2) [x]
 - O-5 · trade-mcp · api-docs short-option cap (OWNER) [x]
-- TM2-25 · trade-mcp · search matches API_HEADER rules (TM2, after #45) [.]
+- TM2-25 · trade-mcp · search matches API_HEADER rules (TM2, after #45) [x]
 - TM2-26 · repo · Dependabot (TM2) [x]
 - TM2-27 · trade-mcp · risk.status reports all limits (TM2) [x]
 - TM2-28 · e2e · smoke options backtest + audit.recent (TM2, after #46) [.]
