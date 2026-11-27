@@ -49,6 +49,8 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example confi
 uv run --with pytest --with pyyaml pytest -q deploy/test_deploy.py
 ```
 
+CI: `.github/workflows/ci.yml` runs all of the above on every PR and push to main.
+
 Local smoke test (fake OpenAlgo, no broker needed): `node e2e/smoke.mjs`. See [e2e/README.md](e2e/README.md).
 
 - VPS deployment: [docs/vps-runbook.md](docs/vps-runbook.md). Use your own `<DOMAIN>`.
