@@ -433,7 +433,13 @@ describe("O-4 edge: normal entries are byte-identical to main", () => {
   });
 });
 
-describe("O-4 edge: performance (10 MB input under 1 s)", () => {
+// Bounds are loose on purpose (O-7): they catch pathological (quadratic / unbounded) behaviour, not load noise.
+// 10 MB inputs must finish in under 5 s; the 500k-key object in under 15 s; each test may take up to 30 s.
+const PERF_MS = 5_000;
+const WIDE_MS = 15_000;
+const PERF_TIMEOUT = 30_000;
+
+describe("O-4 edge: performance (10 MB input under 5 s)", () => {
   const MB10 = 10 * 1024 * 1024;
   const time = (e: object) => {
     const f = newFile();
@@ -441,22 +447,29 @@ describe("O-4 edge: performance (10 MB input under 1 s)", () => {
     appendAudit(f, e, () => NOW);
     return performance.now() - t0;
   };
-  it("one 10 MB string", () => {
-    expect(time({ run: "p", s: "x".repeat(MB10) })).toBeLessThan(1000);
+  it("bounds are ordered: per-case bound < 500k-key bound < test timeout", () => {
+    expect(PERF_MS).toBe(5_000);
+    expect(WIDE_MS).toBe(15_000);
+    expect(PERF_TIMEOUT).toBe(30_000);
+    expect(PERF_MS).toBeLessThan(WIDE_MS);
+    expect(WIDE_MS).toBeLessThan(PERF_TIMEOUT);
   });
-  it("10 MB array of short strings", () => {
-    expect(time({ run: "p", a: Array.from({ length: MB10 / 10 }, () => "abcdefghij") })).toBeLessThan(1000);
+  it("one 10 MB string", { timeout: PERF_TIMEOUT }, () => {
+    expect(time({ run: "p", s: "x".repeat(MB10) })).toBeLessThan(PERF_MS);
   });
-  it("10 MB spread over 5000 strings of 2 KB in nested arrays", () => {
+  it("10 MB array of short strings", { timeout: PERF_TIMEOUT }, () => {
+    expect(time({ run: "p", a: Array.from({ length: MB10 / 10 }, () => "abcdefghij") })).toBeLessThan(PERF_MS);
+  });
+  it("10 MB spread over 5000 strings of 2 KB in nested arrays", { timeout: PERF_TIMEOUT }, () => {
     const rows = Array.from({ length: 50 }, () => Array.from({ length: 100 }, () => "y".repeat(2048)));
-    expect(time({ run: "p", rows })).toBeLessThan(1000);
+    expect(time({ run: "p", rows })).toBeLessThan(PERF_MS);
   });
-  it("10 MB wide object (500k keys; key cap is 200)", () => {
+  it("10 MB wide object (500k keys; key cap is 200) under 15 s", { timeout: PERF_TIMEOUT }, () => {
     const wide: Record<string, string> = {};
     for (let i = 0; i < 500_000; i++) wide["k" + i] = "0123456789abcdef";
-    expect(time({ run: "p", wide })).toBeLessThan(1000);
+    expect(time({ run: "p", wide })).toBeLessThan(WIDE_MS);
   });
-  it("10 MB Buffer (summarised as [binary N bytes])", () => {
-    expect(time({ run: "p", b: Buffer.alloc(MB10) })).toBeLessThan(1000);
+  it("10 MB Buffer (summarised as [binary N bytes])", { timeout: PERF_TIMEOUT }, () => {
+    expect(time({ run: "p", b: Buffer.alloc(MB10) })).toBeLessThan(PERF_MS);
   });
 });

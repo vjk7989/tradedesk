@@ -33,6 +33,10 @@ describe("TM2-25 search matches API_HEADER rules", () => {
     expect(searchApi("zzzqqq")).toBe('No API entries match "zzzqqq".');
   });
   it("query matching no header line has no Rules block", () => {
-    expect(searchApi("cancel")).not.toContain("// Rules:");
+    // 'cancel' now appears in the O-7 kill-switch rule; 'holdings' matches an entry but no header line.
+    expect(lines.some((l) => l.toLowerCase().includes("holdings"))).toBe(false);
+    const out = searchApi("holdings");
+    expect(out).not.toContain("// Rules:");
+    expect(out).toContain("function holdings(");
   });
 });

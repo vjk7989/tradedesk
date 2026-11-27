@@ -1,10 +1,7 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { describe, it, expect } from "vitest";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import * as docsMod from "../src/sdk/api-docs.js";
 import { API_DOCS, API_HEADER, CRYPTO_NOTE } from "../src/sdk/api-docs.js";
 import { searchApi } from "../src/sdk/search.js";
 
@@ -143,116 +140,180 @@ describe("O-1 edge: size", () => {
   });
 });
 
-// ---- untouched sections compared against main ----
-function mainSource(): string | null {
-  const repo = path.resolve(__dirname, "../..");
-  for (const ref of ["origin/main", "main"]) {
-    try {
-      return execFileSync("git", ["show", `${ref}:trade-mcp/src/sdk/api-docs.ts`], {
-        cwd: repo,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      });
-    } catch {
-      /* try next ref */
-    }
-  }
-  return null;
-}
-const MAIN_SRC = mainSource();
-// O-3 changed these on purpose: the busy text is now the exact client message, and audit.recent is new.
-const fixBusy = (t: string) => t.split("'busy, retry later'").join("'backtest service busy, retry later'");
-const O3_NEW = (d: { ns: string; name: string }) => d.ns === "audit" && d.name === "recent";
+// ---- protected sections pinned to a fixed baseline (O-7) ----
+// Baseline = api-docs.ts on main at 5daeac0 (before O-7). It is stored in this file, not read from git, so the check
+// no longer depends on which commit a branch was cut from. Intended changes since the baseline: the risk.status entry
+// (O-7, TM2-27 shape) and one kill-switch header line (O-7); trade.place may carry the O-5 short-option cap sentence.
+// Anything else fails. To accept a future intended change, update the baseline here in the same PR.
+const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+const key = (d: { ns: string; name: string }) => `${d.ns}.${d.name}`;
+const PLACE_CAP =
+  /Optional risk cap maxShortOptionQtyPerOrder limits NFO\/BFO CE\/PE SELL qty \(off when unset; also caps a SELL that closes a long\), denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'\. /;
+/** Header lines added on purpose after the baseline. Each may appear at most once. */
+const ALLOWED_ADDED_HEADER = [/^Kill switch: /];
 
-describe.skipIf(!MAIN_SRC)("O-1 edge: walkForward and crypto sections unchanged vs main", () => {
-  let main: typeof docsMod;
-  let tmp = "";
-  beforeAll(async () => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), "o1-main-"));
-    const f = path.join(tmp, "api-docs-main.ts");
-    writeFileSync(f, MAIN_SRC!);
-    main = (await import(/* @vite-ignore */ pathToFileURL(f).href)) as typeof docsMod;
-    return () => rmSync(tmp, { recursive: true, force: true });
+const BASE_CRYPTO_NOTE = [
+  "Crypto (Delta via OpenAlgo): exchange \"CRYPTO\" (Delta Exchange is OpenAlgo's only crypto broker); futures, perpetuals and options only.",
+  "Symbols: option BTC28FEB2580000CE (underlying+DDMONYY+strike+CE|PE); dated future BTC28FEB25FUT; perpetual is the Delta symbol plus FUT per the master-contract code (e.g. BTCUSDFUT; its docs also mention BTCUSD.P) - confirm with market.search({query:\"BTCUSD\", exchange:\"CRYPTO\"}).",
+  "Product: Delta has no CNC/NRML/MIS distinction (the value is passed through), but risk requires it to be in allowedProducts, so use NRML or MIS as configured.",
+  "Quantity is a whole number of contracts for derivatives, NOT units of the underlying; each contract = contract_value units (e.g. 0.01 ETH for ETHUSD perpetual). Notional is therefore qty * contract_value * price; the risk engine uses qty * contractValues[SYMBOL] * price, defaulting contract_value to 1 when unset - set contractValues in risk.json for accurate USD caps.",
+  "Risk: per-order cap is maxNotionalPerOrderUsd (not INR); CRYPTO trades 24x7 so market hours never block it.",
+].join("\n");
+
+/** API_HEADER lines of the baseline, CRYPTO_NOTE lines excluded (checked via BASE_CRYPTO_NOTE). */
+const BASE_HEADER = [
+  "Code is the body of an async JS function: use `await`, `return` a value, and console.log for output.",
+  "Arguments are plain objects. Symbols use OpenAlgo format, e.g. RELIANCE / NSE, NIFTY28NOV2524000CE / NFO, BTC28FEB2580000CE / CRYPTO.",
+  "Risk violations are thrown as Error('risk denied: ...'); nothing is placed in that case.",
+  "Optional risk cap maxShortOptionQtyPerOrder (off when unset) limits the quantity of NFO/BFO CE/PE SELL orders; a SELL that closes a long is capped too (conservative), and a breach is denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'.",
+];
+
+const BASE_WALKFORWARD = {
+  signature:
+    "walkForward(args: { code: string; symbols: string[]; start: string; end: string; trainDays: number; testDays: number; candidates: object[]; metric?: 'sharpe' | 'total_return' | 'calmar'; interval?: string; capital?: number; costs?: object; source?: string }): Promise<{ ok: boolean; metric: string | null; folds: { train: string[]; test: string[]; chosen: object; trainScore: number | null; testMetrics: object }[]; oosEquity: { date: string; value: number | null }[]; summary: object; warnings: string[]; error: string | null }>",
+  doc: [
+    "Walk-forward validation: signal parameters are tuned on each train window only and frozen for the following out-of-sample test window. Never touches the broker or risk engine; each call is audited with code length and sha256 only. Throws 'backtest service not configured' if unavailable; 'backtest service busy, retry later' when the service is saturated.",
+    "trainDays >= 20 and testDays >= 5 are calendar days. candidates is 1-10 parameter objects (passed to the engine as signal_parameters); at most 60 backtest runs in total; the server enforces a 10-minute budget. metric is one of sharpe, total_return, calmar (default sharpe).",
+    "Note: execute has a time limit (EXECUTE_TIMEOUT_MS, default 60 s); for walk-forward the operator should set EXECUTE_TIMEOUT_MS >= 660000, and your MCP client may have its own tool-call timeout.",
+    "Result: metric, folds (train/test dates, chosen params, trainScore, testMetrics), oosEquity (chained out-of-sample equity, downsampled to <=100 points), summary (folds, scored_folds, mean_test_<metric>, positive_folds), warnings, error (null on success).",
+  ].join("\n"),
+};
+
+/** Baseline entry order. */
+const BASE_ORDER = [
+  "market.quote",
+  "market.depth",
+  "market.history",
+  "market.search",
+  "market.optionChain",
+  "account.funds",
+  "account.positions",
+  "account.holdings",
+  "account.orders",
+  "account.trades",
+  "trade.place",
+  "trade.modify",
+  "trade.cancel",
+  "trade.closePosition",
+  "backtest.run",
+  "backtest.walkForward",
+  "audit.recent",
+  "risk.status",
+];
+
+/** sha256(signature + "\n" + doc) per entry; backtest.run, trade.place, risk.status are checked separately. */
+const BASE_ENTRY_SHA: [string, string][] = [
+  ["market.quote", "e21db937f7e5dd071d1d544c4382d61fc82ecd6ae775b9d7b5a058748e0a9312"],
+  ["market.depth", "fa105e31d2ded881cd69c6aa7655755af28aa6fd8cc3f144cf6b584f21ac499a"],
+  ["market.history", "01905559cc53dca0b9986df9a411af72a604c5d2ac4dc67478536493a0cb3057"],
+  ["market.search", "5df1fc8708aaf9c2271997d64690ba68e492de0b99efe3e0382ef872a501e87d"],
+  ["market.optionChain", "3e8a8651467bcb9d115c7f3d0e826fbcf4a6507b997e5c3053f7fe6b634dac81"],
+  ["account.funds", "b4a796f53a4fdc23f500e9d1d3c321d9db026abba17eca8fd291c543fdd76263"],
+  ["account.positions", "877fdd328ed962086791cb5eefdb1de58a47e540b4f72eee91ae5575f1a9adee"],
+  ["account.holdings", "609d32445f83fefc1c8e587d28d65105f284c2b5a1959e12815bce3f9f2970a8"],
+  ["account.orders", "f3ca6a65bb33319aa97fa60f62d114462069de3015c3dbbaef326596a8aaa924"],
+  ["account.trades", "24362169fcb9f5c9593b460cec2db8a27d36d6e95bd9825b6c86978d79bb7400"],
+  ["trade.modify", "699e901a720cfd1fba0ea92ccef959aba96cc7c63cdfe1ecf34c6840243ee7a2"],
+  ["trade.cancel", "5a616ad8f47db81380285a173f982acddff8ce246e96f4aa725e710bb2492f3d"],
+  ["trade.closePosition", "7754d0130f23eb9be3f77b1480c6a8e44b8a3f28ab207b0adc123ba4bdcd4fb7"],
+  ["backtest.walkForward", "cd568d9d727bd34f369c6a2daea0913c083c3577c9edb19b456ba8fd8de7b08f"],
+  ["audit.recent", "49dc92ecc44e28c9ab1842ad4d674dd98a34e5009f52e0b12268b7a672c01dcd"],
+];
+const BASE_PLACE_SHA_WITHOUT_CAP = "a83d9ee4b7aabbb0f98325db329804e65d2be71c6afd76b1367778174e4e0b46";
+const BASE_RUN_SIGNATURE_SHA = "2da0ef813764de127e06ce218174e74bf88198f15e9cf07b447ea9d9b741498d";
+const BASE_RUN_NON_FNO_SHA = "8ce2c834324f5e3363640eda966aa3db3e396c1dd5efda38c80d4341d56fc287";
+const BASE_CRYPTO_COSTS =
+  "Crypto costs keys: leverage (default 1), maker_rate (0.0002), taker_rate (0.0005), slippage (0.0005), commission (fallback for both fee sides; explicit maker_rate/taker_rate win), funding_rate (fixed rate per settlement, default 0.0001). Symbols ending -PERP or -SWAP get funding; bare spot pairs get none unless a nonzero funding_rate is given.";
+const BASE_RISK_STATUS_SIGNATURE = "status(): Promise<{ mode: string; killSwitch: boolean; limits: object; today: { date: string; orders: number; notional: number } }>";
+
+/** Split API_HEADER into baseline lines and added lines (CRYPTO_NOTE lines removed). */
+function headerDiff(header: string): { matched: number; added: string[] } {
+  const cryptoLines = new Set(BASE_CRYPTO_NOTE.split("\n"));
+  let matched = 0;
+  const added: string[] = [];
+  for (const l of header.split("\n").filter((x) => !cryptoLines.has(x))) {
+    if (matched < BASE_HEADER.length && l === BASE_HEADER[matched]) matched++;
+    else added.push(l);
+  }
+  return { matched, added };
+}
+const headerOk = (header: string) => {
+  const { matched, added } = headerDiff(header);
+  return (
+    matched === BASE_HEADER.length &&
+    added.every((l) => ALLOWED_ADDED_HEADER.some((re) => re.test(l))) &&
+    ALLOWED_ADDED_HEADER.every((re) => added.filter((l) => re.test(l)).length <= 1)
+  );
+};
+
+describe("O-1 edge: walkForward and crypto sections unchanged vs pinned baseline", () => {
+  it("baseline self-check: pinned tables are complete, ordered and well-formed", () => {
+    expect(BASE_ORDER).toHaveLength(18);
+    const sep = ["backtest.run", "trade.place", "risk.status"];
+    expect(BASE_ENTRY_SHA.map(([k]) => k)).toEqual(BASE_ORDER.filter((k) => !sep.includes(k)));
+    for (const [, h] of BASE_ENTRY_SHA) expect(h).toMatch(/^[0-9a-f]{64}$/);
+    expect(BASE_HEADER.length).toBeGreaterThan(0);
   });
 
-  it("CRYPTO_NOTE identical; API_HEADER keeps every main line in order, adding only known lines", () => {
-    expect(CRYPTO_NOTE).toBe(main.CRYPTO_NOTE);
-    expect(API_HEADER).toContain(CRYPTO_NOTE);
-    // Later doc PRs may append header lines on purpose. They must not edit or drop a line from main,
-    // and each added line must be listed here (O-5: the short-option qty cap sentence).
-    const ALLOWED_ADDED = [/^Optional risk cap maxShortOptionQtyPerOrder \(off when unset\) /];
-    const cur = API_HEADER.split("\n");
-    const old = main.API_HEADER.split("\n");
-    let i = 0;
-    const added: string[] = [];
-    for (const l of cur) {
-      if (i < old.length && l === old[i]) i++;
-      else added.push(l);
-    }
-    expect(i).toBe(old.length); // all main lines present, same order, unedited
-    for (const l of added) expect(ALLOWED_ADDED.some((re) => re.test(l)), `unexpected header line: ${l}`).toBe(true);
-    expect(added.length).toBeLessThanOrEqual(ALLOWED_ADDED.length);
+  it("CRYPTO_NOTE identical; API_HEADER keeps every baseline line in order, adding only known lines", () => {
+    expect(CRYPTO_NOTE).toBe(BASE_CRYPTO_NOTE);
+    expect(API_HEADER).toContain(CRYPTO_NOTE); // contiguous block
+    const { matched, added } = headerDiff(API_HEADER);
+    expect(matched).toBe(BASE_HEADER.length); // all baseline lines present, same order, unedited
+    for (const l of added) expect(ALLOWED_ADDED_HEADER.some((re) => re.test(l)), `unexpected header line: ${l}`).toBe(true);
+    expect(added.length).toBeLessThanOrEqual(ALLOWED_ADDED_HEADER.length);
+    expect(headerOk(API_HEADER)).toBe(true);
+  });
+
+  it("strictness: an edited, dropped, reordered, unknown or duplicated header line is rejected", () => {
+    const ls = API_HEADER.split("\n");
+    const risk = ls.findIndex((l) => l.startsWith("Risk violations"));
+    const kill = ls.findIndex((l) => l.startsWith("Kill switch: "));
+    expect(risk).toBeGreaterThanOrEqual(0);
+    const edit = [...ls];
+    edit[0] = edit[0].replace("await", "awaits");
+    expect(headerOk(edit.join("\n"))).toBe(false);
+    expect(headerOk(ls.filter((_, j) => j !== risk).join("\n"))).toBe(false);
+    const swapped = [...ls];
+    [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
+    expect(headerOk(swapped.join("\n"))).toBe(false);
+    expect(headerOk([...ls, "Some new rule nobody reviewed."].join("\n"))).toBe(false);
+    if (kill >= 0) expect(headerOk([...ls, ls[kill]].join("\n"))).toBe(false);
+    expect(headerOk(API_HEADER.replace(CRYPTO_NOTE, CRYPTO_NOTE + " "))).toBe(false);
   });
 
   it("walkForward entry identical (signature and doc)", () => {
     const a = API_DOCS.find((d) => d.ns === "backtest" && d.name === "walkForward")!;
-    const b = main.API_DOCS.find((d) => d.ns === "backtest" && d.name === "walkForward")!;
     expect(a).toBeDefined();
-    expect(a.signature).toBe(b.signature);
-    expect(a.doc).toBe(fixBusy(b.doc));
+    expect(a.signature).toBe(BASE_WALKFORWARD.signature);
+    expect(a.doc).toBe(BASE_WALKFORWARD.doc);
     expect(a.doc).toContain("'backtest service busy, retry later'");
-    expect(a.doc).not.toContain("'busy, retry later'");
   });
 
-  it("every entry other than backtest.run is identical, same order", () => {
-    const strip = (xs: docsMod.ApiDoc[]) => xs.filter((d) => !(d.ns === "backtest" && d.name === "run") && !O3_NEW(d));
-    // O-5 put the short-option cap sentence into trade.place. Allow exactly that one sentence; with it removed
-    // the doc must equal main's. Every other entry stays strictly identical.
-    const PLACE_ALLOWED = [
-      /Optional risk cap maxShortOptionQtyPerOrder limits NFO\/BFO CE\/PE SELL qty \(off when unset; also caps a SELL that closes a long\), denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'\. /,
-    ];
-    const isPlace = (d: docsMod.ApiDoc) => d.ns === "trade" && d.name === "place";
-    const unPlace = (d: docsMod.ApiDoc): docsMod.ApiDoc => {
-      if (!isPlace(d)) return d;
-      let doc = d.doc;
-      for (const re of PLACE_ALLOWED) {
-        const hits = doc.match(new RegExp(re.source, "g")) ?? [];
-        expect(hits.length).toBeLessThanOrEqual(1);
-        doc = doc.replace(re, "");
-      }
-      return { ...d, doc };
-    };
-    const mainPlace = main.API_DOCS.find(isPlace)!;
-    const curPlace = API_DOCS.find(isPlace)!;
-    expect(mainPlace).toBeDefined();
-    if (curPlace.doc !== fixBusy(mainPlace.doc)) {
-      expect(curPlace.doc.length).toBeGreaterThan(mainPlace.doc.length); // only additions allowed
+  it("every entry identical except the intended changes (risk.status; trade.place cap sentence), same order", () => {
+    expect(API_DOCS.map(key)).toEqual(BASE_ORDER);
+    const byKey = new Map(API_DOCS.map((d) => [key(d), d] as const));
+    for (const [k, h] of BASE_ENTRY_SHA) {
+      const d = byKey.get(k)!;
+      expect(sha(d.signature + "\n" + d.doc), `${k} changed`).toBe(h);
     }
-    expect(strip(API_DOCS).map(unPlace)).toEqual(strip(main.API_DOCS).map((d) => unPlace({ ...d, doc: fixBusy(d.doc) })));
-    const key = (d: docsMod.ApiDoc) => `${d.ns}.${d.name}`;
-    expect(API_DOCS.filter((d) => !O3_NEW(d)).map(key)).toEqual(main.API_DOCS.filter((d) => !O3_NEW(d)).map(key));
-    // audit.recent is the one new entry, directly before risk.status
-    const names = API_DOCS.map(key);
-    expect(names.filter((n) => n === "audit.recent")).toHaveLength(1);
-    expect(names.indexOf("audit.recent")).toBe(names.indexOf("risk.status") - 1);
+    // trade.place: with the O-5 cap sentence removed (at most one copy), it equals the baseline
+    const place = byKey.get("trade.place")!;
+    expect((place.doc.match(new RegExp(PLACE_CAP.source, "g")) ?? []).length).toBeLessThanOrEqual(1);
+    expect(sha(place.signature + "\n" + place.doc.replace(PLACE_CAP, ""))).toBe(BASE_PLACE_SHA_WITHOUT_CAP);
+    // risk.status: the intended change; it must really replace the old vague shape
+    const rs = byKey.get("risk.status")!;
+    expect(rs.signature).not.toBe(BASE_RISK_STATUS_SIGNATURE);
+    expect(rs.signature).not.toContain("limits: object");
   });
 
-  it("backtest.run: crypto costs line and all other non-F&O lines unchanged; only the options line is new", () => {
-    const mainRun = main.API_DOCS.find((d) => d.ns === "backtest" && d.name === "run")!;
-    expect(run.signature).toBe(mainRun.signature);
+  it("backtest.run: crypto costs line and all other non-F&O lines unchanged; one options line after futures", () => {
     const isFno = (l: string) => l.startsWith("F&O ");
     const cur = doc.split("\n");
-    const old = fixBusy(mainRun.doc).split("\n");
-    if (old.some((l) => l.startsWith("F&O options"))) {
-      // already merged into main: nothing to diff beyond equality
-      expect(cur).toEqual(old);
-      return;
-    }
-    expect(cur.filter((l) => !isFno(l))).toEqual(old.filter((l) => !isFno(l)));
-    expect(cur.length).toBe(old.length + 1);
-    const crypto = cur.find((l) => l.startsWith("Crypto costs keys"));
-    expect(crypto).toBe(old.find((l) => l.startsWith("Crypto costs keys")));
-    // options line sits directly after the futures line
+    expect(sha(run.signature)).toBe(BASE_RUN_SIGNATURE_SHA);
+    expect(sha(cur.filter((l) => !isFno(l)).join("\n"))).toBe(BASE_RUN_NON_FNO_SHA);
+    expect(cur.find((l) => l.startsWith("Crypto costs keys"))).toBe(BASE_CRYPTO_COSTS);
+    expect(cur.filter((l) => l.startsWith("F&O options"))).toHaveLength(1);
     expect(cur.indexOf(optLine)).toBe(cur.findIndex((l) => l.startsWith("F&O futures")) + 1);
   });
 });
