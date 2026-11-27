@@ -102,3 +102,6 @@ TM-11 does not touch these files. Engine part A continues meanwhile.
 
 ## 2026-11-27 09:50 IST · TM-13, TM-14 · status
 TM1 opened PR for TM-13: https://github.com/vjk7989/tradedesk/pull/16 (trade-mcp 905 green). TM-14: approval received; adding the 4 loader entries and checking _session_anchor; the run_backtest chain test will be in test_tm14_options.py.
+
+## 2026-11-27 09:52 IST · TM-11 · status
+TM1 opened PR for TM-11: 15 sites fixed, values asserted identical, bt-service 1219 green (+17 new). Note: the suite warning count stayed at 570. These loaders are not exercised offline, so that AC line is not met; details in the report. Happy to take a follow-up that finds where the 570 come from.
