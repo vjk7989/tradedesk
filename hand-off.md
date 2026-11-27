@@ -1,46 +1,54 @@
-# Hand-off 2026-11-27 (build complete)
-State: every buildable task is done and merged to `main` at https://github.com/vjk7989/tradedesk (public). Final gate GREEN on 2026-11-27: trade-mcp 789 (+1 skipped), agent-runner 240, bt-service 818, deploy 93, e2e smoke 8/8. Teammate TM1 (buckleson) invited; tasks TM-1 and TM-2 are on the board; flow in ADR-15.
-Code graph: codebase-memory project `tradedesk`, re-indexed after the last merge (3,135 nodes).
+# Hand-off 2026-11-27 (afternoon)
+State: `main` on https://github.com/vjk7989/tradedesk (public).
+- All planned phases are built and merged.
+- Since the final gate, these also merged: P9.1 (NSE lot sizes and futures STT verified Nov 2026), P9.2 (funding cursor across scale-in), P9.3 (session-anchored 3m/10m bins), TM-1 and TM-2 (teammate PRs).
+- Last full runs: bt-service 960–998 passed (depending on branch), trade-mcp 789 (+1 skipped), agent-runner 267, deploy 93, e2e 8/8.
+- Code graph: codebase-memory `tradedesk`, re-indexed (3,390 nodes).
 
-## What exists
-| Package | What | Test command |
+## Team
+- **Owner side (this machine):** the Opus orchestrator.
+  - Claude Sonnet developers.
+  - Opus test writer.
+  - Haiku runner.
+  - Sonnet reviewer, for teammate PRs.
+- **Teammate TM1 = buckleson.** Runs Claude Code on another machine: an Opus orchestrator plus parallel Sonnet developers.
+  - Works on `tm/<ID>` branches and opens PRs to `main`.
+  - Prompts: `coord/TEAMMATE_PROMPT.md` and `coord/CHAT_PROMPT.md`.
+- **Chat:** branch `chat`. TM1 writes `chat/to-owner.md`; we write `chat/to-tm1.md` (local worktree `G:\uday-demos.chat`). Append-only.
+- **Watch:** a session cron job (20 min) reads chat and PRs and runs the review chain on new PRs: Sonnet review, Opus edge tests, Haiku run, then merge or fix plan.
+- **OpenCode:** retired (ADR-14).
+
+## TM1 queue (coord/board.md)
+| Task | What | Status |
 |---|---|---|
-| `trade-mcp/` | Code Mode MCP server (`search`/`execute`), QuickJS sandbox, OpenAlgo client, risk engine (reserve/commit, kill switch, audit), backtest + walkForward bindings, bearer + read-only token + single-user OAuth 2.1 | `npx vitest run && npx tsc --noEmit && npm run build` |
-| `bt-service/` | Vibe-Trading engine extract; india_equity (CNC/MIS intraday), india_fno futures, crypto (fees, funding, -PERP/-SWAP); OpenAlgo loader; 1m–1D incl. 3m/10m; `/backtest` + `/walkforward` | `uv sync && uv run pytest -q` (~5 min) |
-| `agent-runner/` | Runs Claude/Codex/Gemini CLIs headless or the Anthropic API (MCP connector) with trade-mcp attached; scheduled jobs (IST) | `npx vitest run && npx tsc --noEmit && npm run build` |
-| `deploy/` | Compose (openalgo, trade-mcp, bt-service, caddy), Caddy routes incl. OAuth, `.env.example`, `risk.example.json` | `docker compose ... config -q && uv run --with pytest --with pyyaml pytest -q deploy/test_deploy.py` |
-| `e2e/` | Local smoke test with real processes and a fake OpenAlgo | `node e2e/smoke.mjs` |
-| `docs/` | VPS runbook, client connection guide, Fincept setup | — |
+| TM-3 | Exchange holidays in risk | ready |
+| TM-4 | Root README | ready |
+| TM-5 | OpenAI API backend | ready |
+| TM-6 | Review follow-ups | ready |
+| TM-7 | Jobs accept api-openai | after TM-5 |
+| TM-8 | Remove numpy deprecation warnings | ready |
+| TM-9 | e2e walkForward + OAuth-off steps | ready |
+
+Expected pinned-test updates on our side:
+- TM-3: `test/config.edge.test.ts` and `deploy/test_deploy.py` key sets.
+- TM-7: the jobs backend error text.
 
 ## Open (needs the user)
-- P4.4: paper-mode end-to-end run on the VPS (runbook §§1–13), before setting `MODE=live`.
-- Verify against live sources:
-  - the Delta perpetual symbol format (BTCUSDFUT vs BTCUSD.P);
-  - NSE lot sizes (`lot_sizes`);
-  - the F&O, MIS STT and stamp rates;
-  - the OpenAlgo `WEBSOCKET_URL` path;
-  - the Fincept menu names.
-- Fincept install on the PC (`docs/fincept-setup.md`).
+- P4.4: paper-mode end-to-end run on the VPS before `MODE=live`.
+- Verify on live systems: the Delta perpetual symbol (BTCUSD vs BTCUSDFUT via `market.search`), the OpenAlgo `WEBSOCKET_URL`, and the Fincept menu names.
 
 ## Known limits
-- MIS stamp duty uses the delivery rate.
-- 10m bar anchoring uses the first bar of the file.
-- Funding can miss one slot when a scale-in lands on a sparse gap.
-- Composite runs need `product_by_market` for mixed MIS/NRML.
-- The agent-runner signal-exit path is untested.
-- OAuth codes and the login rate limiter are in memory, so a restart resets them.
+- 1 lot needs margin plus opening fees, so capital exactly equal to margin opens nothing.
+- Funding is not charged when a scale-in and a full exit both happen inside one sparse gap.
+- OAuth codes and the login rate limiter are in memory.
+- Holidays are not modelled until TM-3 lands.
 - trade-mcp's port must never be published.
 
-## Deferred
-- P3.3 ccxt spot trading (YAGNI).
-- P6.2 Fincept source build (disk).
-- OpenAI/Gemini API backends in agent-runner (CLI backends cover them).
-
-## Team / process
-- ADR-11 + ADR-14: Opus orchestrator, Sonnet developers, Opus test writer, Haiku runner. OpenCode retired; the `coord/` protocol is kept.
-- Worktrees left: `G:\uday-demos.d1`, `G:\uday-demos.d2` (both merged; safe to remove).
+## Worktrees
+`G:\uday-demos` (main), `.chat` (chat branch), `.d1` and `.d2` (idle; safe to remove).
 
 ## Gotchas
-- Haiku runners need absolute `cd /g/uday-demos.<wt>/...` paths.
-- Test writers own test edits; send AC changes to them.
+- Haiku runners need absolute `cd /g/uday-demos.<wt>` paths.
+- Test writers own test edits.
+- Concurrent full bt-service suites can hit Windows process-init failures (0xC0000142); rerun with `--lf`.
 - Drive G: has ~6 GB free.
