@@ -1,0 +1,11 @@
+vendor/
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+runtime/
+reports/
+*.log
