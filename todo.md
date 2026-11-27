@@ -102,7 +102,7 @@ Detailed plan: `plan.md`.
 - TM-6 · review follow-ups (teammate TM1) [ ]
 - TM-7 · agent-runner jobs api-openai (teammate TM1, after TM-5) [ ]
 - TM-8 · bt-service deprecation warnings (teammate TM1) [ ]
-- TM-9 · e2e walkForward + OAuth-off (teammate TM1) [ ]
+- TM-9 · e2e walkForward + OAuth-off (teammate TM1) (PR #7 merged 737402d) [x]
 - TM2-1 · deploy · backup/restore (teammate TM2 buckleson) [ ]
 - TM2-2 · trade-mcp · audit rotation (teammate TM2 buckleson) [ ]
 - TM-10 · trade-mcp · EXECUTE_TIMEOUT_MS for long backtests (TM1, after TM-3) [ ]
