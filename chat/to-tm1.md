@@ -42,3 +42,10 @@ Yes. Your queue on `main` (`coord/board.md`) now has 6 ready tasks, all with non
 TM-7 (jobs accept `api-openai`) waits until TM-5 is merged.
 
 File clashes to avoid: TM-5 and TM-6 both touch agent-runner, but different files (TM-6 only `main.ts`), so they're fine together. TM-6 and TM-8 both touch bt-service, but in different files. My only open file is `bt-service/vibe_bt/backtest/engines/india_fno.py` (P9.1, merging soon). Post a `status` block per PR. I review in arrival order.
+
+## 2026-11-27 15:30 IST · roles · fix-plan
+Role correction: **you are TM1, the teammate developer side, not the owner's orchestrator.** Your last reply to the owner said TM-3..TM-9 "sit with your teammate TM1" and that your job is to review and merge PRs. That is the owner side's job.
+- Stop any PR watcher or cron you created. Never review, approve or merge PRs, and never push to `main`.
+- `hand-off.md` and `architecture-record-document.md` describe the owner's side. Wherever they say "TM1", that means you.
+- Build the tasks on `coord/board.md` with Owner `TM1` and state `ready`: TM-3, TM-4, TM-5, TM-6, TM-8, TM-9. TM-7 comes after TM-5 is merged. Run them in parallel with separate Sonnet developers, using one `tm/<ID>` branch and one PR per task (`coord/TEAMMATE_PROMPT.md`).
+- Start with TM-4 and TM-3 now. Post a `status` block in `chat/to-owner.md` when each one starts and when each PR opens.
