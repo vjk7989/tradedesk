@@ -255,16 +255,74 @@ describe("response parsing", () => {
     });
   }
 
-  it("mcp_call item with error, status completed (documents behaviour: reported as ok:true, error not surfaced)", async () => {
+  const mcpCall = (id: string, error: unknown, output: unknown = null) =>
+    ({ type: "mcp_call", id, server_label: "tradedesk", name: "place_order", arguments: "{}", error, output });
+
+  it("mcp_call item with error, status completed -> ok:false 'tool error: <text>', partial text kept redacted", async () => {
     const create = vi.fn().mockResolvedValue(
-      completed("done", [
-        { type: "mcp_call", id: "c1", server_label: "tradedesk", name: "place_order", arguments: "{}", error: `tool failed ${TOKEN}`, output: null },
-        msg(outText("done")),
-      ]),
+      completed(`done ${TOKEN}`, [mcpCall("c1", "order rejected: margin"), msg(outText(`done ${TOKEN}`))]),
     );
     const r = await runOpenAiTask({ prompt: "p", mcp, client: client(create) });
-    expect(r).toEqual({ ok: true, text: "done", exitCode: null });
+    expect(r).toEqual({ ok: false, text: "done [redacted]", error: "tool error: order rejected: margin", exitCode: null });
+  });
+
+  it("mcp_call error text containing the token -> redacted", async () => {
+    const create = vi.fn().mockResolvedValue(completed("done", [mcpCall("c1", `auth failed Bearer ${TOKEN} (${TOKEN})`), msg(outText("done"))]));
+    const r = await runOpenAiTask({ prompt: "p", mcp, client: client(create) });
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe("tool error: auth failed Bearer [redacted] ([redacted])");
     expect(JSON.stringify(r)).not.toContain(TOKEN);
+  });
+
+  it("mcp_call error >300 chars -> truncated to 300 after redaction", async () => {
+    const raw = `${TOKEN} ` + "x".repeat(400);
+    const create = vi.fn().mockResolvedValue(completed("", [mcpCall("c1", raw)]));
+    const r = await runOpenAiTask({ prompt: "p", mcp, client: client(create) });
+    const redacted = raw.split(TOKEN).join("[redacted]");
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe(`tool error: ${redacted.slice(0, 300)}`);
+    expect(r.error!.length).toBe("tool error: ".length + 300);
+  });
+
+  it("mcp_call error exactly 300 chars -> kept whole (boundary)", async () => {
+    const raw = "e".repeat(300);
+    const create = vi.fn().mockResolvedValue(completed("", [mcpCall("c1", raw)]));
+    expect((await runOpenAiTask({ prompt: "p", mcp, client: client(create) })).error).toBe(`tool error: ${raw}`);
+  });
+
+  it("token straddling the 300-char cut -> no token fragment leaks (redact before truncate)", async () => {
+    const raw = "y".repeat(295) + TOKEN + "z".repeat(50);
+    const create = vi.fn().mockResolvedValue(completed("", [mcpCall("c1", raw)]));
+    const r = await runOpenAiTask({ prompt: "p", mcp, client: client(create) });
+    expect(r.ok).toBe(false);
+    expect(r.error).not.toContain(TOKEN.slice(0, 5));
+    expect(r.error).toBe(`tool error: ${"y".repeat(295)}[reda`);
+  });
+
+  it("two failing mcp_calls -> first error reported", async () => {
+    const create = vi.fn().mockResolvedValue(
+      completed("t", [mcpCall("c1", "first failure"), msg(outText("t")), mcpCall("c2", "second failure")]),
+    );
+    const r = await runOpenAiTask({ prompt: "p", mcp, client: client(create) });
+    expect(r).toMatchObject({ ok: false, error: "tool error: first failure" });
+  });
+
+  it("successful mcp_call (error null) before a failing one -> failing one reported", async () => {
+    const create = vi.fn().mockResolvedValue(completed("t", [mcpCall("c1", null, "OK"), mcpCall("c2", "boom")]));
+    expect(await runOpenAiTask({ prompt: "p", mcp, client: client(create) })).toMatchObject({ ok: false, error: "tool error: boom" });
+  });
+
+  it("mcp_call with error null -> still ok:true", async () => {
+    const create = vi.fn().mockResolvedValue(completed("fine", [mcpCall("c1", null, "OK"), msg(outText("fine"))]));
+    expect(await runOpenAiTask({ prompt: "p", mcp, client: client(create) })).toEqual({ ok: true, text: "fine", exitCode: null });
+  });
+
+  it("real SDK: mcp_call error in wire response -> ok:false tool error, text from messages", async () => {
+    const { c } = sdkClient(async () =>
+      json(200, apiResponse("completed", [mcpCall("c1", `denied ${TOKEN}`), msg(outText("partial"))])),
+    );
+    const r = await runOpenAiTask({ prompt: "p", mcp, client: c });
+    expect(r).toEqual({ ok: false, text: "partial", error: "tool error: denied [redacted]", exitCode: null });
   });
 
   it("model echoes the token several times in text -> all redacted", async () => {
