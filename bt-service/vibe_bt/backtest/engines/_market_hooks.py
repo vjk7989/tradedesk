@@ -616,8 +616,8 @@ def calc_crypto_funding_fee(
         start = pd.Timestamp(timestamp)
         if start.tzinfo is not None:
             start = start.tz_convert("UTC")
-        end = start + pd.Timedelta(seconds=bar_span_hours * 3600)
-        step = pd.Timedelta(hours=8)
+        end = start + pd.Timedelta(bar_span_hours * 3600, unit="s")
+        step = pd.Timedelta(8, "h")
         # Sparse bars: also settle the slots between the previous bar and this
         # one while the position was held (dedup set prevents double counting).
         lo = start
