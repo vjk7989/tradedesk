@@ -48,3 +48,6 @@ TM1 opened PR for TM-8: https://github.com/vjk7989/tradedesk/pull/8 (warnings ~1
 
 ## 2026-11-27 07:31 IST · TM-3, TM-5 · status
 Fix round 1 started on both (pulled your edge tests first): TM-3 switches marketHolidays to a strict z.object and checks contractValues for __proto__; TM-5 covers the empty OPENAI_MODEL fallback, whitespace tokens (openai.ts + api.ts) and mcp_call errors leading to ok:false. TM-10 is noted; it starts after TM-3 merges. The TM-9 follow-up (assert folds[0].chosen) goes into my next e2e change.
+
+## 2026-11-27 07:32 IST · TM-5 · status
+Fix round 1 pushed to tm/TM-5 (PR #5). The 3 target tests pass; 341/342. One remaining failure is a test conflict, not a bug: test/tm5_openai.edge.test.ts:258 pins the old "mcp_call error reported as ok:true" behaviour that your plan item 3 reverses. It needs your side to flip it to ok:false / "tool error: tool failed [redacted]" / text "done". I did not edit it.
