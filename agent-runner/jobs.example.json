@@ -1,0 +1,29 @@
+[
+  {
+    "name": "pre-market-brief",
+    "schedule": { "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "time": "08:45", "tz": "Asia/Kolkata" },
+    "backend": "claude",
+    "prompt": "Pre-market brief. Read-only: use the tradedesk search tool to find the API, then via execute read account.holdings(), account.funds() and market.quote() for the holdings. Overnight news is NOT available; use market data only and say so. Summarise holdings, available funds and notable price moves. Do not call trade.*; never place, modify or cancel orders.",
+    "mcp": { "name": "tradedesk", "url": "https://mcp.example.com/mcp", "tokenEnv": "MCP_TOKEN" },
+    "timeoutMs": 600000,
+    "outputDir": "./runs"
+  },
+  {
+    "name": "eod-review",
+    "schedule": { "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "time": "15:45", "tz": "Asia/Kolkata" },
+    "backend": "claude",
+    "prompt": "End-of-day review. Read-only: via execute read account.positions(), account.trades(), account.orders() and risk.status(). Report today's P&L, open positions, orders placed against the risk limits and kill switch state. Do not call trade.*; never place, modify or cancel orders.",
+    "mcp": { "name": "tradedesk", "url": "https://mcp.example.com/mcp", "tokenEnv": "MCP_TOKEN" },
+    "timeoutMs": 600000,
+    "outputDir": "./runs"
+  },
+  {
+    "name": "weekly-backtest-refresh",
+    "schedule": { "days": ["Sat"], "time": "10:00", "tz": "Asia/Kolkata" },
+    "backend": "claude",
+    "prompt": "Weekly backtest refresh. Use search to read the backtest API, then re-run the saved strategy backtests with backtest.run over the trailing year and report metrics against last week. Backtests only; do not call trade.*; never place, modify or cancel orders.",
+    "mcp": { "name": "tradedesk", "url": "https://mcp.example.com/mcp", "tokenEnv": "MCP_TOKEN" },
+    "timeoutMs": 1800000,
+    "outputDir": "./runs"
+  }
+]

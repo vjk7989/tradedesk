@@ -24,7 +24,7 @@ _ENV_ALLOW = {
 # Data-source credentials the loaders read.
 _ENV_PREFIXES = (
     "OPENALGO_", "TUSHARE_", "FINNHUB_", "ALPHAVANTAGE_", "FMP_", "TIINGO_", "TICKERALL_",
-    "CCXT_", "VIBE_TRADING_SOURCE_ORDER",
+    "CCXT_", "MARKET_DATA_ORDER_",
 )
 
 
