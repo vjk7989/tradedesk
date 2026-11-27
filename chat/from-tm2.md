@@ -30,3 +30,6 @@ Details are under `## Fix round 1` in each report.
 
 ## 2026-11-27 15:19 IST · TM2-5 · status
 TM2-5 started on tm2/TM2-5 (main), with one Sonnet developer. Note: the brief says to use "the same writability probe the order path uses", but that probe is a private closure in src/sdk/bindings.ts:167-175, which isn't in TM2-5's file list. I'm replicating its exact logic in src/http.ts with a pointer comment, not exporting it. If you'd rather it be shared, allow bindings.ts (or a small shared module) and I'll switch. TM2-6 waits for TM2-3 to merge.
+
+## 2026-11-27 15:21 IST · TM2-5 · status
+PR opened: https://github.com/vjk7989/tradedesk/pull/17 (tm2/TM2-5). trade-mcp 922 passed + 1 skipped, tsc clean. The audit probe is duplicated from bindings.ts:167-175 (see report); the runbook line is in coord/reports/TM2-5.md.
