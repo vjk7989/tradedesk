@@ -71,12 +71,12 @@ Detailed plan: `plan.md`.
 - P5.1 · trade-mcp · OAuth 2.1 single-user (PKCE, dynamic client registration) for ChatGPT / claude.ai connectors (a71c380) [x]
 
 ## P6 Fincept
-- P6.1 · Fincept · install release v4.5.3, configure Claude Code harness + our MCP via mcp-remote [ ]
+- P6.1 · Fincept · install release v4.5.3, configure Claude Code harness + our MCP via mcp-remote (guide: docs/fincept-setup.md; install is on your PC) [x]
 - P6.2 · Fincept · (optional, source build) OpenAlgoBroker : IBroker + remote backtest provider (deferred: needs Qt source build, ~6 GB disk free; revisit on request) [x]
 
 ## P7 Advanced backtesting
 - P7.1 · bt-service · NSE F&O engine (lot sizes, expiries/rolls, F&O STT, margin) (78d038d) [x]
-- P7.2 · bt-service · intraday interval support (testing) [.]
+- P7.2 · bt-service · intraday interval support (fixing f1: composite MIS squareoff, sparse funding, product validation) [.]
 - P7.3 · bt-service · walk-forward / out-of-sample endpoint [ ]
 
 ## P8 AI drivers (ADR-7)
