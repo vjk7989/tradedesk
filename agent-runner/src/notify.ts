@@ -17,9 +17,13 @@ const MAX_TEXT = 3500;
 
 /** Sends a job report summary to Telegram. Never throws; never logs or sends the MCP or bot token. */
 export async function notifyTelegram(job: Job, result: NotifyResult, deps: NotifyDeps): Promise<void> {
-  const secrets = [deps.env[job.mcp.tokenEnv], deps.env[TELEGRAM_TOKEN_ENV]].filter(
-    (s): s is string => typeof s === "string" && s.trim() !== "",
-  );
+  const secrets = [
+    ...new Set(
+      [deps.env[job.mcp.tokenEnv], deps.env[TELEGRAM_TOKEN_ENV]].flatMap((v) =>
+        typeof v === "string" && v.trim() !== "" ? [v, v.trim()] : [],
+      ),
+    ),
+  ].sort((x, y) => y.length - x.length);
   const redact = (t: string) => secrets.reduce((acc, s) => acc.split(s).join("[redacted]"), t);
   try {
     const botToken = deps.env[TELEGRAM_TOKEN_ENV]?.trim();
@@ -31,13 +35,20 @@ export async function notifyTelegram(job: Job, result: NotifyResult, deps: Notif
       );
       return;
     }
+    if (secrets.includes(chatId)) {
+      console.error(redact(`notify ${job.name}: telegram skipped, chat id matches a secret`));
+      return;
+    }
+    const errLine = result.error ? `error: ${redact(result.error).slice(0, 300)}` : undefined;
     const head = [
       `${job.name}: ${result.ok ? "ok" : "error"}`,
       `duration: ${result.durationMs} ms`,
-      ...(result.error ? [`error: ${result.error}`] : []),
+      ...(errLine ? [errLine] : []),
       "",
     ].join("\n");
-    const text = redact(head) + redact(result.text).slice(0, MAX_TEXT);
+    let body = redact(result.text).slice(0, MAX_TEXT);
+    if (/[\uD800-\uDBFF]$/.test(body)) body = body.slice(0, -1);
+    const text = redact(head) + body;
     const res = await deps.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -67,6 +67,9 @@ export function parseJobs(raw: unknown): Job[] {
       ) {
         bad("invalid notify {telegram:{chatIdEnv}}; chatIdEnv is an env var NAME");
       }
+      if (o.notify.telegram.chatIdEnv === o.mcp.tokenEnv || o.notify.telegram.chatIdEnv === "TELEGRAM_BOT_TOKEN") {
+        bad("invalid notify: chatIdEnv must not name a token env var");
+      }
       notify = { telegram: { chatIdEnv: o.notify.telegram.chatIdEnv } };
     }
     if (typeof o.outputDir !== "string" || !o.outputDir) bad("outputDir must be a non-empty string");
