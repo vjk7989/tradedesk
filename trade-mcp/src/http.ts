@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { timingSafeEqual } from "node:crypto";
+import { closeSync, existsSync, mkdirSync, openSync, statSync } from "node:fs";
+import nodePath from "node:path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer, type ServerDeps } from "./server.js";
 import { loadOAuthConfig } from "./oauth/config.js";
@@ -40,11 +42,69 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+const READYZ_TIMEOUT_MS = 3000;
+const READYZ_TTL_MS = 5000;
+type Check = "ok" | "fail";
+interface ReadyResult { status: number; body: { ok: boolean; checks: { openalgo: Check; bt: Check | "not_configured"; auditWritable: Check } } }
+
 export function createHttpServer(
   deps: ServerDeps,
   oauthCfg = loadOAuthConfig(process.env),
 ): Server {
   const oauth: OAuthRuntime | undefined = oauthCfg ? createOAuth(oauthCfg) : undefined;
+
+  // Bodies carry only fixed enum strings: never URLs, keys or error text.
+  async function checkOpenalgo(): Promise<Check> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const timeout = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("timeout")), READYZ_TIMEOUT_MS); });
+      const r = await Promise.race([deps.client.analyzerStatus(), timeout]);
+      return r?.status === "success" ? "ok" : "fail";
+    } catch {
+      return "fail";
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function checkBt(): Promise<Check | "not_configured"> {
+    const btUrl = deps.cfg.btUrl;
+    if (!btUrl) return "not_configured";
+    try {
+      const res = await fetch(`${btUrl.replace(/\/+$/, "")}/healthz`, { signal: AbortSignal.timeout(READYZ_TIMEOUT_MS) });
+      return res.ok ? "ok" : "fail";
+    } catch {
+      return "fail";
+    }
+  }
+
+  // Same logic as the audit writability probe in src/sdk/bindings.ts (private closure there).
+  function checkAudit(): Check {
+    try {
+      const auditFile = deps.auditFile;
+      mkdirSync(nodePath.dirname(auditFile), { recursive: true });
+      if (existsSync(auditFile) && statSync(auditFile).isDirectory()) throw new Error("audit path is a directory");
+      closeSync(openSync(auditFile, "a"));
+      return "ok";
+    } catch {
+      return "fail";
+    }
+  }
+
+  async function computeReadyz(): Promise<ReadyResult> {
+    const [openalgo, bt, auditWritable] = await Promise.all([checkOpenalgo(), checkBt(), Promise.resolve().then(checkAudit)]);
+    const ok = openalgo === "ok" && bt !== "fail" && auditWritable === "ok";
+    return { status: ok ? 200 : 503, body: { ok, checks: { openalgo, bt, auditWritable } } };
+  }
+
+  let readyCache: { at: number; p: Promise<ReadyResult> } | undefined;
+  function readyz(): Promise<ReadyResult> {
+    const now = Date.now();
+    if (!readyCache || now < readyCache.at || now - readyCache.at >= READYZ_TTL_MS) {
+      readyCache = { at: now, p: computeReadyz() };
+    }
+    return readyCache.p;
+  }
 
   async function scopeOf(req: IncomingMessage): Promise<"full" | "readonly" | null> {
     if (authorized(req, deps.cfg.mcpToken)) return "full";
@@ -68,6 +128,11 @@ export function createHttpServer(
         return;
       }
       if (path === "/healthz" && req.method === "GET") return json(res, 200, { ok: true, mode: deps.cfg.mode });
+      if (path === "/readyz") {
+        if (req.method !== "GET") return json(res, 405, { error: "method not allowed" }, { Allow: "GET" });
+        const r = await readyz();
+        return json(res, r.status, r.body);
+      }
       if (path !== "/mcp") return json(res, 404, { error: "not found" });
       const scope = await scopeOf(req);
       if (!scope) {
