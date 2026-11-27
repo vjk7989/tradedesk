@@ -19,7 +19,7 @@ export const API_HEADER = [
   CRYPTO_NOTE,
   "Risk violations are thrown as Error('risk denied: ...'); nothing is placed in that case.",
   "Optional risk cap maxShortOptionQtyPerOrder (off when unset) limits the quantity of NFO/BFO CE/PE SELL orders; a SELL that closes a long is capped too (conservative), and a breach is denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'.",
-  "Kill switch: while it is on (the KILL file exists), new orders are refused with 'risk denied: kill switch active'; cancel and closePosition (the risk-reducing calls) are still allowed; risk.status().killSwitch shows the state.",
+  "Kill switch: while it is on (the KILL file exists), new orders and modifications are refused with 'risk denied: kill switch active'; cancel and closePosition (the risk-reducing calls) are still allowed; risk.status().killSwitch shows the state.",
 ].join("\n");
 
 const BACKTEST_NOTE = [
