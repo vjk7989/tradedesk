@@ -35,6 +35,7 @@ cp ../vendor/openalgo/.sample.env openalgo.env
 cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
 chmod 600 .env openalgo.env
 ```
+`EXECUTE_TIMEOUT_MS` (default 60000) is the execute time limit in ms, clamped 5000-900000. Set it to 660000 or more if you use `backtest.walkForward`; MCP clients also have their own tool-call timeout.
 Edit `openalgo.env`:
 - `APP_KEY`, `API_KEY_PEPPER`, `FERNET_SALT`: leave the placeholders; OpenAlgo replaces them on first run with `secrets.token_hex(32)` and writes them back (the file is bind-mounted read-write). To set them yourself: `python3 -c "import secrets;print(secrets.token_hex(32))"` for each. Never reuse or commit.
 - `HOST_SERVER='https://openalgo.<DOMAIN>'`

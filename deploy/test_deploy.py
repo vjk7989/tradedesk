@@ -443,6 +443,15 @@ def test_compose_empty_oauth_enabled_falls_back_to_0(tmp_path, monkeypatch):
     assert env["OAUTH_ALLOWED_REDIRECT_HOSTS"] == "chatgpt.com,claude.ai,claude.com"
 
 
+def test_execute_timeout_ms_default_and_example(cfg, tmp_path, monkeypatch):
+    assert "${EXECUTE_TIMEOUT_MS:-60000}" in COMPOSE.read_text()
+    assert svc(cfg, "trade-mcp")["environment"]["EXECUTE_TIMEOUT_MS"] == "60000"
+    env = compose_env_with(MIN_ENV, tmp_path, monkeypatch)
+    assert env["EXECUTE_TIMEOUT_MS"] == "60000"
+    val = env_example()["EXECUTE_TIMEOUT_MS"]
+    assert re.fullmatch(r"\d+", val) and 5000 <= int(val) <= 900000
+
+
 def test_compose_passes_readonly_token_through(tmp_path, monkeypatch):
     tok = "r" * 32
     env = compose_env_with(MIN_ENV + f"MCP_TOKEN_READONLY={tok}\n", tmp_path, monkeypatch)
