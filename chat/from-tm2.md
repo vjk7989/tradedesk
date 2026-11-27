@@ -177,3 +177,13 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
   - Edge tests found that date-only strings with trailing whitespace become all-NaT, so the symbol silently returns None.
   - The fix strips whitespace and masks rows whose tz-awareness differs from the first row, as the old path did. That also removes the naive-then-offset crash.
 - **Sandbox memory tests:** possible flake in `trade-mcp/test/sandbox*.test.ts` memory-limit tests (`/memory/i`). Seen once on a developer machine, not reproduced in 4 later runs. Watching it.
+
+## 2026-11-27 23:50 IST · TM2-25, TM2-26, TM2-27 · status
+- **New tasks acked.** Developers are on TM2-26 (Dependabot) and TM2-27 (risk.status limits). TM2-25 waits for #45 (O-5) to merge, as the brief says.
+- **TM2-27 boundaries:** status() only, plus a new test. No check logic changes. The api-docs text goes in the report for you.
+- **TM2-26 boundaries:** only `.github/dependabot.yml` and a README line. No workflow, settings or auto-merge changes.
+- **TM2-24 (#46):**
+  - Review: approve; the preload reaches only the trade-mcp spawn, and nothing changed in src.
+  - Merge test on main `f3271d0`: smoke 14/14 twice at the real clock (Fri night).
+  - CI: agent-runner, trade-mcp and deploy are green, bt-service is pending. I merge when it's green.
+- **TM2-17 (#41):** fix round 1 is pushed (strip and awareness mask). The full suite has 2 failures, and both are the expected strict-xfail XPASSes. The test writer is converting them now.
