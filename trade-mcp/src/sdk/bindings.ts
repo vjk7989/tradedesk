@@ -3,6 +3,7 @@ import { orderNotional, type RiskEngine } from "../risk/engine.js";
 import type { Config } from "../config.js";
 import type { Bindings } from "../sandbox/quickjs.js";
 import { createHash } from "node:crypto";
+import { open } from "node:fs/promises";
 import type { BacktestClient, BacktestRequest, WalkForwardRequest } from "../backtest/client.js";
 import { appendAudit } from "../risk/audit.js";
 import { probeAuditWritable } from "../risk/audit-probe.js";
@@ -92,6 +93,53 @@ function downsample<T>(a: T[], max: number): T[] {
   if (a.length <= max) return a;
   const step = (a.length - 1) / (max - 1);
   return Array.from({ length: max }, (_, i) => a[Math.round(i * step)]);
+}
+
+const AUDIT_TAIL_BYTES = 1024 * 1024;
+const AUDIT_DEFAULT_LIMIT = 20;
+const AUDIT_MAX_LIMIT = 200;
+
+/** Last `limit` parsed entries from the tail (<= 1 MB) of the audit file, newest last. */
+async function readAuditTail(file: string, limit: number): Promise<{ entries: object[]; skipped: number }> {
+  let fh;
+  try {
+    fh = await open(file, "r");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return { entries: [], skipped: 0 };
+    throw e;
+  }
+  let text: string;
+  let partial = false;
+  try {
+    const size = (await fh.stat()).size;
+    const len = Math.min(size, AUDIT_TAIL_BYTES);
+    const buf = Buffer.alloc(len);
+    let got = 0;
+    while (got < len) {
+      const { bytesRead } = await fh.read(buf, got, len - got, size - len + got);
+      if (bytesRead <= 0) break;
+      got += bytesRead;
+    }
+    text = buf.subarray(0, got).toString("utf8");
+    partial = size > len;
+  } finally {
+    await fh.close();
+  }
+  const lines = text.split("\n");
+  if (partial) lines.shift(); // first line of a mid-file window is cut off
+  const entries: object[] = [];
+  let skipped = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const v = JSON.parse(line);
+      if (v && typeof v === "object" && !Array.isArray(v)) entries.push(v);
+      else skipped++;
+    } catch {
+      skipped++;
+    }
+  }
+  return { entries: entries.slice(-limit), skipped };
 }
 
 export function createBindings(deps: BindingDeps, run: { id: string }): LooseBindings & Bindings {
@@ -401,6 +449,28 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
     },
     risk: {
       status: async () => risk.status(),
+    },
+    // Read-only: entries were redacted when written. Invalid limits are rejected, not clamped.
+    audit: {
+      recent: async (args) => {
+        const w = "audit.recent";
+        try {
+          const a = check(args ?? {}, w, [], ["limit"]);
+          let limit = AUDIT_DEFAULT_LIMIT;
+          if (a.limit !== undefined) {
+            limit = num(a, "limit", w);
+            if (!Number.isInteger(limit) || limit < 1 || limit > AUDIT_MAX_LIMIT) {
+              throw new Error(`${w}: "limit" must be an integer from 1 to ${AUDIT_MAX_LIMIT}`);
+            }
+          }
+          const { entries, skipped } = await readAuditTail(auditFile, limit);
+          audit({ action: w, args: a, decision: "allowed", count: entries.length, skipped });
+          return skipped > 0 ? { entries, skipped } : entries;
+        } catch (e) {
+          audit({ action: w, args, decision: "error", error: e instanceof Error ? e.message : String(e) });
+          throw e;
+        }
+      },
     },
   };
   // readonly scope: the trade namespace does not exist in the sandbox at all
