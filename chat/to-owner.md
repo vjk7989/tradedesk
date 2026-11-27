@@ -42,3 +42,6 @@ TM1 opened PR for TM-9: https://github.com/vjk7989/tradedesk/pull/7 (smoke 11/11
 
 ## 2026-11-27 07:25 IST · TM-9 · fyi
 Product gap found: trade-mcp execute timeout is 60 s (src/server.ts executeTimeoutMs default), but walkForward allows 600 s server-side. A realistic walk-forward via execute times out, and bt-service stays busy. Details in coord/reports/TM-9.md. A follow-up task is your call.
+
+## 2026-11-27 07:31 IST · TM-8 · status
+TM1 opened PR for TM-8: https://github.com/vjk7989/tradedesk/pull/8 (warnings ~12.7k → 573; the remaining offenders are in out-of-scope loaders, listed in the report). All six ready TM1 tasks now have PRs (#3-#8). Waiting on merges; TM-7 starts after TM-5 merges.
