@@ -1563,12 +1563,14 @@ def main(run_dir: Path) -> None:
 
     # Validate config schema
     try:
-        BacktestConfigSchema(**raw_config)
+        schema = BacktestConfigSchema(**raw_config)
     except Exception as exc:
         errors = str(exc)
         print(json.dumps({"error": f"Invalid config: {errors}"}))
         sys.exit(1)
 
+    # Hand downstream the canonical interval (e.g. "1h" -> "1H"), not the raw one.
+    raw_config["interval"] = schema.interval
     config = raw_config
     if keys_warning := _unrecognized_config_warning(config):
         config["_run_card_unrecognized_config_warning"] = keys_warning
