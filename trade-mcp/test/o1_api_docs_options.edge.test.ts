@@ -206,7 +206,29 @@ describe.skipIf(!MAIN_SRC)("O-1 edge: walkForward and crypto sections unchanged 
 
   it("every entry other than backtest.run is identical, same order", () => {
     const strip = (xs: docsMod.ApiDoc[]) => xs.filter((d) => !(d.ns === "backtest" && d.name === "run") && !O3_NEW(d));
-    expect(strip(API_DOCS)).toEqual(strip(main.API_DOCS).map((d) => ({ ...d, doc: fixBusy(d.doc) })));
+    // O-5 put the short-option cap sentence into trade.place. Allow exactly that one sentence; with it removed
+    // the doc must equal main's. Every other entry stays strictly identical.
+    const PLACE_ALLOWED = [
+      /Optional risk cap maxShortOptionQtyPerOrder limits NFO\/BFO CE\/PE SELL qty \(off when unset; also caps a SELL that closes a long\), denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'\. /,
+    ];
+    const isPlace = (d: docsMod.ApiDoc) => d.ns === "trade" && d.name === "place";
+    const unPlace = (d: docsMod.ApiDoc): docsMod.ApiDoc => {
+      if (!isPlace(d)) return d;
+      let doc = d.doc;
+      for (const re of PLACE_ALLOWED) {
+        const hits = doc.match(new RegExp(re.source, "g")) ?? [];
+        expect(hits.length).toBeLessThanOrEqual(1);
+        doc = doc.replace(re, "");
+      }
+      return { ...d, doc };
+    };
+    const mainPlace = main.API_DOCS.find(isPlace)!;
+    const curPlace = API_DOCS.find(isPlace)!;
+    expect(mainPlace).toBeDefined();
+    if (curPlace.doc !== fixBusy(mainPlace.doc)) {
+      expect(curPlace.doc.length).toBeGreaterThan(mainPlace.doc.length); // only additions allowed
+    }
+    expect(strip(API_DOCS).map(unPlace)).toEqual(strip(main.API_DOCS).map((d) => unPlace({ ...d, doc: fixBusy(d.doc) })));
     const key = (d: docsMod.ApiDoc) => `${d.ns}.${d.name}`;
     expect(API_DOCS.filter((d) => !O3_NEW(d)).map(key)).toEqual(main.API_DOCS.filter((d) => !O3_NEW(d)).map(key));
     // audit.recent is the one new entry, directly before risk.status

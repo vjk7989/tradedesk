@@ -117,19 +117,37 @@ describe("O-5 edge: search surfaces the sentence", () => {
     expect(searchApi("   ", scope)).toContain(sentence);
   });
 
-  // KNOWN GAP (O-5): searchApi with a non-empty query renders only API_DOCS entries, never API_HEADER,
-  // so the header sentence cannot be found by keyword. Marked it.fails: when search (or the doc placement)
-  // is fixed these turn red, so drop `.fails` then.
-  it.fails.each([
-    ["short option", "full"],
-    ["short option", "readonly"],
-    [KEY, "full"],
-    [KEY, "readonly"],
-    [KEY.toLowerCase(), "readonly"],
-  ] as const)("query %j in %s scope returns the sentence", (q, scope) => {
-    const out = searchApi(q, scope);
-    expect(out).not.toMatch(/^No API entries match/); // the miss message echoes the query
-    expect(out).toContain("short option qty <q> exceeds");
+  it.each(["short option", KEY, KEY.toLowerCase(), "SHORT OPTION"])(
+    "query %j in full scope returns trade.place with the cap and denial text",
+    (q) => {
+      const out = searchApi(q, "full");
+      expect(out).not.toMatch(/^No API entries match/); // the miss message echoes the query
+      expect(out).toContain("function place(");
+      expect(out).toContain(`'short option qty <q> exceeds ${KEY} <n>'`);
+    },
+  );
+
+  // Readonly scope drops the trade namespace: a readonly token cannot place orders, so not finding the cap is correct.
+  it.each(["short option", KEY, KEY.toLowerCase()])("query %j in readonly scope does NOT return trade.place", (q) => {
+    const out = searchApi(q, "readonly");
+    expect(out).not.toContain("declare namespace trade");
+    expect(out).not.toContain("function place(");
+    expect(out).not.toContain(`'short option qty <q> exceeds`);
+  });
+
+  // Current behaviour: a keyword query renders only API_DOCS, never API_HEADER, so the header sentence is not
+  // returned by keyword search. Future task "search covers API_HEADER" should flip this assertion.
+  it("keyword search does not render the API_HEADER sentence (documented gap)", () => {
+    expect(searchApi(KEY, "full")).not.toContain(sentence);
+  });
+
+  it("trade.place doc carries the cap sentence exactly once, with the engine denial text", () => {
+    const place = API_DOCS.find((d) => d.ns === "trade" && d.name === "place")!;
+    expect(place.doc.split(KEY).length - 1).toBe(2); // key named once + once inside the quoted denial
+    const tpl = engineTemplate();
+    expect(place.doc).toContain(`'${tpl.slice(0, tpl.indexOf("${"))}`);
+    for (const w of ["NFO", "BFO", "CE", "PE", "SELL"]) expect(place.doc).toMatch(new RegExp(`\\b${w}\\b`));
+    expect(place.doc).toMatch(/off when unset/);
   });
 
   it("no API_DOCS entry duplicates the key with a different wording", () => {
