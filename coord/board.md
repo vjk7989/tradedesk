@@ -4,13 +4,19 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| TM2-28 | TM2 | ready (after #46) | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
-| TM2-29 | TM2 | ready | coord/tasks/TM2-29.md | docs: connect-clients refresh |
-| TM2-30 | TM2 | ready | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
-| TM2-31 | TM2 | ready | coord/tasks/TM2-31.md | walk-forward with options + composite |
-| TM2-25 | TM2 | ready | coord/tasks/TM2-25.md | search matches API_HEADER rules |
-| TM2-26 | TM2 | in progress | coord/tasks/TM2-26.md | Dependabot for actions + lockfiles |
-| TM2-27 | TM2 | in progress | coord/tasks/TM2-27.md | risk.status reports all limits |
+| O-8 | OWNER | in progress (HIGH, security) | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
+| O-7 | OWNER | in progress | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
+| TM2-32 | TM2 | in progress | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
+| TM2-33 | TM2 | merged #60 | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |
+| TM2-34 | TM2 | in progress | coord/tasks/TM2-34.md | pandas 3 readiness report (no upgrade) |
+| O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
+| TM2-28 | TM2 | merged #56 | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
+| TM2-29 | TM2 | merged #58 | coord/tasks/TM2-29.md | docs: connect-clients refresh |
+| TM2-30 | TM2 | merged #54 | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
+| TM2-31 | TM2 | in progress | coord/tasks/TM2-31.md | walk-forward with options + composite |
+| TM2-25 | TM2 | merged #55 | coord/tasks/TM2-25.md | search matches API_HEADER rules |
+| TM2-26 | TM2 | merged #47 | coord/tasks/TM2-26.md | Dependabot for actions + lockfiles |
+| TM2-27 | TM2 | merged #48 | coord/tasks/TM2-27.md | risk.status reports all limits |
 | O-5 | OWNER | done | coord/tasks/O-5.md | api-docs: short-option qty cap |
 | O-4 | OWNER | done | coord/tasks/O-4.md | bound size of audited entries |
 | TM2-24 | TM2 | merged #46 | coord/tasks/TM2-24.md | e2e smoke: pin clock via preload + #37 LOWs |
@@ -20,7 +26,7 @@
 | TM2-23 | TM2 | merged #40 | coord/tasks/TM2-23.md | optional short-option qty risk cap |
 | O-1 | OWNER | done | coord/tasks/O-1.md | api-docs: document india_options |
 | O-2 | OWNER | done | coord/tasks/O-2.md | risk.json UTF-8 BOM accepted |
-| TM2-17 | TM2 | in progress | coord/tasks/TM2-17.md | explicit datetime format, india_broker_loader |
+| TM2-17 | TM2 | merged #41 | coord/tasks/TM2-17.md | explicit datetime format, india_broker_loader |
 | TM2-18 | TM2 | merged #35 | coord/tasks/TM2-18.md | Telegram drain non-2xx + LOWs |
 | TM2-19 | TM2 | merged #37 | coord/tasks/TM2-19.md | e2e smoke: /readyz, risk:lint, --check |
 | TM2-20 | TM2 | merged #36 | coord/tasks/TM2-20.md | docs/backtesting.md |

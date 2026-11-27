@@ -195,7 +195,7 @@ describe("loss / run / day counters", () => {
     t = new Date("2026-01-07T18:29:59Z");
     expect(e.status().today.orders).toBe(3);
     t = new Date("2026-01-07T18:30:00Z");
-    expect(e.status().today).toEqual({ date: "2026-01-08", orders: 0, notional: 0 });
+    expect(e.status().today).toEqual({ date: "2026-01-08", orders: 0, notional: 0, remainingOrders: 3, remainingNotional: 1e9 });
   });
 });
 
@@ -228,7 +228,7 @@ describe("state persistence", () => {
     ["future day", JSON.stringify({ date: "2026-01-08", orders: 99, notional: 1e9 })],
   ])("%s -> zero counters", (_n, content) => {
     seed(content);
-    expect(mk().status().today).toEqual({ date: "2026-01-07", orders: 0, notional: 0 });
+    expect(mk().status().today).toEqual({ date: "2026-01-07", orders: 0, notional: 0, remainingOrders: 3, remainingNotional: 60000 });
   });
   it("valid same-day state is loaded", () => {
     seed(JSON.stringify({ date: "2026-01-07", orders: 3, notional: 10 }));

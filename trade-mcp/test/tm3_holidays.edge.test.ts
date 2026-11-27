@@ -248,13 +248,16 @@ describe("engine paths on a holiday", () => {
   it("status() returns a copy including holidays; mutating it does not change the engine", () => {
     const e = mkEngine(baseRisk({ marketHolidays: { NSE: ["2026-01-26"], MCX: [] } }), MON_26_10);
     const s = e.status();
-    expect(s.limits.marketHolidays).toEqual({ NSE: ["2026-01-26"], MCX: [] });
-    s.limits.marketHolidays!.NSE!.length = 0;
-    delete s.limits.marketHolidays!.NSE;
-    s.limits.marketHolidays!.MCX!.push("2026-01-26");
+    // TM2-27: holidays are summarised (counts + next NSE holiday on/after today IST), not listed.
+    expect(s.limits.marketHolidays).toEqual({ NSE: 1, MCX: 0, nextNSE: "2026-01-26" });
+    (s.limits.marketHolidays as any).NSE = 0;
+    (s.limits.marketHolidays as any).nextNSE = null;
+    (s.limits.marketHolidays as any).MCX = 5;
+    s.limits.allowedExchanges.length = 0;
     expect(e.checkOrder(ord("NSE"), { ordersThisRun: 0 }).allow).toBe(false);
     expect(e.checkOrder(ord("MCX"), { ordersThisRun: 0 }).allow).toBe(true);
-    expect(e.status().limits.marketHolidays).toEqual({ NSE: ["2026-01-26"], MCX: [] });
+    expect(e.status().limits.marketHolidays).toEqual({ NSE: 1, MCX: 0, nextNSE: "2026-01-26" });
+    expect(e.status().limits.allowedExchanges).toContain("MCX");
   });
 });
 
@@ -304,9 +307,13 @@ describe("SDK bindings on a holiday", () => {
   it("risk.status binding exposes holidays as a copy", async () => {
     const { b, engine } = setup();
     const s: any = await b.risk.status();
-    expect(s.limits.marketHolidays).toEqual(NSE_26);
-    s.limits.marketHolidays.NSE = [];
+    expect(s.limits.marketHolidays).toEqual({ NSE: 1, MCX: 0, nextNSE: "2026-01-26" });
+    s.limits.marketHolidays.NSE = 0;
+    s.limits.marketHolidays.nextNSE = null;
+    s.limits.allowedExchanges.length = 0;
     expect(engine.checkOrder(ord("NSE"), { ordersThisRun: 0 }).allow).toBe(false);
+    expect(engine.checkOrder(ord("MCX"), { ordersThisRun: 0 }).allow).toBe(true);
+    expect((await b.risk.status() as any).limits.marketHolidays).toEqual({ NSE: 1, MCX: 0, nextNSE: "2026-01-26" });
   });
 });
 
