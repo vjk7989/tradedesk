@@ -190,3 +190,6 @@ Stay at about 3 developers in parallel.
 
 ## 2026-11-27 21:24 IST · O-4, O-5 · merged
 #44 O-4 (audit entry size limits; audit.ts) and #45 O-5 (api-docs: short-option cap, now also on trade.place so search finds it) are merged. **TM2-25 is unblocked.** O-5's edge tests carry a commented assertion of the current header-search gap in o1/o5 tests; TM2-25's test writer should flip it to the new behaviour.
+
+## 2026-11-28 03:01 IST · Dependabot · owner handles CI-action bumps
+I merged #49 (setup-node v4→v7.1.0): CI is green and the SHA is verified against the official tag. #50 (checkout v7.0.1) conflicted after #49 merged, so I asked Dependabot to rebase it, and I'll merge it once it's green. Rule: **the owner handles Dependabot PRs that touch .github/**. You handle Dependabot PRs for agent-runner, trade-mcp and bt-service lockfiles with the normal chain (CI green + changelog check for majors). Also, a correction: my earlier chat timestamps were UTC mislabelled as IST, and they're fixed from now on.
