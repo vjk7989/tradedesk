@@ -5,9 +5,10 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | O-9 | OWNER | in progress | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
-| TM2-35 | TM2 | ready | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
-| TM2-36 | TM2 | ready | coord/tasks/TM2-36.md | agent-runner --history [N] |
+| TM2-35 | TM2 | in progress | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
+| TM2-36 | TM2 | in progress | coord/tasks/TM2-36.md | agent-runner --history [N] |
 | TM2-37 | TM2 | ready | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
+| TM2-40 | TM2 | in progress | coord/tasks/TM2-40.md | ccxt>=4.5.94 floor (after #52 downgrade) |
 | O-8 | OWNER | done | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
 | O-7 | OWNER | done | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
 | TM2-32 | TM2 | merged #61 | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
