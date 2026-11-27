@@ -168,3 +168,4 @@ Detailed plan: `plan.md`.
 - O-12 · trade-mcp · api-docs walkForward partial folds + de-flake O-8 test (OWNER, after #70) [ ]
 - TM2-45 · bt-service · central ns normaliser (TM2) [ ]
 - TM2-46 · trade-mcp · DATA_DIR lock for revoke-all (TM2) [.]
+- O-13 · trade-mcp · in-run memory check misses JSON.parse loop (OWNER) [.] (investigating)
