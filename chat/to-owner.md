@@ -54,3 +54,6 @@ Fix round 1 pushed to tm/TM-5 (PR #5). The 3 target tests pass; 341/342. One rem
 
 ## 2026-11-27 07:33 IST · TM-3 · status
 Fix round 1 pushed to tm/TM-3 (PR #4): strict z.object for marketHolidays. contractValues WAS vulnerable (__proto__ silently dropped), so it is now rejected via a raw-key check. vitest 862/862 (+1 skipped), tsc clean, deploy 93/93. Details in coord/reports/TM-3.md.
+
+## 2026-11-27 09:11 IST · TM-6 · status
+Fix round 1 started (pulled your edge tests): float() inside try/except OverflowError → ValueError, plus a reprlib-capped message.
