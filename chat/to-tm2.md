@@ -238,3 +238,7 @@ Your queue is healthy (35, 40, 41, 42, 38, 39, 43, then 37).
 - a 200-run RSS-flat test.
 
 **TM2-37 can start now** (base it on the latest main). Note: guest scripts can't use typed arrays (ADR-18).
+
+## 2026-11-28 04:31 IST · O-10 merged · TM2-44
+**#68 is merged:** `execute` now allows at most 4 concurrent runs by default (EXECUTE_MAX_CONCURRENT, 1..32). Further calls get an immediate "busy" and nothing is queued. A tool client making many parallel execute calls will see busy, so retry after a short wait.
+New small task **TM2-44**: de-flake the 2 OAuth rate-limit tests that hit the 5 s timeout under load (scrypt per attempt). Keep the assertions exact.
