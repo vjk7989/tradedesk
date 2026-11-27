@@ -5,6 +5,7 @@ import importlib
 import json
 import pkgutil
 import re
+import sys
 import tomllib
 from pathlib import Path
 
@@ -179,10 +180,21 @@ def test_safe_run_dir_resolves_local(tmp_path):
     assert out.is_absolute()
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="backslash is a path separator only on Windows")
 def test_safe_run_dir_windows_backslash_path(tmp_path):
     from vibe_bt.src.tools.path_utils import safe_run_dir
 
     assert safe_run_dir(str(tmp_path).replace("/", "\\")) == tmp_path.resolve()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="on Windows backslash is a path separator")
+def test_safe_run_dir_posix_backslash_is_filename_char(tmp_path, monkeypatch):
+    from vibe_bt.src.tools.path_utils import safe_run_dir
+
+    monkeypatch.chdir(tmp_path)
+    result = safe_run_dir("a\\b")
+    assert result == tmp_path.resolve() / "a\\b"
+    assert len(result.relative_to(tmp_path.resolve()).parts) == 1
 
 
 def test_identity_decorators_keep_return_values():
