@@ -187,7 +187,7 @@ def test_oos_equity_chains_and_scales():
     assert values[1] == pytest.approx(110.0)
     assert values[2] == pytest.approx(110.0)  # 200 rescaled to start at 110
     assert values[3] == pytest.approx(121.0)  # 220 rescaled to start at 110
-    assert res["summary"] == {"folds": 2, "mean_test_sharpe": 2.0, "positive_folds": 2}
+    assert res["summary"] == {"folds": 2, "mean_test_sharpe": 2.0, "positive_folds": 2, "scored_folds": 2}
 
 
 def test_metric_selects_requested_key():

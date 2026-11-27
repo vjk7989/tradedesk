@@ -22,11 +22,19 @@ def _d(s: str) -> date:
 
 
 def _days(kw) -> int:
-    return (_d(kw["end"]) - _d(kw["start"])).days
+    """Calendar days covered by a run call. runner `end` is inclusive, so a run over the
+    half-open fold [s, e) is called with end = e - 1 day and covers (end - start) + 1 days."""
+    return (_d(kw["end"]) - _d(kw["start"])).days + 1
+
+
+def _run_span(fold_window) -> list[str]:
+    """Run-call [start, end] expected for a reported half-open fold window [s, e)."""
+    s, e = fold_window
+    return [s, (_d(e) - timedelta(days=1)).isoformat()]
 
 
 class Recorder:
-    """Fake `run`. Classifies each call as train/test by its window length (not by call order).
+    """Fake `run`. Classifies each call as train/test by its inclusive span (not by call order).
 
     train(params, kw) / test(params, kw) return the result dict. Every call is recorded.
     """
@@ -199,10 +207,10 @@ def test_every_call_recorded_test_runs_only_chosen_once_per_fold():
     tests = rec.test_calls()
     assert len(tests) == nf
     for f in res["folds"]:
-        window = [c for c in tests if [c["start"], c["end"]] == f["test"]]
+        window = [c for c in tests if [c["start"], c["end"]] == _run_span(f["test"])]
         assert len(window) == 1
         assert window[0]["signal_parameters"] == f["chosen"] == {"n": 2}
-        trains = [c for c in rec.train_calls() if [c["start"], c["end"]] == f["train"]]
+        trains = [c for c in rec.train_calls() if [c["start"], c["end"]] == _run_span(f["train"])]
         assert [c["signal_parameters"] for c in trains] == cands  # every candidate, once, in order
     # each fold's train runs happen before its test run
     for i in range(nf):
@@ -222,13 +230,19 @@ def test_passthrough_args_reach_every_run():
 
 def test_train_run_does_not_include_first_test_day():
     """run_backtest's `end` is inclusive (local_loader: index < end + 1 day). Train window is
-    [t0, t0+train_days) per spec, so the train run's `end` must be strictly before the test start."""
+    [t0, t0+train_days) per spec, so the train run's `end` must be strictly before the SAME
+    fold's test start (folds overlap by design, so pair by fold, not by date order)."""
     rec = Recorder(20, 5)
-    wf(rec, "2024-01-01", "2024-01-31")
-    tests = rec.test_calls()
-    for tr in rec.train_calls():
-        nxt = min((t for t in tests if _d(t["start"]) >= _d(tr["start"])), key=lambda t: t["start"])
-        assert _d(tr["end"]) < _d(nxt["start"]), f"train {tr['start']}..{tr['end']} sees test day {nxt['start']}"
+    res = wf(rec, "2024-01-01", "2024-01-31")
+    assert res["ok"] is True and res["summary"]["folds"] == 2
+    for f in res["folds"]:
+        trains = [c for c in rec.train_calls() if c["start"] == f["train"][0]]
+        tests = [c for c in rec.test_calls() if c["start"] == f["test"][0]]
+        assert len(trains) == 1 and len(tests) == 1
+        tr, te = trains[0], tests[0]
+        assert _d(tr["end"]) < _d(te["start"]), f"train {tr['start']}..{tr['end']} sees test day {te['start']}"
+        assert _d(te["start"]) - _d(tr["end"]) == timedelta(days=1)  # no gap either
+        assert _d(te["end"]) < _d(f["test"][1])  # test run stays inside [s, e)
 
 
 def test_oos_equity_dates_strictly_increasing_with_inclusive_runner():
@@ -451,7 +465,7 @@ def test_summary_mean_and_positive_folds_known_numbers():
     scores = iter([1.0, -2.0, 0.0, 3.5])
     rec = Recorder(20, 5, test=lambda p, kw: ok(next(scores)))
     res = wf(rec, "2024-01-01", "2024-02-10")
-    assert res["summary"] == {"folds": 4, "mean_test_sharpe": 0.625, "positive_folds": 2}
+    assert res["summary"] == {"folds": 4, "mean_test_sharpe": 0.625, "positive_folds": 2, "scored_folds": 4}
 
 
 def test_summary_rounds_to_6dp():
@@ -465,13 +479,13 @@ def test_summary_skips_non_finite_test_metric():
     scores = iter([2.0, float("nan"), 4.0])
     rec = Recorder(20, 5, test=lambda p, kw: ok(next(scores)))
     res = wf(rec, "2024-01-01", "2024-02-05")
-    assert res["summary"] == {"folds": 3, "mean_test_sharpe": 3.0, "positive_folds": 2}
+    assert res["summary"] == {"folds": 3, "mean_test_sharpe": 3.0, "positive_folds": 2, "scored_folds": 2}
 
 
 def test_summary_all_test_metrics_missing_mean_is_none():
     rec = Recorder(20, 5, test=lambda p, kw: {"ok": True, "metrics": {}, "equity": []})
     res = wf(rec, "2024-01-01", "2024-01-31")
-    assert res["summary"] == {"folds": 2, "mean_test_sharpe": None, "positive_folds": 0}
+    assert res["summary"] == {"folds": 2, "mean_test_sharpe": None, "positive_folds": 0, "scored_folds": 0}
 
 
 @pytest.mark.parametrize("metric", ["sharpe", "total_return", "calmar"])
@@ -487,7 +501,8 @@ def test_each_metric_selects_on_its_own_key(metric):
     res = wf(rec, "2024-01-01", "2024-01-26", candidates=cands, metric=metric)
     assert res["ok"] is True and res["metric"] == metric
     assert res["folds"][0]["chosen"] == {"n": "b"}
-    assert res["summary"] == {"folds": 1, f"mean_test_{metric}": -0.25, "positive_folds": 0}
+    assert res["summary"] == {"folds": 1, f"mean_test_{metric}": -0.25, "positive_folds": 0,
+                              "scored_folds": 1}
 
 
 def test_metric_keys_exist_in_runner_metrics_csv_names():
@@ -615,7 +630,10 @@ def test_route_limits_200_ok_false_no_runs(client, patch, needle):
 def test_route_timeout_env_clamped(client, monkeypatch):
     monkeypatch.setenv("BT_TIMEOUT_S", "999999")
     assert client.post("/walkforward", json=BODY, headers=HDR).status_code == 200
-    assert {c["timeout_s"] for c in client.rec.calls} == {3600}
+    # per-run timeout = min(clamped BT_TIMEOUT_S=3600, remaining of the default 600 s budget)
+    ts = [c["timeout_s"] for c in client.rec.calls]
+    assert ts and all(590 < t <= 600 for t in ts)
+    assert ts == sorted(ts, reverse=True)
 
 
 def test_route_semaphore_released_after_exception(client, monkeypatch):
