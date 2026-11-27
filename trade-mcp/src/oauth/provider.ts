@@ -314,6 +314,20 @@ export class TradeOAuthProvider implements OAuthServerProvider {
     }
     this.persist();
   }
+
+  /** Emergency: drop every access/refresh token, rotated marker, code and pending login; keep clients and rate-limit state. Returns counts only. */
+  revokeAll(): { access: number; refresh: number; codes: number; pending: number; rotated: number } {
+    const counts = {
+      access: this.access.size,
+      refresh: this.refresh.size,
+      codes: this.codes.size,
+      pending: this.pending.size,
+      rotated: this.rotated.size,
+    };
+    for (const m of [this.access, this.refresh, this.rotated, this.codes, this.pending]) m.clear();
+    this.persist();
+    return counts;
+  }
 }
 
 export interface OAuthRuntime {
