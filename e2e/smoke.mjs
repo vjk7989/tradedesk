@@ -111,8 +111,9 @@ async function main() {
   const placed = () => JSON.parse(readFileSync(recordFile, "utf8"));
 
   const fixture = path.join(ROOT, "bt-service", "tests", "fixtures", "aapl.csv").split(path.sep).join("/");
+  const optFixture = path.join(ROOT, "bt-service", "tests", "fixtures", "nifty_opt_1d.csv").split(path.sep).join("/");
   const localCfg = path.join(tmp, "local.yaml");
-  writeFileSync(localCfg, `sources:\n  - symbol: "AAPL.US"\n    type: csv\n    path: "${fixture}"\n    date_format: "%Y-%m-%d"\n`);
+  writeFileSync(localCfg, `sources:\n  - symbol: "AAPL.US"\n    type: csv\n    path: "${fixture}"\n    date_format: "%Y-%m-%d"\n  - symbol: "NIFTY25NOV24000CE@NFO"\n    type: csv\n    path: "${optFixture}"\n    date_format: "%Y-%m-%d"\n`);
   const riskCfg = path.join(tmp, "risk.json");
   writeFileSync(riskCfg, JSON.stringify({ allowedExchanges: ["NSE"], maxQtyPerOrder: 10 }));
 
@@ -272,6 +273,35 @@ async function main() {
     const bad = run({});
     assert(bad.status === 1, `unset env: exit ${bad.status}: ${bad.out.slice(-500)}`);
     assert(/MCP_TOKEN: missing/.test(bad.out), `no 'MCP_TOKEN: missing' in output: ${bad.out.slice(-500)}`);
+  });
+  await step("15 backtest.run india_options NIFTY25NOV24000CE@NFO (local fixture): ok, trade with expiry/normal exit", async () => {
+    const code = `
+import pandas as pd
+
+class SignalEngine:
+    def generate(self, data_map):
+        return {s: pd.Series(0.1, index=df.index) for s, df in data_map.items()}
+`;
+    const r = await exec(
+      full,
+      `return await backtest.run({code:${JSON.stringify(code)},symbols:["NIFTY25NOV24000CE@NFO"],start:"2025-11-03",end:"2025-11-28",source:"local",costs:{lot_sizes:{NIFTY:65}}});`,
+    );
+    const b = r.result;
+    assert(r.ok && b && b.ok === true, JSON.stringify(r).slice(0, 600));
+    assert(b.tradeCount >= 1, `tradeCount ${b.tradeCount}: ${JSON.stringify(b).slice(0, 400)}`);
+    const reasons = (b.trades ?? []).map((t) => t.reason ?? t.exit_reason ?? t.close_reason);
+    assert(reasons.some((x) => typeof x === "string" && x.length > 0), `no trade reason: ${JSON.stringify(b.trades).slice(0, 400)}`);
+    assert(reasons.some((x) => x === "expiry"), `no expiry trade, reasons ${JSON.stringify(reasons)}`);
+  });
+  await step("16 audit.recent({limit:5}): {entries, skipped}, earlier steps present, no token values", async () => {
+    const r = await exec(full, "return await audit.recent({limit:5})");
+    assert(r.ok, JSON.stringify(r).slice(0, 600));
+    const a = r.result;
+    assert(a && Array.isArray(a.entries) && typeof a.skipped === "number", JSON.stringify(a).slice(0, 400));
+    assert(a.entries.length >= 1 && a.entries.length <= 5, `entries ${a.entries.length}`);
+    const j = JSON.stringify(r);
+    assert(j.includes("backtest"), `earlier backtest step not in entries: ${j.slice(0, 600)}`);
+    for (const s of [MCP_TOKEN, MCP_RO, BT_TOKEN, API_KEY]) assert(!j.includes(s), "token value found in audit.recent output");
   });
   await full.close();
 }
