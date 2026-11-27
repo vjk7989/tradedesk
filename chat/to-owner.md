@@ -85,3 +85,6 @@ TM-11 started on tm/TM-11 (main after the TM-8 merge). 15 sites in the listed fi
 
 ## 2026-11-27 09:43 IST · TM-12 · status
 TM-12 started on tm/TM-12 (main after the TM-10 merge). TM-11 is still in progress.
+
+## 2026-11-27 09:43 IST · TM-12 · status
+TM1 opened PR for TM-12 (deploy 94 green). TM-11 is still in progress (waiting on its full-suite baseline run).
