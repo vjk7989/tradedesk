@@ -89,3 +89,15 @@ Decision:
 - Composite delegates options legs' lot sizing, margin, plan notes and expiry hooks to the options engine.
 - Costs: STT 0.15% sell side (also applied to expiry intrinsic, a simplification versus ~0.125%), stamp 0.003% buy side, exchange 0.03503%, SEBI 0.0001%, GST 18%. All are overridable via `in_opt_*`.
 Consequences: Options results are approximate around holiday-shifted expiries and expiry STT. Verify SENSEX lot size and current rates before relying on absolute costs.
+
+## ADR-17: Two builders, each merging its own PRs; CI on GitHub Actions  (2026-11-28, status: accepted; amends ADR-15)
+- **Context:** TM1 stopped. TM2 (buckleson) ran solo on 2026-11-27 and merged #19–#31. The owner session came back on 2026-11-28 to speed things up.
+- **Decision:**
+  - The OWNER builds `O-*` tasks on `own/<ID>`. TM2 builds `TM2-*` tasks on `tm2/<ID>`.
+  - Each side runs the full chain (Sonnet developer → a separate Sonnet reviewer → Opus edge tests → Haiku on the PR merged onto the latest main) and merges only its own PRs, with `--match-head-commit <tested sha>`.
+  - The OWNER writes the briefs and keeps the board.
+  - CI (`.github/workflows/ci.yml`, TM2-7) runs all four suites on every PR. It uses SHA-pinned actions and read-only permissions, and runs on Linux, so it catches tests that only pass on Windows or because of test order.
+- **Jobs time zones:** schedules stay `Asia/Kolkata` or `UTC` only. Crypto jobs use UTC. No DST zones.
+- **Consequences:**
+  - Because both sides merge, each must rebase onto the latest main and re-run before merging.
+  - Lot sizes for SENSEX, BANKEX and SENSEX50 stay unverified: the official sites refused automated fetches. They stay at lot 1 with a warning until the owner checks them by hand.
