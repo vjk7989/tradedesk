@@ -126,9 +126,9 @@ Detailed plan: `plan.md`.
 - TM2-16 · bt-service · lowercase "1h" interval (TM2) [x]
 - TM-15 · bt-service · remaining ~570 warnings (TM2, from TM1) [x] (210 → 43; rest test-origin/third-party)
 - TM-16 · trade-mcp · OAuth follow-ups (TM1, after #16) [x]
-- O-1 · trade-mcp · api-docs document india_options (OWNER) [.] (building)
-- O-2 · trade-mcp · risk.json UTF-8 BOM (OWNER) [.] (building)
-- TM2-17 · bt-service · explicit datetime format india_broker_loader (TM2) [ ]
-- TM2-18 · agent-runner · Telegram drain non-2xx (TM2) [ ]
-- TM2-19 · e2e · smoke /readyz, risk:lint, --check (TM2) [ ]
-- TM2-20 · docs · backtesting guide (TM2) [ ]
+- O-1 · trade-mcp · api-docs document india_options (OWNER) [x]
+- O-2 · trade-mcp · risk.json UTF-8 BOM (OWNER) [x]
+- TM2-17 · bt-service · explicit datetime format india_broker_loader (TM2) [.]
+- TM2-18 · agent-runner · Telegram drain non-2xx (TM2) [x]
+- TM2-19 · e2e · smoke /readyz, risk:lint, --check (TM2) [.]
+- TM2-20 · docs · backtesting guide (TM2) [x]
