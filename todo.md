@@ -146,3 +146,4 @@ Detailed plan: `plan.md`.
 - TM2-29 · docs · connect-clients refresh (TM2) [ ]
 - TM2-30 · agent-runner · --dry-run (TM2) [ ]
 - TM2-31 · bt-service · walk-forward with options (TM2) [ ]
+- O-6 · trade-mcp · stabilise sandbox memory-limit tests (OWNER) [.] (investigating)

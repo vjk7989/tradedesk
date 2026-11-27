@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
 | TM2-28 | TM2 | ready (after #46) | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
 | TM2-29 | TM2 | ready | coord/tasks/TM2-29.md | docs: connect-clients refresh |
 | TM2-30 | TM2 | ready | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
