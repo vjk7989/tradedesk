@@ -145,7 +145,7 @@ Detailed plan: `plan.md`.
 - TM2-28 · e2e · smoke options backtest + audit.recent (TM2, after #46) [x]
 - TM2-29 · docs · connect-clients refresh (TM2) [x]
 - TM2-30 · agent-runner · --dry-run (TM2) [x]
-- TM2-31 · bt-service · walk-forward with options (TM2) [.]
+- TM2-31 · bt-service · walk-forward with options (TM2) [x]
 - O-6 · trade-mcp · stabilise sandbox memory-limit tests (OWNER) [x]
 - O-7 · trade-mcp · api-docs risk.status + kill-switch line, de-flake owner tests (OWNER) [x]
 - TM2-32 · trade-mcp · search Rules ranking (TM2) [x]

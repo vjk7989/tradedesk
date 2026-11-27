@@ -23,7 +23,7 @@
 | TM2-28 | TM2 | merged #56 | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
 | TM2-29 | TM2 | merged #58 | coord/tasks/TM2-29.md | docs: connect-clients refresh |
 | TM2-30 | TM2 | merged #54 | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
-| TM2-31 | TM2 | in progress | coord/tasks/TM2-31.md | walk-forward with options + composite |
+| TM2-31 | TM2 | merged #63 | coord/tasks/TM2-31.md | walk-forward with options + composite |
 | TM2-25 | TM2 | merged #55 | coord/tasks/TM2-25.md | search matches API_HEADER rules |
 | TM2-26 | TM2 | merged #47 | coord/tasks/TM2-26.md | Dependabot for actions + lockfiles |
 | TM2-27 | TM2 | merged #48 | coord/tasks/TM2-27.md | risk.status reports all limits |
