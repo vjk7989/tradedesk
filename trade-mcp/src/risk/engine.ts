@@ -178,13 +178,44 @@ export class RiskEngine {
     this.save();
   }
 
+  /**
+   * Snapshot for the AI. limits has every riskSchema key with its effective value; unset optional
+   * keys are null (never omitted). marketHolidays is summarised as counts plus the next NSE holiday
+   * on/after today (IST), contractValues as a count. today.remainingOrders / remainingNotional use the
+   * same counters as checkOrder (CRYPTO is not counted in notional), floored at 0.
+   */
   status() {
     this.roll();
+    const c = this.cfg;
+    const nse = c.marketHolidays?.NSE ?? [];
+    const mcx = c.marketHolidays?.MCX ?? [];
+    const upcoming = nse.filter((d) => d >= this.day.date).sort();
     return {
       mode: this.opts.mode,
       killSwitch: existsSync(this.opts.killSwitchFile),
-      limits: structuredClone(this.cfg),
-      today: structuredClone({ date: this.day.date, orders: this.day.orders, notional: this.day.notional }),
+      limits: {
+        allowedExchanges: [...c.allowedExchanges],
+        allowedProducts: [...c.allowedProducts],
+        symbolAllow: [...c.symbolAllow],
+        symbolDeny: [...c.symbolDeny],
+        maxQtyPerOrder: c.maxQtyPerOrder,
+        maxNotionalPerOrder: c.maxNotionalPerOrder,
+        maxNotionalPerOrderUsd: c.maxNotionalPerOrderUsd,
+        maxOrdersPerDay: c.maxOrdersPerDay,
+        maxNotionalPerDay: c.maxNotionalPerDay,
+        maxDailyLoss: c.maxDailyLoss,
+        maxOrdersPerRun: c.maxOrdersPerRun,
+        maxShortOptionQtyPerOrder: c.maxShortOptionQtyPerOrder ?? null,
+        contractValues: Object.keys(c.contractValues ?? {}).length,
+        marketHolidays: { NSE: nse.length, MCX: mcx.length, nextNSE: upcoming[0] ?? null },
+      },
+      today: {
+        date: this.day.date,
+        orders: this.day.orders,
+        notional: this.day.notional,
+        remainingOrders: Math.max(0, c.maxOrdersPerDay - this.day.orders),
+        remainingNotional: Math.max(0, c.maxNotionalPerDay - this.day.notional),
+      },
     };
   }
 }
