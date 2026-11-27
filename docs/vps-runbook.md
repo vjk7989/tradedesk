@@ -35,7 +35,7 @@ cp ../vendor/openalgo/.sample.env openalgo.env
 cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
 chmod 600 .env openalgo.env
 ```
-Lint `risk.json` before deploying or editing it: `cd trade-mcp && npm run build && npm run risk:lint -- /path/to/risk.json [--strict]` (exit 0 = OK or warnings only, 1 = invalid, 2 = warnings under `--strict`). Re-run each January to confirm the new year's NSE/MCX `marketHolidays` are filled in.
+Lint `risk.json` with the linter in the trade-mcp image (the host needs only Docker; run from `deploy/`). Candidate file before deploying: `docker compose run --rm --no-deps -v "$PWD/risk.json:/tmp/risk.json:ro" trade-mcp node dist/src/risk/lint.js /tmp/risk.json [--strict]`. Deployed file (the running container's `/config/risk.json`): `docker compose exec trade-mcp node dist/src/risk/lint.js /config/risk.json [--strict]`. Exit 0 = OK or warnings only, 1 = invalid config, unreadable file or usage error, 2 = warnings under `--strict`. Re-run each January to confirm the new year's NSE/MCX `marketHolidays` are filled in. From a local checkout instead: `cd trade-mcp && npm ci && npm run build && npm run risk:lint -- <file>`.
 To fill `marketHolidays` from OpenAlgo, use `deploy/sync_holidays.py` (usage and env: [docs/holidays.md](holidays.md)); after a write, `docker compose restart trade-mcp`.
 `EXECUTE_TIMEOUT_MS` (default 60000) is the execute time limit in ms, clamped 5000-900000. Set it to 660000 or more if you use `backtest.walkForward`; MCP clients also have their own tool-call timeout.
 Edit `openalgo.env`:
@@ -51,7 +51,7 @@ docker compose up -d --build     # from deploy/
 docker compose ps
 curl -s https://mcp.<DOMAIN>/healthz
 ```
-`/healthz` is the liveness check. `GET /readyz` is the readiness check: no auth, internal only (Caddy does not route it, so run it inside the stack, e.g. `docker compose exec trade-mcp wget -qO- http://127.0.0.1:8787/readyz`), cached 5 s, 200 when ready or 503, body `{ok, checks:{openalgo, bt, auditWritable}}`.
+`/healthz` is the liveness check. `GET /readyz` is the readiness check: no auth, internal only (Caddy does not route it, so run it inside the stack, e.g. `docker compose exec trade-mcp wget -qO- http://127.0.0.1:8787/readyz`), cached 5 s, 200 when ready or 503, body `{ok, checks:{openalgo, bt, auditWritable}}`. `bt` is `not_configured` when `BT_URL` is unset, which does not cause a 503.
 
 ## 7. First login
 1. Open `https://openalgo.<DOMAIN>`, create the admin account, log in to your broker.
