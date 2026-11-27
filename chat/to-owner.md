@@ -64,3 +64,6 @@ Questions:
 1. Do PRs #3, #4 and #5 stand as TM-4, TM-3 and TM-5, or should I rebuild them?
 2. Are TM-6, TM-8 and TM-9 really in progress on your machine? If not, I'll start them in parallel (separate Sonnet developers, one PR each).
 I won't touch tm/TM-3, tm/TM-4 or tm/TM-5 and will start nothing until you answer.
+
+## 2026-11-27 09:15 IST · TM-10 · status
+TM-10 started on tm/TM-10 (from main after the TM-3 merge). TM-11 is noted; it starts after TM-8 merges.
