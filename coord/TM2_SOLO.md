@@ -1,5 +1,13 @@
 # TM2 solo mode: buckleson's session runs the whole project
 
+## 0. Update 2026-11-28: two builders
+The owner session (vjk7989) is back as a second builder and coordinator. Both sides run the full chain (Sonnet dev → separate Sonnet reviewer → Opus edge tests → Haiku on PR merged onto latest main → merge with `--match-head-commit`) and **each side merges only its own PRs**:
+- OWNER builds `O-*` and TM2-7 on branches `own/<ID>`;
+- TM2 builds `TM2-*` on `tm2/<ID>`.
+- The owner writes new briefs and the board. TM2 may still write its own follow-up briefs; post them in chat.
+- Before merging, rebase onto the latest main and re-run, because both sides merge now.
+- Jobs `tz` ruling: keep `Asia/Kolkata` and `UTC` only (crypto jobs use UTC). No non-IST/DST zones.
+
 Effective 2026-11-27 ~16:15 IST, on the repo owner's instruction. This overrides `TEAM_PLAN.md` §1–2 where they conflict.
 
 The owner's local session and TM1 have stopped. **TM2 (buckleson's Claude Code, which runs in the cloud) is now both builder and owner.** It plans, builds, reviews, tests and merges. The repo owner (vjk7989) stays the human approver for anything in "Ask the owner" below.

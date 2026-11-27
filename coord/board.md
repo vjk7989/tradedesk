@@ -1,9 +1,15 @@
-> 2026-11-27 ~16:15 IST: solo mode. TM2 owns everything, see coord/TM2_SOLO.md.
+> 2026-11-28: two builders. OWNER (vjk7989 session) builds O-* and TM2-7 and merges its own PRs; TM2 builds TM2-* and merges its own PRs, each with the full chain (see coord/TM2_SOLO.md §0).
 
 # Task board (Opus orchestrator edits this file only) — see coord/TEAM_PLAN.md for who is who
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-1 | OWNER | in progress | coord/tasks/O-1.md | api-docs: document india_options |
+| O-2 | OWNER | in progress | coord/tasks/O-2.md | risk.json UTF-8 BOM accepted |
+| TM2-17 | TM2 | ready | coord/tasks/TM2-17.md | explicit datetime format, india_broker_loader |
+| TM2-18 | TM2 | ready | coord/tasks/TM2-18.md | Telegram drain non-2xx + LOWs |
+| TM2-19 | TM2 | ready | coord/tasks/TM2-19.md | e2e smoke: /readyz, risk:lint, --check |
+| TM2-20 | TM2 | ready | coord/tasks/TM2-20.md | docs/backtesting.md |
 | OC-P7.3 | OC1 | done | coord/tasks/OC-P7.3.md | walk-forward / OOS endpoint in bt-service |
 | OC-P7.4 | OC1 | done | coord/tasks/OC-P7.4.md | backtest.walkForward binding in trade-mcp |
 | TM-1 | TM1 | done | coord/tasks/TM-1.md | MIS intraday stamp duty rate (bt-service) |
@@ -20,7 +26,7 @@
 | TM2-16 | TM2 | done | coord/tasks/TM2-16.md | accept lowercase "1h" interval consistently |
 | TM-15 | TM2 (from TM1) | done | coord/tasks/TM-15.md | find + remove remaining ~570 warnings |
 | TM-16 | TM1 | done | coord/tasks/TM-16.md | OAuth follow-ups: HMAC IP hash, no persist on bad code |
-| TM2-7 | TM2 | ready | coord/tasks/TM2-7.md | GitHub Actions CI for all suites |
+| TM2-7 | OWNER (from TM2) | in progress | coord/tasks/TM2-7.md | GitHub Actions CI for all suites |
 | TM2-8 | TM2 | done | coord/tasks/TM2-8.md | agent-runner --check / --next |
 | TM2-5 | TM2 | done | coord/tasks/TM2-5.md | trade-mcp /readyz |
 | TM2-6 | TM2 | done | coord/tasks/TM2-6.md | Telegram notifications for job reports |
