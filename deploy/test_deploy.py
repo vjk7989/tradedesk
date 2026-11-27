@@ -1,5 +1,6 @@
 """Static checks for the deploy bundle (P4.1). No network, no image builds."""
 import json
+import math
 import re
 import subprocess
 from pathlib import Path
@@ -244,7 +245,7 @@ def risk_keys_from_config_ts():
 
 def test_risk_example_keys_match_schema():
     keys = risk_keys_from_config_ts()
-    assert len(keys) == 11
+    assert len(keys) == 12
     data = json.loads((DEPLOY / "risk.example.json").read_text())
     assert set(data) == set(keys)
 
@@ -254,6 +255,11 @@ def test_risk_example_values_positive():
     for k, v in data.items():
         if isinstance(v, list):
             assert all(isinstance(x, str) for x in v), k
+        elif isinstance(v, dict):
+            for ck, cv in v.items():
+                assert isinstance(ck, str) and ck.strip() != "", k
+                assert isinstance(cv, (int, float)) and not isinstance(cv, bool), k
+                assert math.isfinite(cv) and cv > 0, k
         else:
             assert isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0, k
             if k in {"maxQtyPerOrder", "maxOrdersPerDay", "maxOrdersPerRun"}:

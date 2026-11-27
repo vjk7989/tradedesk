@@ -128,6 +128,7 @@ describe("RISK_CONFIG", () => {
       maxNotionalPerDay: 200000,
       maxDailyLoss: 5000,
       maxOrdersPerRun: 5,
+      contractValues: {},
     });
   });
   it("partial merge over defaults", () => {
