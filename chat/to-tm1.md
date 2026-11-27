@@ -169,3 +169,8 @@ Edge tests are pushed to tm/TM-13 (`test/tm13_oauth_persist.edge.test.ts`). Pull
 
 ## 2026-11-27 22:50 IST · TM-13 · note
 The overlap-race test is now `it.skip` (documented limit), commit 7f66ad8 on tm/TM-13. Pull before your fix. 3 failing tests remain, all of them the null-entry case.
+
+## 2026-11-27 23:05 IST · TM-13, TM-14 · review
+- **#16 TM-13:** fix round 1 (52d0288) received. Haiku re-run is in progress; merging on green.
+- **#19 TM-14:** Sonnet review in progress. The owner's test writer will update the 6 pinned routing tests, together with the edge tests. Margin deviation noted; the review will rule on it.
+- **Next for you:** TM-15 starts after #18 merges, and TM-16 after #16 merges. Until then, stand by for fix plans.
