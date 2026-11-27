@@ -1,0 +1,89 @@
+# VPS runbook
+
+Stack: Caddy (80/443) -> trade-mcp, OpenAlgo; bt-service internal only. Files live in `deploy/`.
+
+## 1. Server
+- Ubuntu 24.04, minimum 2 vCPU / 4 GB RAM / 40 GB disk.
+- A static public IP. Under the SEBI/broker static-IP rule, register this IP with your Indian broker (API app settings) and with Delta Exchange (API key IP whitelist). Orders from other IPs are rejected.
+- DNS: A records `mcp.<DOMAIN>` and `openalgo.<DOMAIN>` -> the VPS IP.
+
+## 2. Harden
+```
+sudo ufw default deny incoming && sudo ufw default allow outgoing
+sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
+sudo ufw enable
+```
+SSH key-only: in `/etc/ssh/sshd_config` set `PasswordAuthentication no` and `PermitRootLogin no`, then `sudo systemctl restart ssh`. Docker-published ports bypass ufw; compose publishes only 80/443 (via caddy), so this is fine. Do not add `ports:` to other services.
+
+## 3. Install Docker
+Follow https://docs.docker.com/engine/install/ubuntu/ (apt repo method), then `sudo usermod -aG docker $USER` and re-login.
+
+## 4. Get the code
+```
+git clone <this-repo> uday-demos && cd uday-demos
+git clone https://github.com/marketcalls/openalgo vendor/openalgo
+git -C vendor/openalgo checkout f83592a
+```
+(If `vendor/openalgo` is already in the repo, just check out/pin that commit.)
+
+## 5. Configure
+```
+cd deploy
+cp .env.example .env          # edit: DOMAIN, ACME_EMAIL, MODE=paper
+sed -i "s/^MCP_TOKEN=.*/MCP_TOKEN=$(openssl rand -hex 32)/; s/^BT_TOKEN=.*/BT_TOKEN=$(openssl rand -hex 32)/" .env
+cp ../vendor/openalgo/.sample.env openalgo.env
+cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
+chmod 600 .env openalgo.env
+```
+Edit `openalgo.env`:
+- `APP_KEY`, `API_KEY_PEPPER`, `FERNET_SALT`: leave the placeholders; OpenAlgo replaces them on first run with `secrets.token_hex(32)` and writes them back (the file is bind-mounted read-write). To set them yourself: `python3 -c "import secrets;print(secrets.token_hex(32))"` for each. Never reuse or commit.
+- `HOST_SERVER='https://openalgo.<DOMAIN>'`
+- `FLASK_HOST_IP='0.0.0.0'`, `WEBSOCKET_HOST='0.0.0.0'` (container-internal; not published)
+- `WEBSOCKET_URL='wss://openalgo.<DOMAIN>/ws'` (Caddy strips `/ws`). Verify after first login that live-data pages connect; if not, check the browser console and adjust.
+- Broker `BROKER_API_KEY` / `BROKER_API_SECRET` / `REDIRECT_URL` (`https://openalgo.<DOMAIN>/<broker>/callback`) per OpenAlgo docs for your broker.
+
+## 6. Start
+```
+docker compose up -d --build     # from deploy/
+docker compose ps
+curl -s https://mcp.<DOMAIN>/healthz
+```
+
+## 7. First login
+1. Open `https://openalgo.<DOMAIN>`, create the admin account, log in to your broker.
+2. Generate an API key (API Key page). Put it in `deploy/.env` as `OPENALGO_API_KEY`, then `docker compose up -d`.
+3. Set that key's order mode to `semi_auto` (optional human approval: orders wait in the Action Center until you approve in the UI). Do this from the UI session only.
+4. Enable Analyzer mode (paper/sandbox) in OpenAlgo. Keep `MODE=paper` in `.env`.
+
+## 8. Daily routine
+Broker sessions expire daily (typically early morning IST). Each trading day log in to `https://openalgo.<DOMAIN>` and complete the broker login before the market opens. Check the Action Center for pending approvals.
+
+## 9. Kill switch
+Orders are refused while the file `/data/KILL` exists in the trade-mcp container (DATA_DIR=/data, volume `trade_mcp_data`):
+```
+docker compose exec trade-mcp touch /data/KILL     # halt
+docker compose exec trade-mcp rm /data/KILL        # resume
+```
+Hard stop: `docker compose stop trade-mcp`. Also disable the OpenAlgo API key or log out the broker in the UI.
+
+## 10. Going live checklist
+- [ ] Paper (Analyzer) run for at least N = 5 trading days with no unexpected orders; review audit logs in `/data`.
+- [ ] `risk.json` limits set conservatively (small qty/notional/daily loss).
+- [ ] Static IP registered with broker / Delta; broker login works.
+- [ ] `semi_auto` on for the first live days.
+- [ ] Turn Analyzer mode off in OpenAlgo, set `MODE=live` in `deploy/.env`, `docker compose up -d trade-mcp`.
+- [ ] Place one minimal order and confirm; know how to trigger the kill switch.
+
+## 11. Backups
+```
+docker run --rm -v deploy_openalgo_db:/v -v $PWD:/b alpine tar czf /b/openalgo_db-$(date +%F).tgz -C /v .
+docker run --rm -v deploy_trade_mcp_data:/v -v $PWD:/b alpine tar czf /b/trade_mcp_data-$(date +%F).tgz -C /v .
+```
+(Volume prefix is the compose project name, `deploy` by default; check `docker volume ls`.) Also back up `deploy/.env`, `openalgo.env`, `risk.json`, and the `openalgo_keys` volume. Store off-server, encrypted.
+
+## 12. Updates and logs
+```
+git pull && git -C vendor/openalgo fetch   # re-pin to a reviewed commit
+docker compose up -d --build
+docker compose logs -f --tail=200 trade-mcp   # also: openalgo, bt-service, caddy
+```
