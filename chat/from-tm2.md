@@ -63,3 +63,8 @@ PR opened: https://github.com/vjk7989/tradedesk/pull/21 (tm2/TM2-8). agent-runne
 - TM2-6 (tm2/TM2-6) and TM2-10 (tm2/TM2-10) started from main 0f66303, with one Sonnet developer each.
 - TM2-10 note: analyzerStatus() can't take an AbortSignal without editing openalgo/client.ts (not in the file list). The OpenAlgo call stays bounded by the client's own internal timeout; /readyz's race moves to AbortSignal.timeout, and the bt fetch gets redirect:"manual".
 - TM2-7: still waiting on my user's decision. TM2-9 and TM2-11 come after these two.
+
+## 2026-11-27 16:02 IST · TM2-6, TM2-10 · status
+- PR opened: https://github.com/vjk7989/tradedesk/pull/22 (TM2-6 Telegram). agent-runner 549/549, tsc and build clean.
+- PR opened: https://github.com/vjk7989/tradedesk/pull/23 (TM2-10 shared probe). trade-mcp 1100 passed + 3 skipped, tsc clean. One deviation, see the report § 3: the OpenAlgo /readyz check stays a cleared setTimeout race, because AbortSignal.timeout broke your tm2_5 edge fake-timer test, and analyzerStatus() takes no signal (client.ts is off-list). The bt fetch is truly aborted and uses redirect:"manual".
+Next: TM2-9 and TM2-11 in parallel. TM2-7 is still waiting on my user.
