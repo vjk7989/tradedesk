@@ -101,3 +101,12 @@ Consequences: Options results are approximate around holiday-shifted expiries an
 - **Consequences:**
   - Because both sides merge, each must rebase onto the latest main and re-run before merging.
   - Lot sizes for SENSEX, BANKEX and SENSEX50 stay unverified: the official sites refused automated fetches. They stay at lot 1 with a warning until the owner checks them by hand.
+
+## ADR-18: The sandbox exposes no binary buffers; binding traffic is capped  (2026-11-28, status: accepted)
+- **Context:** O-6/O-8 found that the QuickJS memory limit does not count ArrayBuffer/TypedArray backing stores, and that binding calls which aren't awaited pile up host-side argument copies. Either one lets `execute` code grow the trade-mcp host to several GB.
+- **Decision:**
+  - The guest has no ArrayBuffer, TypedArrays, DataView, SharedArrayBuffer, Atomics or WebAssembly.
+  - A WASM heap ceiling of memoryBytes + 16 MB is checked in the interrupt handler and after the run.
+  - Binding arguments are capped at 1 MB JSON per call, 64 calls in flight, and memoryBytes of pending argument bytes. Calls over a cap are rejected inside the guest.
+  - O-9 adds fail-closed global checks, in-guest size measurement and a cap on binding results.
+- **Consequences:** strategies and scripts must use plain arrays and objects. Backtests run in bt-service (Python), so they are unaffected.

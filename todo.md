@@ -146,13 +146,13 @@ Detailed plan: `plan.md`.
 - TM2-29 · docs · connect-clients refresh (TM2) [x]
 - TM2-30 · agent-runner · --dry-run (TM2) [x]
 - TM2-31 · bt-service · walk-forward with options (TM2) [.]
-- O-6 · trade-mcp · stabilise sandbox memory-limit tests (OWNER) [.] (investigating)
+- O-6 · trade-mcp · stabilise sandbox memory-limit tests (OWNER) [x]
 - O-7 · trade-mcp · api-docs risk.status + kill-switch line, de-flake owner tests (OWNER) [x]
 - TM2-32 · trade-mcp · search Rules ranking (TM2) [x]
 - TM2-33 · repo · dependabot ignore pandas major (TM2) [x]
 - TM2-34 · bt-service · pandas 3 readiness report (TM2) [x]
-- O-8 · trade-mcp · SECURITY sandbox memory cap ignores ArrayBuffer/TypedArray (OWNER) [.] (fixing on PR #57)
+- O-8 · trade-mcp · SECURITY sandbox memory cap ignores ArrayBuffer/TypedArray (OWNER) [x]
 - TM2-35 · trade-mcp · oauth:revoke-all (TM2) [ ]
 - TM2-36 · agent-runner · --history (TM2) [ ]
 - TM2-37 · trade-mcp · de-flake 50 sequential runs (TM2, after #57) [ ]
-- O-9 · trade-mcp · sandbox hardening follow-ups (OWNER, after #57) [ ]
+- O-9 · trade-mcp · sandbox hardening follow-ups (OWNER, after #57) [.] (building)

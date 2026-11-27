@@ -4,16 +4,16 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| O-9 | OWNER | ready (after #57) | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
+| O-9 | OWNER | in progress | coord/tasks/O-9.md | sandbox hardening follow-ups (O-8 security review) |
 | TM2-35 | TM2 | ready | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
 | TM2-36 | TM2 | ready | coord/tasks/TM2-36.md | agent-runner --history [N] |
-| TM2-37 | TM2 | ready (after #57) | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
-| O-8 | OWNER | in progress (HIGH, security) | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
+| TM2-37 | TM2 | ready | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
+| O-8 | OWNER | done | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
 | O-7 | OWNER | done | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
 | TM2-32 | TM2 | merged #61 | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
 | TM2-33 | TM2 | merged #60 | coord/tasks/TM2-33.md | dependabot ignore pandas major; close #53 |
 | TM2-34 | TM2 | merged #62 | coord/tasks/TM2-34.md | pandas 3 readiness report (no upgrade) |
-| O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
+| O-6 | OWNER | done | (inline) | stabilise sandbox memory-limit tests |
 | TM2-28 | TM2 | merged #56 | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
 | TM2-29 | TM2 | merged #58 | coord/tasks/TM2-29.md | docs: connect-clients refresh |
 | TM2-30 | TM2 | merged #54 | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
