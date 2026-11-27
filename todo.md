@@ -152,3 +152,6 @@ Detailed plan: `plan.md`.
 - TM2-33 · repo · dependabot ignore pandas major (TM2) [x]
 - TM2-34 · bt-service · pandas 3 readiness report (TM2) [.]
 - O-8 · trade-mcp · SECURITY sandbox memory cap ignores ArrayBuffer/TypedArray (OWNER) [.] (fixing on PR #57)
+- TM2-35 · trade-mcp · oauth:revoke-all (TM2) [ ]
+- TM2-36 · agent-runner · --history (TM2) [ ]
+- TM2-37 · trade-mcp · de-flake 50 sequential runs (TM2, after #57) [ ]

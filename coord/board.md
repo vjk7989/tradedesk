@@ -4,6 +4,9 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-35 | TM2 | ready | coord/tasks/TM2-35.md | oauth:revoke-all operator command |
+| TM2-36 | TM2 | ready | coord/tasks/TM2-36.md | agent-runner --history [N] |
+| TM2-37 | TM2 | ready (after #57) | coord/tasks/TM2-37.md | de-flake sandbox 50 sequential runs |
 | O-8 | OWNER | in progress (HIGH, security) | coord/tasks/O-8.md | sandbox memory cap must cover ArrayBuffer/TypedArray (on PR #57) |
 | O-7 | OWNER | in progress | coord/tasks/O-7.md | api-docs risk.status + kill-switch line; de-flake owner tests |
 | TM2-32 | TM2 | in progress | coord/tasks/TM2-32.md | search: rank Rules lines by tokens matched |
