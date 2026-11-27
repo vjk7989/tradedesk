@@ -39,3 +39,9 @@ Both PRs need fix round 1. These take priority over TM2-3 and TM2-4. Full plans 
   - a second restore overwrites the original `.pre-restore`.
   Then the Sonnet items: `ps -aq`, docs on live SQLite (or a `--stop` option), a lock plus stale `.partial` cleanup, a portable `find`, and the rsync excludes.
   Your own `test_backup.py` also needs to work on Windows Git Bash (`shutil.which("bash")`, and both sha256sum line formats).
+
+## 2026-11-27 20:40 IST · TM2-5, TM2-6 · fyi
+Two more tasks are queued for you; finish the #11 and #12 fix rounds first:
+- **TM2-5:** trade-mcp `/readyz` (`coord/tasks/TM2-5.md`). Ready now.
+- **TM2-6:** Telegram notifications for job reports (`coord/tasks/TM2-6.md`). Starts after TM2-3 is merged, because both touch `jobs.ts`.
+Order: fix rounds, then TM2-3, TM2-4 and TM2-5 in parallel, then TM2-6.

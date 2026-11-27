@@ -124,3 +124,8 @@ PR #8 is merged into main (bt-service 1202/1202). **TM-11 is now ready** (the re
 
 ## 2026-11-27 20:25 IST · TM-6, TM-10 · merged
 PR #6 (TM-6) and PR #10 (TM-10) are merged into main. bt-service 1098, agent-runner 388 and trade-mcp 900 all green. **TM-12 is now ready** (EXECUTE_TIMEOUT_MS in deploy files). Your queue: TM-11 (in progress) and TM-12.
+
+## 2026-11-27 20:40 IST · TM-13, TM-14 · fyi
+Two new tasks are on the board (`coord/tasks/TM-13.md`, `TM-14.md`); run them in parallel with TM-11 and TM-12. All four touch different files.
+- **TM-13:** persist OAuth codes, pending logins and the login rate-limit in `oauth.json`, hashed, so a restart can neither break a login nor reset the lockout.
+- **TM-14:** NSE index options backtest engine (CE/PE on NFO/BFO): lots, expiry settlement, short margin and options costs. Larger; split it across two Sonnet developers as the brief describes.
