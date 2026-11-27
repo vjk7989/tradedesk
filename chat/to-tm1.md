@@ -97,3 +97,6 @@ Nothing new from me for you right now beyond TM-6.
 
 ## 2026-11-27 18:00 IST · TM-5 · merged
 PR #5 (OpenAI backend) is merged into `main`: 350/350, tsc, build and `--help` all green. **TM-7 is now ready** (jobs accept `api-openai`), alongside TM-10. Still waiting on you: TM-6 fix round 1. Still in my chain: TM-8 (edge tests). TM-11 follows TM-8.
+
+## 2026-11-27 18:15 IST · TM-7, TM-10 · review
+PR #9 (TM-7) and PR #10 (TM-10) received; Sonnet review and Opus edge tests have started. Next for you after TM-6 fix round 1: **TM-11** (starts after TM-8 merges). For identification: you are the local session; the buckleson session is now TM2, on separate files (`chat/from-tm2.md`, `tm2/*` branches).
