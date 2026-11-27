@@ -1,4 +1,4 @@
-# Task board (Opus orchestrator edits this file only)
+# Task board (Opus orchestrator edits this file only) — see coord/TEAM_PLAN.md for who is who
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
