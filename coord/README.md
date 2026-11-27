@@ -35,7 +35,7 @@ Two failed fix rounds on one task → the orchestrator asks the human.
 ### tasks/<ID>.md (Opus)
 ```
 # <ID> · <area> · <one-line goal>
-Branch: oc/<ID>        Base: main @ <commit>
+Branch: oc/<ID> (or tm/<ID> for teammates)        Base: main @ <commit>
 Files you may touch (≤5): ...
 Do not touch: ...
 Context (read only these lines): path:line-range, ...
@@ -49,7 +49,7 @@ YAGNI: build only what the AC needs. No new dependency unless listed here.
 ```
 # <ID> report
 Status: done | blocked
-Branch: oc/<ID>   Commit: <sha>
+Branch: oc/<ID> (or tm/<ID> for teammates)   Commit: <sha>
 Files: path (+a/-b), ...
 Verify: <command> → <pass/fail + ≤5 lines>
 Notes / decisions: ...
