@@ -1,7 +1,9 @@
-import { scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, scryptSync, timingSafeEqual } from "node:crypto";
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILS = 5;
+
+const hashIp = (ip: string) => createHash("sha256").update(ip).digest("hex");
 
 export function verifyPassword(password: string, stored: string): boolean {
   const [, saltHex, hashHex] = stored.split(":");
@@ -12,9 +14,28 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 /** 5 failed logins per IP per 15 minutes. */
 export class LoginLimiter {
-  private fails = new Map<string, number[]>();
+  private fails = new Map<string, number[]>(); // key: sha256(ip)
 
-  private recent(ip: string, now: number): number[] {
+  /** Failure timestamps keyed by sha256(ip), for persistence. */
+  snapshot(): Record<string, number[]> {
+    return Object.fromEntries(this.fails);
+  }
+
+  clear(): void {
+    this.fails.clear();
+  }
+
+  /** Restores a snapshot, dropping entries outside the window. */
+  load(d: Record<string, number[]>, now = Date.now()): void {
+    if (typeof d !== "object" || d === null) return;
+    for (const [k, v] of Object.entries(d)) {
+      const list = Array.isArray(v) ? v.filter((t) => typeof t === "number" && now - t < WINDOW_MS) : [];
+      if (list.length) this.fails.set(k, list);
+    }
+  }
+
+  private recent(rawIp: string, now: number): number[] {
+    const ip = hashIp(rawIp);
     const list = (this.fails.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
     if (list.length) this.fails.set(ip, list);
     else this.fails.delete(ip);
@@ -26,11 +47,11 @@ export class LoginLimiter {
   }
 
   fail(ip: string, now = Date.now()): void {
-    this.fails.set(ip, [...this.recent(ip, now), now]);
+    this.fails.set(hashIp(ip), [...this.recent(ip, now), now]);
   }
 
   reset(ip: string): void {
-    this.fails.delete(ip);
+    this.fails.delete(hashIp(ip));
   }
 }
 
