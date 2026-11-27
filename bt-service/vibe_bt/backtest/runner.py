@@ -62,7 +62,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_VALID_INTERVALS = {"1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"}
+_VALID_INTERVALS = {"1m", "3m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"}
 _VALID_ENGINES = {"daily", "options"}
 _PRICE_PANEL_COLUMNS = ("open", "high", "low", "close", "volume", "vwap", "amount")
 _FUND_PREFIX = "fund:"
@@ -1665,7 +1665,9 @@ def main(run_dir: Path) -> None:
 #: comparison below is a ratio of two numbers.
 _INTERVAL_SECONDS: dict[str, float] = {
     "1m": 60.0,
+    "3m": 180.0,
     "5m": 300.0,
+    "10m": 600.0,
     "15m": 900.0,
     "30m": 1_800.0,
     "1H": 3_600.0,
@@ -1679,7 +1681,7 @@ _INTERVAL_SECONDS: dict[str, float] = {
 
 #: How far the served bar spacing may sit from the declared interval's spacing
 #: before the declaration is treated as wrong. The closest pair of intervals
-#: differs by 2x (``30m`` -> ``1H``), while a correctly served series measures
+#: differs by 1.5x (``10m`` -> ``15m``), while a correctly served series measures
 #: its own spacing exactly, so 1.5 separates the two cases with room to spare.
 _SPACING_MISMATCH_RATIO = 1.5
 

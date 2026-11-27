@@ -64,7 +64,9 @@ _DEFAULT_COLUMNS = {
 # ``pd.Timedelta`` of the alias is well defined.
 _RESAMPLE_RULES = {
     "1m": "1min",
+    "3m": "3min",
     "5m": "5min",
+    "10m": "10min",
     "15m": "15min",
     "30m": "30min",
     "1H": "1h",
@@ -82,6 +84,10 @@ _OHLCV_AGG = {
     "close": "last",
     "volume": "sum",
 }
+
+
+# Sub-hour rules whose bins must start at the session open, not midnight.
+_SESSION_ANCHORED_RULES = {"3min", "10min"}
 
 
 def _resample_to_interval(df: pd.DataFrame, interval: str, symbol: str) -> pd.DataFrame:
@@ -124,7 +130,14 @@ def _resample_to_interval(df: pd.DataFrame, interval: str, symbol: str) -> pd.Da
             if target == source:
                 return df
 
-    resampled = df.resample(rule).agg(_OHLCV_AGG)
+    if rule in _SESSION_ANCHORED_RULES:
+        # 10min does not divide 09:15, so midnight-aligned bins would straddle
+        # the open. Anchor to the first date's earliest bar (session open;
+        # midnight for 24x7 data, so crypto alignment is unchanged).
+        first_day = df.index[df.index.normalize() == df.index[0].normalize()]
+        resampled = df.resample(rule, origin=first_day.min()).agg(_OHLCV_AGG)
+    else:
+        resampled = df.resample(rule).agg(_OHLCV_AGG)
     resampled = resampled.dropna(subset=["open", "high", "low", "close"])
     resampled.index.name = df.index.name
     return resampled

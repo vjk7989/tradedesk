@@ -30,13 +30,14 @@ from vibe_bt.backtest.loaders.registry import register
 logger = logging.getLogger(__name__)
 
 _INTERVAL_MAP = {
-    "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+    "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
     "1H": "1h", "1h": "1h", "4H": "4h", "4h": "4h",
     "1D": "1d", "1d": "1d", "1W": "1w", "1w": "1w", "1M": "1M",
 }
 
 _TIMEFRAME_DELTA = {
     "1m": pd.Timedelta(minutes=1),
+    "3m": pd.Timedelta(minutes=3),
     "5m": pd.Timedelta(minutes=5),
     "15m": pd.Timedelta(minutes=15),
     "30m": pd.Timedelta(minutes=30),
@@ -275,7 +276,10 @@ class DataLoader:
         """
         validate_date_range(start_date, end_date)
 
-        timeframe = _INTERVAL_MAP.get(interval, "1d")
+        timeframe = _INTERVAL_MAP.get(interval)
+        if timeframe is None:
+            logger.warning("ccxt loader: unsupported interval %r; returning no data", interval)
+            return {}
         since_ms = int(pd.Timestamp(start_date).timestamp() * 1000)
         end_ms = int((pd.Timestamp(end_date) + pd.Timedelta(days=1)).timestamp() * 1000)
 
