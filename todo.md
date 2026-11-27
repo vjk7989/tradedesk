@@ -107,3 +107,4 @@ Detailed plan: `plan.md`.
 - TM2-2 · trade-mcp · audit rotation (teammate TM2 buckleson) [ ]
 - TM-10 · trade-mcp · EXECUTE_TIMEOUT_MS for long backtests (TM1, after TM-3) [ ]
 - TM-11 · bt-service · remaining deprecation sites (TM1, after TM-8) [ ]
+- TM-12 · deploy · EXECUTE_TIMEOUT_MS in deploy files (TM1, after TM-10) [ ]
