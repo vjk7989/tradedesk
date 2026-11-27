@@ -149,5 +149,5 @@ Detailed plan: `plan.md`.
 - O-6 · trade-mcp · stabilise sandbox memory-limit tests (OWNER) [.] (investigating)
 - O-7 · trade-mcp · api-docs risk.status + kill-switch line, de-flake owner tests (OWNER) [.] (building)
 - TM2-32 · trade-mcp · search Rules ranking (TM2) [.]
-- TM2-33 · repo · dependabot ignore pandas major (TM2) [.]
+- TM2-33 · repo · dependabot ignore pandas major (TM2) [x]
 - TM2-34 · bt-service · pandas 3 readiness report (TM2) [.]
