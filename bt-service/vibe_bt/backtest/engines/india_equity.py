@@ -23,11 +23,14 @@ broker schedule before relying on absolute cost figures:
   - Exchange transaction charge: NSE ~0.00297% (bilateral)  [in_exchange_txn]
   - SEBI turnover fee: ₹10/crore = 0.0001% (bilateral)      [in_sebi_fee]
   - Stamp duty: 0.015% on buy only                          [in_stamp_duty]
+    (MIS intraday: 0.003% buy only; verify rate)            [in_mis_stamp_duty]
   - GST: 18% on (brokerage + exchange txn + SEBI fee)       [in_gst]
   - DP charge: flat per-scrip on sell (default ₹0)          [in_dp_charge]
 """
 
 from __future__ import annotations
+
+import math
 
 import pandas as pd
 
@@ -50,12 +53,14 @@ class IndiaEquityEngine(BaseEngine):
       - price_limit: float fraction or None, default 0.20
       - slippage: default 0.001
       - in_brokerage / in_stt / in_exchange_txn / in_sebi_fee /
-        in_stamp_duty / in_gst / in_dp_charge
+        in_stamp_duty / in_gst / in_dp_charge / in_mis_stamp_duty
       - product: "CNC" (default) or "MIS" (other values raise ValueError);
         ``product_by_market["india_equity"]`` overrides it in a composite run. MIS only changes behaviour at
         intraday intervals: same-day exits and shorting are allowed, positions
         are squared off at the last bar <= 15:20 IST (reason ``mis_squareoff``)
         and STT is ``in_mis_stt`` (default 0.025%, sell side; verify current rate).
+        Buy-side stamp duty under MIS is ``in_mis_stamp_duty`` (default 0.003%,
+        must be a finite number >= 0; verify current rate).
     Intraday intervals ignore bars outside 09:15-15:30 IST.
     """
 
@@ -74,6 +79,14 @@ class IndiaEquityEngine(BaseEngine):
         self.in_gst: float = config.get("in_gst", 0.18)
         self.in_dp_charge: float = config.get("in_dp_charge", 0.0)
         self.in_mis_stt: float = config.get("in_mis_stt", 0.00025)  # verify current rate
+        self.in_mis_stamp_duty: float = config.get("in_mis_stamp_duty", 0.00003)  # verify current rate
+        if (isinstance(self.in_mis_stamp_duty, bool)
+                or not isinstance(self.in_mis_stamp_duty, (int, float))
+                or not math.isfinite(self.in_mis_stamp_duty)
+                or self.in_mis_stamp_duty < 0):
+            raise ValueError(
+                f"in_mis_stamp_duty must be a finite number >= 0, got {self.in_mis_stamp_duty!r}"
+            )
         self.intraday: bool = is_intraday(config.get("interval", "1D"))
         self.product: str = resolve_product(config, "india_equity")  # validates even at 1D
         self.mis: bool = self.intraday and self.product == "MIS"
@@ -124,7 +137,8 @@ class IndiaEquityEngine(BaseEngine):
             stt = notional * self.in_stt                      # bilateral (delivery)
         comm = brokerage + exchange_txn + sebi_fee + gst + stt
         if is_buy:
-            comm += notional * self.in_stamp_duty             # stamp duty: buy-only
+            stamp = self.in_mis_stamp_duty if self.mis else self.in_stamp_duty
+            comm += notional * stamp                          # stamp duty: buy-only
         else:
             comm += self.in_dp_charge                         # DP charge: sell-only, flat
         return comm

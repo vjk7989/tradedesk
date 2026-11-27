@@ -359,28 +359,28 @@ def test_mis_stt_hand_computed_round_trip_defaults():
     # buy 100 @ 100 -> notional 10_000
     exch, sebi = 10_000 * 0.0000297, 10_000 * 0.000001        # 0.297, 0.01
     gst = (exch + sebi) * 0.18                                  # 0.05526
-    buy = exch + sebi + gst + 10_000 * 0.00015                  # 1.86226, no STT
+    buy = exch + sebi + gst + 10_000 * 0.00003                  # 0.66226, no STT, MIS stamp
     sell = exch + sebi + gst + 10_000 * 0.00025                 # 2.86226, STT 2.5
-    assert e.calc_commission(100, 100.0, 1, True) == pytest.approx(1.86226)
+    assert e.calc_commission(100, 100.0, 1, True) == pytest.approx(0.66226)
     assert e.calc_commission(100, 100.0, 1, True) == pytest.approx(buy)
     assert e.calc_commission(100, 100.0, 1, False) == pytest.approx(sell)
-    assert buy + sell == pytest.approx(4.72452)
+    assert buy + sell == pytest.approx(3.52452)
 
 
 def test_mis_no_stt_on_buy_short_cover():
     e = IndiaEquityEngine({"interval": "5m", "product": "MIS", "in_exchange_txn": 0,
-                           "in_sebi_fee": 0, "in_stamp_duty": 0})
+                           "in_sebi_fee": 0, "in_stamp_duty": 0, "in_mis_stamp_duty": 0})
     assert e.calc_commission(100, 100.0, -1, False) == 0.0     # cover = buy: no STT
 
 
-def test_stamp_duty_unchanged_by_mis():
+def test_mis_stamp_uses_intraday_rate():
     kw = {"in_exchange_txn": 0, "in_sebi_fee": 0, "in_stt": 0, "in_mis_stt": 0}
     mis = IndiaEquityEngine({"interval": "5m", "product": "MIS", **kw})
     cnc = IndiaEquityEngine({"interval": "5m", **kw})
-    for eng in (mis, cnc):
-        assert eng.calc_commission(100, 100.0, 1, True) == pytest.approx(1.5)   # buy
-        assert eng.calc_commission(100, 100.0, 1, False) == 0.0                 # sell
-        assert eng.calc_commission(100, 100.0, -1, False) == pytest.approx(1.5)  # cover
+    for eng, buy_stamp in ((mis, 10_000 * 0.00003), (cnc, 10_000 * 0.00015)):  # 0.3 / 1.5
+        assert eng.calc_commission(100, 100.0, 1, True) == pytest.approx(buy_stamp)   # buy
+        assert eng.calc_commission(100, 100.0, 1, False) == 0.0                       # sell
+        assert eng.calc_commission(100, 100.0, -1, False) == pytest.approx(buy_stamp)  # cover
 
 
 def test_mis_run_commission_matches_hand_rates(tmp_path):
@@ -390,7 +390,7 @@ def test_mis_run_commission_matches_hand_rates(tmp_path):
     assert len(eng.trades) == 1 and eng.trades[0].exit_reason == "mis_squareoff"
     t = eng.trades[0]
     base = (0.0000297 + 0.000001) * 1.18
-    expected = t.size * 100.0 * ((base + 0.00015) + (base + 0.00025))
+    expected = t.size * 100.0 * ((base + 0.00003) + (base + 0.00025))
     assert t.commission == pytest.approx(expected)
 
 
