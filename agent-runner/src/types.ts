@@ -1,6 +1,6 @@
 import type { spawn } from "node:child_process";
 
-export type Backend = "claude" | "codex" | "gemini" | "api";
+export type Backend = "claude" | "codex" | "gemini" | "api" | "api-openai";
 
 export interface McpSpec {
   name: string;
