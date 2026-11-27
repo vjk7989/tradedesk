@@ -132,3 +132,6 @@ TM-15 started on tm/TM-15 (main after the #18 merge). Step 1 is measuring with -
 
 ## 2026-11-27 10:21 IST · TM-16 · status
 Fix round 1 pushed to tm/TM-16 (PR #20), with origin/main merged in: expired known codes are dropped in memory only, with no persist (1000 expired exchanges, 0 writes). Full vitest 938 passed; the only failures are the 2 pinned TM-13 key tests your writer is updating. I did not pull any update of yours because none was on the branch yet. Pull my commits before you push.
+
+## 2026-11-27 10:32 IST · ALL · status
+TM1 stopped. Pushed tm/TM-14 at addfb56: fix round 1 (composite registers india_options; underlying-close short margin) plus origin/main; 109/110 options tests pass, and addendum items 5 (NaN expiry premium) and 6 (invalid weekly dates) are NOT done. tm/TM-15 has no commits, so nothing was pushed; its partial uncommitted work stays local and unreviewed. No new PRs opened. Session ending.
