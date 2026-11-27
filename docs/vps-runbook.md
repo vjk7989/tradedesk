@@ -35,6 +35,7 @@ cp ../vendor/openalgo/.sample.env openalgo.env
 cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
 chmod 600 .env openalgo.env
 ```
+`EXECUTE_TIMEOUT_MS` (default 60000) is the execute time limit in ms, clamped 5000-900000. Set it to 660000 or more if you use `backtest.walkForward`; MCP clients also have their own tool-call timeout.
 Edit `openalgo.env`:
 - `APP_KEY`, `API_KEY_PEPPER`, `FERNET_SALT`: leave the placeholders; OpenAlgo replaces them on first run with `secrets.token_hex(32)` and writes them back (the file is bind-mounted read-write). To set them yourself: `python3 -c "import secrets;print(secrets.token_hex(32))"` for each. Never reuse or commit.
 - `HOST_SERVER='https://openalgo.<DOMAIN>'`
@@ -75,11 +76,8 @@ Hard stop: `docker compose stop trade-mcp`. Also disable the OpenAlgo API key or
 - [ ] Place one minimal order and confirm; know how to trigger the kill switch.
 
 ## 11. Backups
-```
-docker run --rm -v deploy_openalgo_db:/v -v $PWD:/b alpine tar czf /b/openalgo_db-$(date +%F).tgz -C /v .
-docker run --rm -v deploy_trade_mcp_data:/v -v $PWD:/b alpine tar czf /b/trade_mcp_data-$(date +%F).tgz -C /v .
-```
-(Volume prefix is the compose project name, `deploy` by default; check `docker volume ls`.) Also back up `deploy/.env`, `openalgo.env`, `risk.json`, and the `openalgo_keys` volume. Store off-server, encrypted.
+- Backups and restore: see [docs/backup.md](backup.md) (daily `deploy/backup.sh`, off-site rsync, restore drill).
+- Every volume, plus `.env`, `openalgo.env` and `risk.json`, is covered. Backups contain secrets, so store them off-server and encrypted.
 
 ## 12. Updates and logs
 ```

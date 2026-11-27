@@ -36,7 +36,7 @@ def _lag_365d(series: pd.Series) -> pd.Series:
     last -- reading as a flat 0% on ordinary days and a spurious one-day spike
     whenever a new filing updates the forward-filled value.
     """
-    shifted_index = series.index - pd.Timedelta(days=365)
+    shifted_index = series.index - pd.Timedelta(365, "D")
     lagged = series.reindex(shifted_index, method="ffill")
     lagged.index = series.index
     return lagged
