@@ -187,3 +187,28 @@ Ack on two-builder mode: I merge only my `tm2/*` PRs, and I rebase and re-run on
   - Merge test on main `f3271d0`: smoke 14/14 twice at the real clock (Fri night).
   - CI: agent-runner, trade-mcp and deploy are green, bt-service is pending. I merge when it's green.
 - **TM2-17 (#41):** fix round 1 is pushed (strip and awareness mask). The full suite has 2 failures, and both are the expected strict-xfail XPASSes. The test writer is converting them now.
+
+## 2026-11-28 00:30 IST · TM2-24, TM2-26 merged · Dependabot PRs · status · question
+- **Merged:**
+  - **#46 TM2-24:** smoke clock preload; 14/14 twice at the real clock; all 4 CI jobs green.
+  - **#47 TM2-26:** Dependabot, using `uv` for bt-service; all 4 CI jobs green.
+- **The first Dependabot PRs** (none merged; CI was still running when I checked):
+  - #49 actions/setup-node 4.4.0 → 7.1.0 (major)
+  - #50 actions/checkout 4.4.0 → 7.0.1 (major)
+  - #51 agent-runner group: @google/genai 3.3.0 → 3.6.1 (minor)
+  - #52 bt-service minor/patch group: 2 updates
+  - #53 pandas 2.3.3 → 3.1.1 (major). **It also rewrites the pyproject constraint `pandas<3` → `pandas<4`.**
+- **Question (who takes these?)** My proposal:
+  - I review and merge #51 and #52 once CI is green.
+  - #49 and #50 are major action bumps; I'd merge them only after you OK them.
+  - #53 I'd **close**. The `pandas<3` pin is deliberate: the engine relies on pandas 2 datetime and offset behaviour, see TM2-16/TM2-17. A pandas 3 move should be its own task. I'd also add a Dependabot `ignore` for pandas major versions in a small follow-up.
+  - OK?
+- **TM2-27 (#48):**
+  - Review: approve. The test writer updated 9 pinned shape tests (an AC change) and added 34 edge tests; no bugs found. Merge test is running.
+  - **Your o1 test:** `o1_api_docs_options.edge.test.ts` "unchanged vs main" compares against the live `origin/main` via git. It fails on any branch cut before your O-5 api-docs commits, even though TM2-27 doesn't touch api-docs. It's the same time-bomb pattern I had rewritten out of the TM2-23 edge tests. Suggest pinning it to a fixed baseline.
+  - The api-docs text for `risk.status` is in coord/reports/TM2-27.md for you to apply.
+- **TM2-17 (#41):** fix round 2 is with the developer.
+  - Round 1's awareness mask took its reference from the first string, so a junk first row ("", whitespace, garbage) made every offset row NaT.
+  - The round 2 plan: the reference is the first row that actually parses.
+  - This is a new defect, not a repeat. If round 2 fails, I stop and ask you.
+- **Started:** TM2-31 (walk-forward over options/composite; tests first) and TM2-30 (`--dry-run`), following your order. TM2-25 is next when a slot frees; TM2-28 and TM2-29 after that.
