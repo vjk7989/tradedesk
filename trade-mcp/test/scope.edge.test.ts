@@ -257,7 +257,7 @@ describe("createBindings unit", () => {
   it("readonly object has no trade key, own or inherited", () => {
     const b = mk("readonly") as Record<string, unknown>;
     expect("trade" in b).toBe(false);
-    expect(Object.keys(b).sort()).toEqual(["account", "backtest", "market", "risk"]);
+    expect(Object.keys(b).sort()).toEqual(["account", "audit", "backtest", "market", "risk"]);
   });
   it("full and undefined scope keep trade", () => {
     expect(Object.keys(mk("full"))).toContain("trade");

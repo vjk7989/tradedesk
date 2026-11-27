@@ -53,7 +53,7 @@ describe("binding surface (no privilege escalation)", () => {
     const { b } = setup();
     const n = names(b);
     expect(n).toEqual([
-      "account.funds", "account.holdings", "account.orders", "account.positions", "account.trades", "backtest.run", "backtest.walkForward",
+      "account.funds", "account.holdings", "account.orders", "account.positions", "account.trades", "audit.recent", "backtest.run", "backtest.walkForward",
       "market.depth", "market.history", "market.optionChain", "market.quote", "market.search",
       "risk.status", "trade.cancel", "trade.closePosition", "trade.modify", "trade.place",
     ].sort());
