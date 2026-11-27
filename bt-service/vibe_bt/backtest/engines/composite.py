@@ -352,6 +352,19 @@ class CompositeEngine(BaseEngine):
 
     # ── Stateful hooks (implemented directly, NO delegation) ──
 
+    def after_rebalance_bar(self, timestamp, data_map, codes) -> bool:
+        stop = super().after_rebalance_bar(timestamp, data_map, codes)
+        from vibe_bt.backtest.engines.india_session import squareoff_all
+
+        for market in ("india_equity", "india_fno"):
+            sub = self._rule_engines.get(market)
+            if sub is not None and getattr(sub, "mis", False):
+                squareoff_all(
+                    self, data_map, timestamp,
+                    [c for c in codes if self._symbol_market.get(c) == market],
+                )
+        return stop
+
     def on_bar(self, symbol: str, bar: pd.Series, timestamp: pd.Timestamp) -> None:
         """Per-bar hooks dispatched by market type."""
         market = self._symbol_market.get(symbol)

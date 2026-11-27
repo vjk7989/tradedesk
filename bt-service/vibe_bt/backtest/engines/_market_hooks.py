@@ -618,7 +618,24 @@ def calc_crypto_funding_fee(
             start = start.tz_convert("UTC")
         end = start + pd.Timedelta(seconds=bar_span_hours * 3600)
         step = pd.Timedelta(hours=8)
-        slot = start.ceil("8h")
+        # Sparse bars: also settle the slots between the previous bar and this
+        # one while the position was held (dedup set prevents double counting).
+        lo = start
+        held = positions.get(symbol)
+        if held is not None:
+            # The previous bar's time rides on the position itself (O(1)).
+            prev = getattr(held, "_funding_last_ts", None)
+            if prev is not None and prev < start:
+                lo = prev
+            object.__setattr__(held, "_funding_last_ts", start)  # Position is frozen
+            entry = pd.Timestamp(held.entry_time)
+            entry = entry.tz_convert("UTC") if entry.tzinfo is not None else entry
+            if entry.tzinfo is None and start.tzinfo is not None:
+                entry = entry.tz_localize("UTC")
+            elif entry.tzinfo is not None and start.tzinfo is None:
+                entry = entry.tz_localize(None)
+            lo = max(lo, entry)
+        slot = lo.ceil("8h")
         settlements = 0
         while slot < end:
             key = (symbol, slot.date(), slot.hour)
