@@ -295,17 +295,74 @@ describe("sandbox limits", () => {
     expect(trade).not.toHaveBeenCalled();
   });
 
-  it("memory cap -> ok:false mentioning memory", async () => {
-    const r = await runCode(`const a=[]; for(;;) a.push(new Uint8Array(1 << 20));`, {}, { memoryBytes: 8 * 1024 * 1024, timeoutMs: 20_000 });
+  it("memory cap -> ok:false, stopped by cap, host survives", async () => {
+    const r = await runCode(`const a=[]; for(let i=0;;i++) a.push({ i, s: [i, i, i, i] });`, {}, { memoryBytes: 8 * 1024 * 1024, timeoutMs: 30_000 });
+    // GC-heap allocator (O-8 removed ArrayBuffer/typed arrays from the guest, so the GC heap and
+    // strings are the only allocation routes left; both are counted by the cap).
+    // The memory cap must stop the run (positive match on the QuickJS OOM error), not the
+    // deadline, a syntax/reference error or a stack overflow; no WASM abort text leaks and the
+    // host still works. timeoutMs is generous so the cap always fires before the deadline.
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/memory/i);
-  }, 30_000);
+    expect(typeof r.error).toBe("string");
+    expect(r.error).toMatch(/memory|InternalError/i);
+    expect(r.error).not.toMatch(/timeout|syntax|ReferenceError|stack|Aborted|RuntimeError|Assertion/i);
+    expect(r.result).toBeUndefined();
+    const next = await runCode(`return 1 + 1;`, {});
+    expect(next).toMatchObject({ ok: true, result: 2 });
+  }, 45_000);
 
-  it("tiny memoryBytes fails gracefully mentioning memory", async () => {
+  it("tiny memoryBytes fails gracefully before QuickJS starts", async () => {
     const r = await runCode(`return 1;`, {}, { memoryBytes: 1024 });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/memory/i);
+    // Host-generated message (pre-QuickJS guard), so the text is stable.
+    expect(r.error).toMatch(/memory limit too small/i);
+    const next = await runCode(`return 1;`, {});
+    expect(next).toMatchObject({ ok: true, result: 1 });
   });
+
+  const MEM_OK = /memory|InternalError/i;
+  const MEM_NOT = /timeout|syntax|ReferenceError|stack/i;
+  const capPair = async (code: string, expected: unknown) => {
+    const big = await runCode(code, {}, { memoryBytes: 64 * 1024 * 1024, timeoutMs: 30_000 });
+    expect(big).toMatchObject({ ok: true, result: expected });
+    const small = await runCode(code, {}, { memoryBytes: 4 * 1024 * 1024, timeoutMs: 30_000 });
+    expect(small.ok).toBe(false);
+    expect(small.result).toBeUndefined();
+    expect(small.error).toMatch(MEM_OK);
+    expect(small.error).not.toMatch(MEM_NOT);
+  };
+
+  it("control pair (GC objects): same finite allocation passes at 64 MB, fails on memory at 4 MB", async () => {
+    // 200k small retained objects (~10 MB of GC heap): only the cap differs between the two runs.
+    await capPair(`const a=[]; for(let i=0;i<200000;i++) a.push({ i, s: [i, i, i, i] }); return a.length;`, 200000);
+  }, 70_000);
+
+  // Was the Uint8Array REPORT pair (typed-array backing stores escaped the cap). O-8 removed
+  // ArrayBuffer/typed arrays from the guest, so the pair now uses ~16 MB of retained strings +
+  // objects: 16 x (1 MB string + small object) passes at 64 MB, fails on memory at 4 MB.
+  it("control pair (objects/strings, was Uint8Array): ~16 MB retained passes at 64 MB, fails on memory at 4 MB", async () => {
+    await capPair(
+      `const a=[]; for(let i=0;i<16;i++) a.push({ i, s: String(i).padEnd(1 << 20, "x") }); return [a.length, a[15].s.length, typeof Uint8Array];`,
+      [16, 1 << 20, "undefined"],
+    );
+    const t = await runCode(`return typeof Uint8Array === "undefined";`, {});
+    expect(t).toMatchObject({ ok: true, result: true });
+  }, 70_000);
+
+  it("memory cap stops allocation, does not leak, and next run is clean", async () => {
+    for (let i = 0; i < 3; i++) {
+      const r = await runCode(`const a=[]; for(let i=0;;i++) a.push({ i, s: [i, i, i, i] });`, {}, { memoryBytes: 4 * 1024 * 1024, timeoutMs: 30_000 });
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(MEM_OK);
+      expect(r.error).not.toMatch(/timeout|syntax|ReferenceError|stack|Aborted|RuntimeError|Assertion/i);
+    }
+    const next = await runCode(
+      `const s = "x".repeat(1 << 20); const n = []; for (let i = 0; i < 1000; i++) n.push(i * 1.5); return [s.length, n.length];`,
+      {},
+      { memoryBytes: 4 * 1024 * 1024 },
+    );
+    expect(next).toMatchObject({ ok: true, result: [1 << 20, 1000] });
+  }, 120_000);
 
   it("deep recursion -> ok:false, not host stack overflow", async () => {
     const r = await runCode(`function f(n){ return f(n+1)+1; } return f(0);`, {}, { timeoutMs: 5000 });
