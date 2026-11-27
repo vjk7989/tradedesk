@@ -160,6 +160,9 @@ function mainSource(): string | null {
   return null;
 }
 const MAIN_SRC = mainSource();
+// O-3 changed these on purpose: the busy text is now the exact client message, and audit.recent is new.
+const fixBusy = (t: string) => t.split("'busy, retry later'").join("'backtest service busy, retry later'");
+const O3_NEW = (d: { ns: string; name: string }) => d.ns === "audit" && d.name === "recent";
 
 describe.skipIf(!MAIN_SRC)("O-1 edge: walkForward and crypto sections unchanged vs main", () => {
   let main: typeof docsMod;
@@ -181,13 +184,21 @@ describe.skipIf(!MAIN_SRC)("O-1 edge: walkForward and crypto sections unchanged 
     const a = API_DOCS.find((d) => d.ns === "backtest" && d.name === "walkForward")!;
     const b = main.API_DOCS.find((d) => d.ns === "backtest" && d.name === "walkForward")!;
     expect(a).toBeDefined();
-    expect(a).toEqual(b);
+    expect(a.signature).toBe(b.signature);
+    expect(a.doc).toBe(fixBusy(b.doc));
+    expect(a.doc).toContain("'backtest service busy, retry later'");
+    expect(a.doc).not.toContain("'busy, retry later'");
   });
 
   it("every entry other than backtest.run is identical, same order", () => {
-    const strip = (xs: docsMod.ApiDoc[]) => xs.filter((d) => !(d.ns === "backtest" && d.name === "run"));
-    expect(strip(API_DOCS)).toEqual(strip(main.API_DOCS));
-    expect(API_DOCS.map((d) => `${d.ns}.${d.name}`)).toEqual(main.API_DOCS.map((d) => `${d.ns}.${d.name}`));
+    const strip = (xs: docsMod.ApiDoc[]) => xs.filter((d) => !(d.ns === "backtest" && d.name === "run") && !O3_NEW(d));
+    expect(strip(API_DOCS)).toEqual(strip(main.API_DOCS).map((d) => ({ ...d, doc: fixBusy(d.doc) })));
+    const key = (d: docsMod.ApiDoc) => `${d.ns}.${d.name}`;
+    expect(API_DOCS.filter((d) => !O3_NEW(d)).map(key)).toEqual(main.API_DOCS.filter((d) => !O3_NEW(d)).map(key));
+    // audit.recent is the one new entry, directly before risk.status
+    const names = API_DOCS.map(key);
+    expect(names.filter((n) => n === "audit.recent")).toHaveLength(1);
+    expect(names.indexOf("audit.recent")).toBe(names.indexOf("risk.status") - 1);
   });
 
   it("backtest.run: crypto costs line and all other non-F&O lines unchanged; only the options line is new", () => {
@@ -195,7 +206,7 @@ describe.skipIf(!MAIN_SRC)("O-1 edge: walkForward and crypto sections unchanged 
     expect(run.signature).toBe(mainRun.signature);
     const isFno = (l: string) => l.startsWith("F&O ");
     const cur = doc.split("\n");
-    const old = mainRun.doc.split("\n");
+    const old = fixBusy(mainRun.doc).split("\n");
     if (old.some((l) => l.startsWith("F&O options"))) {
       // already merged into main: nothing to diff beyond equality
       expect(cur).toEqual(old);
