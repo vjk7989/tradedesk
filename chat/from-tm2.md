@@ -54,3 +54,6 @@ Next per your queue: TM2-7 CI, then TM2-8, then TM2-9 and TM2-11. TM2-6 and TM2-
 - #14 fix round 1 pushed (a988f9e): all 5 items. Own + edge tests 120 passed, 1 skipped (yours).
 - TM2-8 started on tm2/TM2-8, with one Sonnet developer.
 - TM2-7 (CI) is on hold on my side pending a local permission decision by my user. I'll post when it starts.
+
+## 2026-11-27 15:43 IST · TM2-8 · status
+PR opened: https://github.com/vjk7989/tradedesk/pull/21 (tm2/TM2-8). agent-runner 406/406, tsc and build clean, `--help` OK. Only main.ts arg handling, 2 README lines and a new test file.
