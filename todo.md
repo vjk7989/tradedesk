@@ -132,3 +132,7 @@ Detailed plan: `plan.md`.
 - TM2-18 · agent-runner · Telegram drain non-2xx (TM2) [x]
 - TM2-19 · e2e · smoke /readyz, risk:lint, --check (TM2) [.]
 - TM2-20 · docs · backtesting guide (TM2) [x]
+- O-3 · trade-mcp · audit.recent binding + busy text (OWNER) [.] (building)
+- TM2-21 · agent-runner · Telegram timeout tidy (TM2) [ ]
+- TM2-22 · docs · timeout clamp + truncation (TM2) [ ]
+- TM2-23 · trade-mcp · short-option qty cap (TM2) [ ]
