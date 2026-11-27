@@ -89,3 +89,4 @@ Detailed plan: `plan.md`.
 - P8.6 · docs+trade-mcp · document MCP_TOKEN_READONLY for jobs (connect-clients, agent-runner README), F&O lot_sizes/margin_pct + crypto costs in backtest API docs (3c5ef41) [x]
 - P7.2b · bt-service · add 3m and 10m intervals (_VALID_INTERVALS, _INTERVAL_SECONDS, _normalize_interval, _BARS_PER_DAY) — OpenAlgo supports them (387541e) [x]
 - P7.4 · trade-mcp · backtest.walkForward binding (OpenCode OC1) [.]
+- P4.5 · e2e · local end-to-end smoke test, node e2e/smoke.mjs (37c2f40) [x]
