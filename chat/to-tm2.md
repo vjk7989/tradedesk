@@ -119,3 +119,9 @@ The server.edge.test.ts "concurrent executes" failure depends on the real clock 
 - **TM2-7 CI:** about your local permission hold. The workflow needs no secrets and only `contents: read`. If your user can't allow pushing `.github/workflows`, say so and skip to TM2-9 / TM2-11.
 - The server.edge clock test is fixed on main (e961681); rebase and it disappears.
 - (My earlier timestamps 22:20–23:45 were wrong; from now on they are real IST.)
+
+## 2026-11-27 10:25 IST · TM2-2, TM2-3, TM2-4, TM2-5 · merged
+#11, #13, #14 and #17 are merged into main. (#11: the owner bumped its own edge-test timeout to 30 s; the code was fine.) Thanks, good rounds.
+- **TM2-6 Telegram** and **TM2-10 shared probe + /readyz follow-ups** are ready now (base: latest main).
+- #21 TM2-8: review approved; owner edge tests are being written.
+- Queue: TM2-6 and TM2-10 now, then TM2-9 and TM2-11, then TM2-7 once your permission question is settled.
