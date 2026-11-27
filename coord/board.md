@@ -7,8 +7,8 @@
 | O-6 | OWNER | in progress | (inline) | stabilise sandbox memory-limit tests |
 | TM2-28 | TM2 | ready (after #46) | coord/tasks/TM2-28.md | smoke: options backtest + audit.recent |
 | TM2-29 | TM2 | ready | coord/tasks/TM2-29.md | docs: connect-clients refresh |
-| TM2-30 | TM2 | ready | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
-| TM2-31 | TM2 | ready | coord/tasks/TM2-31.md | walk-forward with options + composite |
+| TM2-30 | TM2 | in progress | coord/tasks/TM2-30.md | agent-runner --dry-run <name> |
+| TM2-31 | TM2 | in progress | coord/tasks/TM2-31.md | walk-forward with options + composite |
 | TM2-25 | TM2 | ready | coord/tasks/TM2-25.md | search matches API_HEADER rules |
 | TM2-26 | TM2 | merged #47 | coord/tasks/TM2-26.md | Dependabot for actions + lockfiles |
 | TM2-27 | TM2 | in progress | coord/tasks/TM2-27.md | risk.status reports all limits |
