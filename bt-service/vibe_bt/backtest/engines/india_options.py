@@ -217,18 +217,23 @@ class IndiaOptionsEngine(FuturesBaseEngine):
 
     # ── expiry settlement ──
 
+    @staticmethod
+    def _upto_expiry(frame, spec: OptionSpec, col: str = "close") -> pd.Series:
+        """Valid (non-NaN) ``col`` values on or before the expiry DATE (no look-ahead)."""
+        cutoff = pd.Timestamp(spec.expiry) + pd.Timedelta(days=1)
+        if frame.index.tz is not None:
+            cutoff = cutoff.tz_localize(frame.index.tz)
+        return pd.to_numeric(frame.loc[frame.index < cutoff, col], errors="coerce").dropna()
+
     def _settlement_price(self, code: str, spec: OptionSpec, data_map, timestamp) -> float:
         und = data_map.get(self.underlying.get(spec.root, ""))
         if und is not None and len(und):
-            cutoff = pd.Timestamp(spec.expiry) + pd.Timedelta(days=1)
-            if und.index.tz is not None:
-                cutoff = cutoff.tz_localize(und.index.tz)
-            hist = und.loc[und.index < cutoff, "close"]
+            hist = self._upto_expiry(und, spec)
             if len(hist):
                 s = float(hist.iloc[-1])
                 return max(s - spec.strike, 0.0) if spec.kind == "CE" else max(spec.strike - s, 0.0)
-        # no underlying: last VALID option close up to and including the expiry bar (no look-ahead)
-        closes = pd.to_numeric(data_map[code].loc[:timestamp, "close"], errors="coerce").dropna()
+        # no underlying: last VALID option close on or before the expiry date
+        closes = self._upto_expiry(data_map[code], spec)
         if len(closes):
             return float(closes.iloc[-1])
         logger.warning("%s: no valid premium at expiry %s and no underlying series; settling at 0", code, spec.expiry)
