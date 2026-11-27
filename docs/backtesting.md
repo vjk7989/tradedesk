@@ -272,14 +272,14 @@ Anything else fails with `unsupported interval`. India sessions: 09:15 to 15:30 
 - Crypto: funding is a fixed rate unless `perpetual_strict` with
   `funding_mode: "data"`; fills and liquidation are simplified.
 - Composite: one currency, no FX translation.
-- Result caps: the service keeps 500 equity points and 1000 trades
-  (`equity downsampled to 500 points`); MCP cuts to 100 and 20.
+- Result caps: service 500 equity points and 1000 trades (warnings `equity downsampled
+  to 500 points`, `trades truncated to 1000 of <N>`); MCP 100 points, 20 trades, `tradeCount`.
 
 ## 5. Limits and timeouts
 
-`execute` stops at `EXECUTE_TIMEOUT_MS` (default 60 s); raise it to at least 660000
-for walk-forward. Service errors: `backtest service busy, retry later`,
-`backtest service not configured`.
+`execute` stops at `EXECUTE_TIMEOUT_MS`: default 60000, clamped to 5000..900000.
+walkForward needs about 660000: set at least that, plus a longer client timeout.
+Errors: `backtest service busy, retry later`, `backtest service not configured`.
 
 ## 6. Running examples offline
 
