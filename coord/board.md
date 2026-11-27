@@ -12,8 +12,8 @@
 | TM2-6 | TM2 | ready (after TM2-3 merged) | coord/tasks/TM2-6.md | Telegram notifications for job reports |
 | TM2-3 | TM2 | review | coord/tasks/TM2-3.md | agent-runner Gemini API backend |
 | TM2-4 | TM2 | review | coord/tasks/TM2-4.md | sync OpenAlgo holidays into risk.json |
-| TM2-1 | TM2 | testing | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
-| TM2-2 | TM2 | testing | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
+| TM2-1 | TM2 | done | coord/tasks/TM2-1.md | VPS backup/restore scripts + docs |
+| TM2-2 | TM2 | fix | coord/tasks/TM2-2.md | trade-mcp audit log rotation + retention |
 | TM-13 | TM1 | ready | coord/tasks/TM-13.md | persist OAuth codes/pending/rate-limit across restarts |
 | TM-14 | TM1 | ready | coord/tasks/TM-14.md | NSE index options backtest engine (CE/PE) |
 | TM-12 | TM1 | review | coord/tasks/TM-12.md | EXECUTE_TIMEOUT_MS in compose/.env.example/runbook |

@@ -75,11 +75,8 @@ Hard stop: `docker compose stop trade-mcp`. Also disable the OpenAlgo API key or
 - [ ] Place one minimal order and confirm; know how to trigger the kill switch.
 
 ## 11. Backups
-```
-docker run --rm -v deploy_openalgo_db:/v -v $PWD:/b alpine tar czf /b/openalgo_db-$(date +%F).tgz -C /v .
-docker run --rm -v deploy_trade_mcp_data:/v -v $PWD:/b alpine tar czf /b/trade_mcp_data-$(date +%F).tgz -C /v .
-```
-(Volume prefix is the compose project name, `deploy` by default; check `docker volume ls`.) Also back up `deploy/.env`, `openalgo.env`, `risk.json`, and the `openalgo_keys` volume. Store off-server, encrypted.
+- Backups and restore: see [docs/backup.md](backup.md) (daily `deploy/backup.sh`, off-site rsync, restore drill).
+- Every volume, plus `.env`, `openalgo.env` and `risk.json`, is covered. Backups contain secrets, so store them off-server and encrypted.
 
 ## 12. Updates and logs
 ```

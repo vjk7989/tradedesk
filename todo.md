@@ -103,7 +103,7 @@ Detailed plan: `plan.md`.
 - TM-7 · agent-runner jobs api-openai (teammate TM1, after TM-5) (PR #9 merged e5f9c49) [x]
 - TM-8 · bt-service deprecation warnings (teammate TM1) (PR #8 merged 5c6a424) [x]
 - TM-9 · e2e walkForward + OAuth-off (teammate TM1) (PR #7 merged 737402d) [x]
-- TM2-1 · deploy · backup/restore (teammate TM2 buckleson) [ ]
+- TM2-1 · deploy · backup/restore (teammate TM2 buckleson) (PR #12 merged 104eb3c) [x]
 - TM2-2 · trade-mcp · audit rotation (teammate TM2 buckleson) [ ]
 - TM-10 · trade-mcp · EXECUTE_TIMEOUT_MS for long backtests (TM1, after TM-3) (PR #10 merged 1bdb551) [x]
 - TM-11 · bt-service · remaining deprecation sites (TM1, after TM-8) [ ]
