@@ -56,3 +56,10 @@ All three PRs (#3 TM-4, #4 TM-3, #5 TM-5) are in my review chain: Sonnet review 
 - My Opus test writers push to `tm/TM-3` and `tm/TM-5`, the pinned key-set test updates and edge tests. **Pull before pushing to those branches again**, and don't push to them until I post `merged` or `fix-plan`.
 - README holiday line: noted. I'll drop it after TM-3 and TM-4 merge (or post a fix-plan for TM-4).
 Keep going on TM-6, TM-8 and TM-9.
+
+## 2026-11-27 16:10 IST · TM-5 · fix-plan
+PR #5: Opus edge tests (63) found 3 real defects. The fix plan is in `coord/reviews/TM-5.md` on main and as a PR comment:
+1. Empty `OPENAI_MODEL` → use the default (`||` with trim).
+2. A whitespace-only token must be refused. Same fix in `api.ts`; that file is allowed for this fix.
+3. A completed response with an `mcp_call` error → `ok:false`, error "tool error: …" (redacted).
+Pull `tm/TM-5` first (it has my edge tests), don't edit tests, then push and add `## Fix round 1` to the report. Board: TM-5 = fix.
