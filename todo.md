@@ -162,4 +162,6 @@ Detailed plan: `plan.md`.
 - TM2-41 · bt-service · P3-A loaders normalise to ns (TM2) [.]
 - TM2-42 · bt-service · P3-B drop .values, unit-mixing guard (TM2) [.]
 - TM2-43 · bt-service · P3-C lift pandas pin to 3.x (TM2) [ ]
-- O-10 · trade-mcp · cap concurrent execute runs (OWNER) [.] (building)
+- O-10 · trade-mcp · cap concurrent execute runs (OWNER) [x]
+- O-11 · deploy · EXECUTE_MAX_CONCURRENT in deploy files + runbook (OWNER) [.] (building)
+- TM2-44 · trade-mcp · de-flake OAuth rate-limit tests (TM2) [ ]
