@@ -1,5 +1,5 @@
 import { parse } from "acorn";
-import { newQuickJSWASMModule, type QuickJSContext, type QuickJSHandle, type QuickJSRuntime } from "quickjs-emscripten";
+import { newQuickJSWASMModule, newVariant, RELEASE_SYNC, type QuickJSContext, type QuickJSHandle, type QuickJSRuntime } from "quickjs-emscripten";
 
 export type Bindings = Record<string, Record<string, (args: unknown) => Promise<unknown>>>;
 
@@ -33,6 +33,11 @@ const MAX_RESULT_BYTES = 4 * 1024 * 1024;
 // Only parses of at least this many chars pay for the host check (small ones are cheap, and loops of them
 // run enough bytecodes for the interrupt handler to see the ceiling).
 const GUARD_MIN_CHARS = 16 * 1024;
+// The module's initial linear memory (what it measures right after creating a context: 16 MB). Its
+// hard maximum is the ceiling + this baseline, so any native call (repeat, join, replace, RegExp, sort,
+// stringify, ...) that grows past it gets a failed malloc, i.e. an "out of memory" InternalError in the guest.
+const WASM_PAGE = 64 * 1024;
+const WASM_INITIAL_PAGES = 256;
 const MEMORY_ERROR = "memory limit exceeded";
 // Binary-buffer surface that trading scripts never need (shared memory, raw views, wasm).
 const REMOVED_GLOBALS = [
@@ -58,7 +63,8 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
   const fail = (error: string): RunResult => ({
     ok: false,
     logs,
-    error: memoryExceeded ? MEMORY_ERROR : Date.now() > deadline ? timeoutMsg : error,
+    error:
+      memoryExceeded || /out of memory/i.test(error) ? MEMORY_ERROR : Date.now() > deadline ? timeoutMsg : error,
     ...(truncated ? { truncated } : {}),
   });
   // Total: hostile errors (throwing message getters, toString, Symbol.toPrimitive, Proxies) never throw.
@@ -96,7 +102,9 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     if (wasmMemory && wasmMemory.buffer.byteLength > wasmCeiling) memoryExceeded = true;
   };
   try {
-    const QuickJS = await newQuickJSWASMModule();
+    const maxPages = Math.ceil((memoryBytes + WASM_HEADROOM) / WASM_PAGE) + WASM_INITIAL_PAGES;
+    const memory = new WebAssembly.Memory({ initial: WASM_INITIAL_PAGES, maximum: maxPages });
+    const QuickJS = await newQuickJSWASMModule(newVariant(RELEASE_SYNC, { wasmMemory: memory }));
     runtime = QuickJS.newRuntime();
     runtime.setMemoryLimit(memoryBytes);
     runtime.setMaxStackSize(512 * 1024);
@@ -158,7 +166,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     try {
       const install = vm.unwrapResult(
         vm.evalCode(
-          `(guard) => { const P = JSON.parse; Object.defineProperty(JSON, "parse", { value: function parse(text, reviver) { const v = P(text, reviver); if (typeof text === \"string\" && text.length > ${GUARD_MIN_CHARS} && guard()) throw new Error(${JSON.stringify(MEMORY_ERROR)}); return v; }, writable: true, configurable: true }); }`,
+          `(guard) => { const P = JSON.parse, Str = String; Object.defineProperty(JSON, "parse", { value: function parse(text, reviver) { const s = Str(text); const v = P(s, reviver); if (s.length > ${GUARD_MIN_CHARS} && guard()) throw new Error(${JSON.stringify(MEMORY_ERROR)}); return v; }, writable: true, configurable: true }); }`,
         ),
       );
       try {
