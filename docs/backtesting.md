@@ -193,8 +193,7 @@ legs delegate lot sizing, margin and expiry to the options engine.
 
 ## 3. walkForward
 
-Tunes `params` on each train window, freezes the winner, and scores it on the next
-out-of-sample test window.
+Tunes `params` on each train window, freezes the winner, scores it on the next test window.
 
 ```js
 const r = await backtest.walkForward({
@@ -222,21 +221,22 @@ class SignalEngine:
         return out
 ```
 
-- Windows are calendar days: `trainDays` 20 to 3650, `testDays` 5 to 3650. Folds
-  start at `start` and step forward by `testDays`; the last window must end by `end`.
-- `candidates`: 1 to 10 objects. `metric`: `sharpe` (default), `total_return`, `calmar`.
-- Budget: folds x (candidates + 1) runs, at most 60; time budget 600 s by default
-  (`BT_WALKFORWARD_BUDGET_S`, clamped 30 to 3600).
+- Windows are calendar days: `trainDays` 20 to 3650, `testDays` 5 to 3650; folds step
+  forward by `testDays` from `start`, the last window ending by `end`. `candidates`: 1 to
+  10 objects. `metric`: `sharpe` (default), `total_return`, `calmar`. Budget: folds x
+  (candidates + 1) runs, at most 60; time 600 s by default (`BT_WALKFORWARD_BUDGET_S`, 30 to 3600).
 
 Reading the result:
 
-- `folds[i].train` and `.test` are `[start, end)` date pairs; `chosen` is the
-  candidate that scored best on train; `trainScore` is that score; `testMetrics`
-  is the full metric set for the frozen candidate on unseen data.
-- Large `trainScore` with weak `testMetrics[metric]` means overfit parameters.
-- `summary`: `folds`, `scored_folds`, `mean_test_<metric>`, `positive_folds`.
-- `oosEquity` chains the test windows (each rescaled to start where the last
-  ended), at most 100 points. Warnings are prefixed `fold <i>:`.
+- `folds[i]`: `train`/`test` `[start, end)` dates, `chosen` (best train candidate),
+  `trainScore`, `testMetrics` on unseen data; a large `trainScore` with weak
+  `testMetrics[metric]` means overfit. `summary`: `folds`, `scored_folds`,
+  `mean_test_<metric>`, `positive_folds`. `oosEquity` chains the test windows, each
+  rescaled to continue from the previous fold's last value; max 100 points.
+- Warnings are prefixed `fold <i>:`. A train or test run with fewer than 10 equity points
+  warns `fold <i>: thin <train|test> window (<n> bars < 10)`. With `1D` bars on
+  weekday-only markets, `testDays` of 11 or less always warns (at most 9 weekdays);
+  7-day crypto bars warn up to 9. `time budget exceeded` failures also return `warnings`.
 
 ## 4. Reference
 
