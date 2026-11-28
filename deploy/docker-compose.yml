@@ -98,9 +98,10 @@ services:
     build:
       context: ../paper-bot
     environment:
-      SYMBOLS: ${SYMBOLS:-BTCUSD}
+      SYMBOLS: ${SYMBOLS:-BTCUSD,ETHUSD}
       RESOLUTION: ${RESOLUTION:-5m}
-      INTERVAL_SEC: ${INTERVAL_SEC:-60}
+      # >= the candle period (RESOLUTION) so ticks align to candle close; smaller values just repeat "already processed" holds.
+      INTERVAL_SEC: ${INTERVAL_SEC:-300}
       FAST: ${FAST:-9}
       SLOW: ${SLOW:-21}
       ALLOW_SHORT: ${ALLOW_SHORT:-0}
