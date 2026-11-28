@@ -11,6 +11,8 @@ Shims on PATH (python shebang scripts, as in the TM2-75 tests):
 - tar (one test only): writes partial plaintext and exits 1, to prove pipefail is honoured;
 - backup.sh via the test-only TRADEDESK_BACKUP_SH override: writes a fake backup dir holding
   SECRET_SENTINEL and a fake private key, or fails / produces zero or two dirs.
+The ENTIRE PATH is the shim dir plus a sandbox dir of symlinks to the real tools needed, so a
+real age/gcloud on the host (e.g. /usr/bin/gcloud on GitHub runners) is never reachable.
 """
 import json
 import os
@@ -109,13 +111,28 @@ def _write_exe(path, text):
     path.chmod(0o755)
 
 
-def _base_path():
-    """The caller's PATH without any dir that holds a real age or gcloud."""
-    keep = []
-    for d in os.environ.get("PATH", "").split(os.pathsep):
-        if d and not any(os.access(os.path.join(d, x), os.X_OK) for x in ("age", "gcloud")):
-            keep.append(d)
-    return os.pathsep.join(keep)
+# Real tools the script (and bash itself) may run. Real age/gcloud are never linked, so the
+# sandbox PATH is identical on hosts with and without them (GitHub runners ship gcloud in /usr/bin).
+REQUIRED_TOOLS = ("bash", "sh", "dirname", "mkdir", "mktemp", "chmod", "stat", "find", "rm", "grep", "head", "tar")
+OPTIONAL_TOOLS = ("basename", "cat", "tail", "date", "gzip", "sed", "tr", "wc", "env", "sort", "ls", "id",
+                  "pwd", "true", "false", "test", "[", "printf", "echo")
+_ORIG_PATH = os.environ.get("PATH", "")
+
+
+def _sandbox_bin(d):
+    """A dir of symlinks to exactly the real tools needed, resolved on the original PATH."""
+    d.mkdir()
+    missing = []
+    for t in REQUIRED_TOOLS + OPTIONAL_TOOLS:
+        real = shutil.which(t, path=_ORIG_PATH)
+        if real is None:
+            if t in REQUIRED_TOOLS:
+                missing.append(t)
+            continue
+        (d / t).symlink_to(real)
+    if missing:
+        pytest.fail(f"required host tools not found on PATH: {missing}")
+    return d
 
 
 @pytest.fixture
@@ -131,7 +148,7 @@ def env(tmp_path):
     e = {k: v for k, v in os.environ.items()
          if not k.startswith(("FAKE_", "BACKUP_", "AGE_", "CLOUDSDK_")) and k != "TRADEDESK_BACKUP_SH"}
     e.update(
-        PATH=f"{bindir}{os.pathsep}{_base_path()}",
+        PATH=f"{bindir}{os.pathsep}{_sandbox_bin(tmp_path / 'sysbin')}",  # the ENTIRE PATH
         TMPDIR=str(tmp_path / "tmpdir"),
         BACKUP_BUCKET="my-bucket",
         AGE_RECIPIENTS_FILE=str(rcpt),
