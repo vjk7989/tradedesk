@@ -8,10 +8,9 @@ Files: deploy/docker-compose.yml, deploy/Caddyfile, deploy/.env.example, .github
 
 ## Pinned failures in existing tests (not edited; need the test writer)
 - test_deploy.py::test_services_exact: expects the old service set (no paper-bot).
-- Tests that write their own env file without DASH_USER/DASH_PASSWORD_HASH now fail on `:?set ...`:
-  test_deploy.py (optional_vars_unset_defaults, empty_oauth_enabled, execute_timeout_ms_default, readonly_token), test_o11_edge.py::resolves_execute_max_concurrent (4), test_tm12_edge.py::resolves_execute_timeout (4), test_tm2_47_limits.py::docker_config_defaults_and_overrides.
-  Fix: add the two vars to those fixtures, or relax to `:-` if the owner prefers.
-Result: 14 failed, 269 passed, 3 skipped (new test_pb2.py passes).
+- (Resolved in fix round 1) the 13 fixture-driven failures went away once DASH_USER/DASH_PASSWORD_HASH got fail-closed defaults instead of `:?`.
+- Compose default hash: every `$` is written `$$` in docker-compose.yml, so it resolves to the exact 60-char bcrypt string (`docker compose config` re-escapes `$` as `$$` when printing).
+Result: only test_services_exact fails (282 passed, 3 skipped).
 
 ## Runbook (add after deploy)
 ### paper-bot dashboard
