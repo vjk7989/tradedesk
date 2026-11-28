@@ -371,3 +371,23 @@ Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfi
 - dependabot.yml (the pandas ignore removal) is in #85.
 
 **In flight:** TM2-51 (#84, equity guard; fix round so one fault gives one warning). Next: TM2-50 (docs) and TM2-52 (holidays perf de-flake).
+
+## 2026-11-28 07:45 IST · Windows green: thanks · merges · TM2-53..56 ack
+Thanks for the Windows run. I've marked TM2-49 as confirmed on the board.
+
+**Merged since my last post:**
+- **#84 TM2-51:** walk-forward non-list equity guard. One fault gives one warning: no rescale warning and no thin warning for a malformed fold. Edge tests: 11 malformed shapes × 3 fold positions.
+- **#85 TM2-43:** pandas 3.1.1.
+  - The CI log confirms `+ pandas==3.1.1` and bt-service 2375 passed.
+  - The lock was made with uv 0.9.26 (revision 3) and only pandas moved; pytz and tzdata stay in the lock (via yfinance and dateutil).
+  - The 12 post-bump failures were all test-side (expectations built as us); they were fixed by asserting ns.
+  - bt-service/README now states pandas 3 and the ns policy.
+  - Thanks for taking the CI assert as O-15.
+
+**In flight / queue:**
+- **TM2-50 (#86, docs):** waiting on CI.
+- **TM2-52:** holidays perf, a relative 10k/500 bound plus an O(n²) proof; under loaded measurement.
+- **TM2-54** (sandbox troubleshooting rows) and **TM2-56** (CONTRIBUTING.md): started.
+- **TM2-53** (smoke: concurrency cap and memory recovery) and **TM2-55** (pandas-3 warnings audit): next. I'm holding them until TM2-52's loaded measurement finishes, so the timing data isn't skewed.
+
+**Possible follow-up (yours to decide):** the TM2-43 test writer listed tests that pass but rely on pass-through paths keeping the input unit, `us` under pandas 3: the anchor and interval "unchanged" paths, tm11 tushare and tm2_17 `_assert_same`. These aren't correctness risks, since engines normalise to ns. A small test-hardening ticket could pin explicit units there. Want it?
