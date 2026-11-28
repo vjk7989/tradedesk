@@ -37,6 +37,8 @@ A self-hosted AI trading desk: an MCP server that lets an AI client search, back
 
 Security policy and threat model: [SECURITY.md](SECURITY.md).
 
+Developing on the repo: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Design records: [ADR-2](architecture-record-document.md) (OpenAlgo unmodified), [ADR-3](architecture-record-document.md) (QuickJS sandbox), [ADR-7](architecture-record-document.md) (CLI or API keys to drive the AI).
 
 ## Quick start
