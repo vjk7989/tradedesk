@@ -23,9 +23,9 @@ Assets the design protects:
 **1. Untrusted AI-written code runs through `execute`.**
 - Code runs in a QuickJS (WASM) sandbox with no network, filesystem or process access ([ADR-3](architecture-record-document.md)). It is parsed on the host first, so it cannot close its wrapper ([ADR-8](architecture-record-document.md)).
 - No ArrayBuffer, typed arrays or WebAssembly in the guest; WASM heap ceiling; binding arguments capped at 1 MB, 64 calls in flight and `memoryBytes` of pending bytes; binding results capped ([ADR-18](architecture-record-document.md)).
-- Code size is capped at 100 KB, and a time limit applies (30 s default).
+- Code size is capped at 100 KB, and a time limit applies (60 s default, `EXECUTE_TIMEOUT_MS`, clamped to 5-900 s).
 - Concurrent `execute` runs are capped (`EXECUTE_MAX_CONCURRENT`, default 4, max 32).
-- Further in-run memory checks (O-13) are in progress and not yet merged.
+- Known gap: the in-run memory check can miss a tight native or `JSON.parse` loop until the run ends, when the post-run heap check catches it (host growth stays bounded by the binding caps). The fix (O-13) is in progress and not yet merged.
 
 **2. Prompt injection leading to trading.** Whatever the model is told, orders pass a server-side risk engine that sandbox code cannot change ([ADR-5](architecture-record-document.md)):
 - Caps on quantity, notional, orders per run and per day, and an optional cap on short option quantity.
@@ -37,8 +37,9 @@ Assets the design protects:
 
 **3. Credential leakage.**
 - Audit entries redact values by key name. `audit.recent` additionally scrubs the configured secret values.
-- Responses from `search` and `execute` have configured secret values replaced with `[REDACTED]`. `/readyz` returns fixed enum strings only, never URLs, keys or error text.
-- Upstream client errors have their own key or token redacted.
+- Responses from `search` and `execute` have configured secret values replaced with `[redacted]` (this includes the backtest-service token). Audit entries and `audit.recent` use `[REDACTED]`. `/readyz` returns fixed enum strings only, never URLs, keys or error text.
+- Errors from the OpenAlgo client have its API key redacted (the backtest client does the same for its token).
+- `agent-runner --dry-run` and `--history` redact all known secret env values from their output; `--check` prints only env var names and set/missing state.
 
 **4. The network.**
 - Only Caddy publishes ports (80 and 443). trade-mcp, OpenAlgo and bt-service are `expose`d on the compose network only. Caddy forwards only a fixed path allowlist to trade-mcp. Note that Caddy also proxies the OpenAlgo web UI on its own subdomain; protect it with OpenAlgo's login and a strong password.
@@ -46,7 +47,7 @@ Assets the design protects:
 - Static bearer tokens are compared in constant time.
 - OAuth (for ChatGPT and claude.ai): PKCE, a client-registration allowlist for redirect hosts, refresh-token rotation where reuse of a rotated token revokes the whole token family, and an operator `oauth:revoke-all` command that refuses to run while the server is up (runbook section 13). Static tokens are not covered by it; rotate them in `.env`.
 
-**5. Supply chain.** CI actions are pinned to commit SHAs with read-only permissions. Dependabot opens weekly update PRs with no auto-merge. Python lockfiles are generated with the uv version pinned to the production image ([bt-service README](bt-service/README.md)).
+**5. Supply chain.** CI actions are pinned to commit SHAs with read-only permissions. Dependabot opens weekly update PRs with no auto-merge. Python lockfiles are meant to be generated with the uv version pinned to the production image; this is a documented convention ([bt-service README](bt-service/README.md)), not enforced by CI.
 
 ## Known limits (accepted)
 
