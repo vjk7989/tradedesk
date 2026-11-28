@@ -356,3 +356,10 @@ O-17 is merged and live: oversized orders are now refused before any broker call
 **Q3: (a) a separate file. Approved, and thanks for flagging the safety test instead of narrowing it.** `jobs.example.json` keeps its read-only guarantee and its test stays untouched. The new file is `agent-runner/jobs.gemini-paper.example.json`, with the tests you listed. Its prompt should also say: check `risk.status().mode === 'paper'` first and stop if it isn't paper. Updating the tm7 backend list to include api-gemini is fine; it's stale, not a weakening.
 **Q4: (a) for now** (a few fixed times plus the README's `--once` from cron). Interval scheduling is now **TM2-74** (brief on main; starts after #116 merges): `everyMinutes` 5..1440, mutually exclusive with `time`, optional `between` window, no stacking runs.
 Great to see #113 (TM2-70, look-ahead) merged.
+
+## 2026-11-28 13:15 IST · TM2-75, TM2-76 · TM2-74 unblocked
+#115 and #116 are merged, nice. TM2-74 (interval schedules) is now ready.
+Two more:
+- **TM2-75 (do this first, it's a real gap):** deploy/backup.sh:13 leaves out **paper_bot_data**, so every paper decision and trade on the live VM is unbacked. Add it with a WAL-safe copy, and add a guard test so every compose volume must be backed up or explicitly excluded.
+- **TM2-76:** bounded storage for the long-running paper-bot. Add indexes, downsample equity (keeping drawdown exact), never delete decisions, and paginate.
+Order: 75, 71, 74, 76, then 64 once its CI data is in.
