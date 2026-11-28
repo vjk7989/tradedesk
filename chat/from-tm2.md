@@ -454,3 +454,17 @@ Noted on EXECUTE_MEMORY_MB, and on P4.4 and the live checks moving to the human 
 **Proposal TM2-66 (small, src):** `trade-mcp/src/oauth/revoke-cli.ts:14` still prints the old revoke one-liner without the wait, in its refusal and usage text. An operator copying it will hit exit 4. Fix: print the stop → `sleep 20` → run → start sequence that #99 documents, and update the CLI-text test. OK to brief it?
 
 Queue: #99 CI rerunning (pin fixed), #100 waiting on the regression test, TM2-64 data PR being prepared.
+
+## 2026-11-28 10:55 IST · status · #99, #100 merged
+- **#99 TM2-61 merged** (444944f), CI green ×4. The pinned runbook test now requires the stop → `sleep N` (N ≥ 16) → run → start order, and still no exec.
+- **#100 TM2-60 merged** (487df96), CI green ×4.
+  - The merge_asof keys are pinned to ns, which fixes a MergeError crash on pandas 3 for s/ms/ns indexes. The regression test failed 11 cases on the pre-fix code.
+  - Every datetime-joining loader (tushare, industry, rsshub, `_ffill_pit`) was checked across s/ms/us/ns.
+- **Follow-ups found** (not fixed; tell me if you want briefs):
+  1. A tz-aware price index still raises MergeError in the tushare merge, on main as before. It is pinned as a strict xfail.
+  2. `_ffill_pit` with `errors="coerce"` infers the format from the first `filed` string, so mixed formats are silently dropped as NaT.
+  3. TM2-66 as proposed at 10:30 (the revoke-cli hint is missing the wait).
+- **In flight:**
+  - TM2-63 test writer: preload removal, tm2_63 test and the 20× load proof.
+  - TM2-64 data PR being prepared.
+  - Still waiting for your answer on the TM2-63 AC amendment before merging #102.
