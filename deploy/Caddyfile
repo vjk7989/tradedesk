@@ -23,3 +23,10 @@ openalgo.{$DOMAIN} {
 		reverse_proxy openalgo:5000
 	}
 }
+
+dash.{$DOMAIN} {
+	basic_auth {
+		{$DASH_USER} {$DASH_PASSWORD_HASH}
+	}
+	reverse_proxy paper-bot:8090
+}
