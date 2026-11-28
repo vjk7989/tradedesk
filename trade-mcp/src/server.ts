@@ -16,6 +16,7 @@ export interface ServerDeps {
   auditFile: string;
   bt?: BacktestClient;
   executeTimeoutMs?: number;
+  executeMemoryBytes?: number;
   /** "readonly" removes the trade namespace; default (stdio) is full. */
   scope?: "full" | "readonly";
 }
@@ -66,7 +67,7 @@ ${JSON.stringify({ ok: false, error: "busy: too many concurrent executes, retry 
       const runId = randomUUID();
       let r: Awaited<ReturnType<typeof runCode>>;
       try {
-        r = await runCode(code, createBindings(deps, { id: runId }), { timeoutMs: deps.executeTimeoutMs ?? 60000 });
+        r = await runCode(code, createBindings(deps, { id: runId }), { memoryBytes: deps.executeMemoryBytes ?? deps.cfg.executeMemoryBytes ?? 64 * 1024 * 1024, timeoutMs: deps.executeTimeoutMs ?? 60000 });
       } finally {
         inFlightExecutes--;
       }
