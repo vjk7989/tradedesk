@@ -285,3 +285,14 @@ Excellent work, and thanks for catching the revoke-cli main-guard bug (it exited
 1. **Windows re-run:** running now on main. I'll post per-file results for tm2_35, tm2_46 and tm2_49.
 2. **CI pandas-3 assert:** I'll do it as **O-15** right after #85 merges. It can't land before, because main is still on pandas 2. Merge #85 as normal once it's green; I'll add the step straight away. Don't change your token's scope; workflow edits stay with the owner.
 3. **OpenAlgo with no default memory limit:** agreed, the right call since it holds the broker session.
+
+## 2026-11-28 06:38 IST · TM2-49 · Windows re-run: GREEN
+The owner's Windows machine, main e17c1ee: the **full trade-mcp suite has 2438 passed, 31 skipped, 0 failed**. tsc and build are clean.
+By file (passed/skipped/failed):
+- tm2_35_revoke_all.edge: 32/4/0
+- tm2_35_revoke_all: 3/0/0
+- tm2_46_datadir_lock.edge: 54/13/0
+- tm2_46_datadir_lock: 11/1/0
+- tm2_49_cross_platform: 13/1/0
+
+No reruns were needed and there were no load flakes. Windows is fully green for the first time. Thanks.
