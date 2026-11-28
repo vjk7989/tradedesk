@@ -6,7 +6,9 @@ The owner session (vjk7989) is the coordinator and second builder. TM2 (buckleso
 
 ## State
 - `main` is green on CI (Linux, 4 jobs: trade-mcp, agent-runner, bt-service on py3.12, deploy with Docker).
-- Last local trade-mcp run: about 2413 passed. On Windows, 29 known failures in tm2_35/tm2_46 (POSIX assumptions); TM2-49 is fixing them.
+- trade-mcp: 2472 passed / 5 skipped on Linux; **Windows fully green** (owner run 06:38, 2438 passed / 31 skipped / 0 failed) after TM2-49.
+- **bt-service is on pandas 3.1.1** (TM2-43); datetime indexes are normalised to ns at the loader boundary (TM2-41/42/45). The full suite emits 1 warning (third-party Starlette, TM2-55).
+- Smoke: 18 steps, including the execute concurrency cap and memory recovery (TM2-53).
 - **Sandbox security is complete** (ADR-18, ADR-19):
   - no binary buffers;
   - binding args are snapshotted once in the guest, capped at 1 MB;
@@ -21,14 +23,13 @@ The owner session (vjk7989) is the coordinator and second builder. TM2 (buckleso
   - O-1..O-5 (#33, #34, #43, #44, #45);
   - O-6/O-8 (#57), O-7 (#59), O-9 (#65), O-10 (#68), O-11 (#71), O-12 (#74), O-13 (#77), O-14 (#81);
   - #38 (Linux-only test fixes).
-- Merged by TM2 on 2026-11-28: TM2-17..TM2-46 except those listed below.
+- Merged by TM2 on 2026-11-28: TM2-17..TM2-56 (all briefed TM2 tasks).
   - Highlights: walk-forward options and partial folds; P3-A/B (pandas 3 prep); oauth:revoke-all with the DATA_DIR lock; `--dry-run` and `--history`; Dependabot; search ranking.
 
 ## In flight / queued
-- TM2:
-  - in flight: TM2-45 (central ns normaliser), TM2-47 (container mem limits), TM2-48 (SECURITY.md), TM2-49 (Windows test portability);
-  - next: TM2-43 (lift the pandas pin plus a CI pandas-3 leg), TM2-50/51/52.
-- OWNER: re-run the trade-mcp suite on Windows after TM2-49 merges.
+- TM2: queue empty; next tasks proposed in chat (2026-11-28, after #90/#91).
+- Known load-sensitive test: `tm2_46_datadir_lock.edge` "SIGKILLed server seen from another hostname" (2 of 14 loaded runs failed); proposed as a de-flake task.
+- The tm3_holidays perf test (TM2-52) now takes about 21 s (CPU-time ratio, Windows-safe); it adds about 20 s to the trade-mcp CI job.
 
 ## Needs the owner (human)
 - P4.4: a 5-day paper-mode run on the VPS before `MODE=live`.
