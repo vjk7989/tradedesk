@@ -2,7 +2,23 @@
 	email {$ACME_EMAIL}
 }
 
+(security_headers) {
+	header {
+		# defer: apply after the upstream response so these override upstream values
+		defer
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+}
+
 mcp.{$DOMAIN} {
+	import security_headers
+	header {
+		defer
+		X-Frame-Options "DENY"
+	}
 	@allowed path /mcp /mcp/* /healthz /authorize /token /register /revoke /login /.well-known/*
 	handle @allowed {
 		reverse_proxy trade-mcp:8787 {
@@ -15,6 +31,8 @@ mcp.{$DOMAIN} {
 }
 
 openalgo.{$DOMAIN} {
+	import security_headers
+	# No X-Frame-Options/CSP here: OpenAlgo's UI relies on inline scripts/styles and may use frames
 	# OpenAlgo WebSocket proxy (WEBSOCKET_URL=wss://openalgo.<domain>/ws; prefix stripped)
 	handle_path /ws* {
 		reverse_proxy openalgo:8765
@@ -25,6 +43,12 @@ openalgo.{$DOMAIN} {
 }
 
 dash.{$DOMAIN} {
+	import security_headers
+	header {
+		defer
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
+	}
 	basic_auth {
 		{$DASH_USER} {$DASH_PASSWORD_HASH}
 	}
