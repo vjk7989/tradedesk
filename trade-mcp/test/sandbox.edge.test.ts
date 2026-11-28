@@ -393,12 +393,22 @@ describe("sandbox limits", () => {
     const baseHandles = process.getActiveResourcesInfo().length;
 
     const ms: number[] = [];
+    // TM2-64 (temporary): per-run memory samples (gc every 5th run), outside the timed region.
+    const samples: { external: number; heapUsed: number; rss: number; arrayBuffers: number }[] = [];
+    let gcMs = 0;
     for (let i = 0; i < 50; i++) {
       const t0 = performance.now();
       const r = await once(i);
       ms.push(performance.now() - t0);
       // Fresh context each run: the guest global never carries over.
       expect(r, `run ${i}`).toMatchObject({ ok: true, result: [1, i] });
+      if (i % 5 === 4) {
+        const g0 = performance.now();
+        gc();
+        gcMs += performance.now() - g0;
+      }
+      const { external, heapUsed, rss, arrayBuffers } = process.memoryUsage();
+      samples.push({ external, heapUsed, rss, arrayBuffers });
     }
 
     gc();
@@ -406,6 +416,36 @@ describe("sandbox limits", () => {
     gc();
     const end = process.memoryUsage();
     const MB = 1024 * 1024;
+    {
+      // TM2-64 (temporary): one machine-parseable line per test run. Values in bytes unless *_MB.
+      const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+      const ext = samples.map((s) => s.external - base.external);
+      const r1 = (x: number) => Math.round((x / MB) * 1000) / 1000;
+      const data = {
+        platform: process.platform,
+        arch: process.arch,
+        node: process.version,
+        ci: Boolean(process.env.CI),
+        delta_MB: {
+          external: r1(end.external - base.external),
+          heapUsed: r1(end.heapUsed - base.heapUsed),
+          rss: r1(end.rss - base.rss),
+          arrayBuffers: r1(end.arrayBuffers - base.arrayBuffers),
+        },
+        base_MB: { external: r1(base.external), heapUsed: r1(base.heapUsed), rss: r1(base.rss), arrayBuffers: r1(base.arrayBuffers) },
+        end_MB: { external: r1(end.external), heapUsed: r1(end.heapUsed), rss: r1(end.rss), arrayBuffers: r1(end.arrayBuffers) },
+        slope_external_MB: r1(mean(ext.slice(25)) - mean(ext.slice(0, 25))),
+        // Same slope over the post-gc samples only (runs 5,10,..,25 vs 30,..,50).
+        slope_external_postgc_MB: r1(mean(ext.filter((_, i) => i % 5 === 4 && i >= 25)) - mean(ext.filter((_, i) => i % 5 === 4 && i < 25))),
+        slope_heapUsed_MB: r1(mean(samples.slice(25).map((s) => s.heapUsed)) - mean(samples.slice(0, 25).map((s) => s.heapUsed))),
+        max_external_MB: r1(Math.max(...ext)),
+        gc_ms_total: Math.round(gcMs),
+        gc_every: 5,
+        run_ms_median: Math.round(median(ms) * 10) / 10,
+        external_series_MB: ext.map(r1),
+      };
+      process.stderr.write(`TM2-64-DATA ${JSON.stringify(data)}\n`);
+    }
     // Limits after forced GC (round 2). Healthy maxima over 50 measured runs (alone, loaded, full file):
     // RSS +16.9 MB, external +0.0 MB, heapUsed +0.0 MB.
     // Retaining 1 MB of JS heap or Buffer per run (+50 MB) fails; 0.5 MB/run of heap fails on heapUsed.
