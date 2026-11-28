@@ -80,11 +80,25 @@ export class RiskEngine {
     renameSync(tmp, this.opts.stateFile);
   }
 
+  /** Checks that need no market data (no price, no P&L). Safe to run before any broker/quote call. */
+  checkStatic(o: RiskOrder, run: { ordersThisRun: number }): { allow: boolean; reasons: string[] } {
+    return this.evaluate(o, run, undefined, true);
+  }
+
   /** Product must always be in allowedProducts, CRYPTO included. */
   checkOrder(
     o: RiskOrder,
     run: { ordersThisRun: number },
     dayPnl?: number,
+  ): { allow: boolean; reasons: string[] } {
+    return this.evaluate(o, run, dayPnl, false);
+  }
+
+  private evaluate(
+    o: RiskOrder,
+    run: { ordersThisRun: number },
+    dayPnl: number | undefined,
+    staticOnly: boolean,
   ): { allow: boolean; reasons: string[] } {
     this.roll();
     const c = this.cfg;
@@ -117,7 +131,9 @@ export class RiskEngine {
       r.push(`short option qty ${o.quantity} exceeds maxShortOptionQtyPerOrder ${c.maxShortOptionQtyPerOrder}`);
     }
 
-    if (o.price === undefined || !Number.isFinite(o.price) || o.price <= 0) {
+    if (staticOnly) {
+      /* notional checks need a price: skipped */
+    } else if (o.price === undefined || !Number.isFinite(o.price) || o.price <= 0) {
       r.push("price required for notional check");
     } else if (Number.isFinite(o.quantity)) {
       const n = orderNotional(c, o, o.price);
@@ -130,7 +146,7 @@ export class RiskEngine {
 
     if (this.day.orders + 1 > c.maxOrdersPerDay) r.push(`maxOrdersPerDay ${c.maxOrdersPerDay} reached`);
     if (run.ordersThisRun + 1 > c.maxOrdersPerRun) r.push(`maxOrdersPerRun ${c.maxOrdersPerRun} reached`);
-    if (dayPnl !== undefined) {
+    if (!staticOnly && dayPnl !== undefined) {
       if (!Number.isFinite(dayPnl)) r.push("day P&L unavailable/invalid");
       else if (dayPnl <= -c.maxDailyLoss) r.push(`daily loss limit ${c.maxDailyLoss} hit`);
     }
