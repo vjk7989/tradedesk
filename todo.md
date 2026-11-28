@@ -193,7 +193,7 @@ Detailed plan: `plan.md`.
 - TM2-62 · docs · README refresh (TM2) [x]
 - TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [x]
 - TM2-64 · trade-mcp · recalibrate 50-runs bound from CI (TM2) [.]
-- TM2-65 · docs · paper-bot operator guide, incl. egress need (TM2, after #95) [.]
+- TM2-65 · docs · paper-bot operator guide, incl. egress need (TM2, after #95) [x]
 - TM2-66 · trade-mcp · revoke-cli hint with the wait (TM2) [x]
 - TM2-67 · bt-service · tz-aware index in tushare merge (TM2) [.]
 - TM2-68 · bt-service · explicit filed parsing in _ffill_pit (TM2) [.]
