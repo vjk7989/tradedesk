@@ -1,8 +1,14 @@
 """TM2-38 edge tests: a failed fold keeps the folds completed before it.
 
 All runs go through an injected, deterministic fake `run`; no subprocesses. `_main_walk_forward` below is
-a verbatim copy of `walk_forward` from main before TM2-38, used as the reference for every path that must
-not change (success, time budget, error text).
+a copy of `walk_forward` from main before TM2-38, used as the reference for every path that must not change
+(success, time budget, error text). It is verbatim except for one later, owner-approved change:
+
+- TM2-39 Addendum: both time-budget returns also carry `warnings` (marked below).
+
+TM2-39 also added thin-window warnings (fewer than MIN_FOLD_BARS equity points). The reference does not
+model them; instead every fake run here returns at least MIN_FOLD_BARS equity points, so no thin warning
+can fire and the reference stays exact (`_assert_no_thin` guards this).
 """
 from __future__ import annotations
 
@@ -11,7 +17,7 @@ import functools
 import json
 import math
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +25,7 @@ from fastapi.testclient import TestClient
 from bt_service import app as app_mod
 from bt_service.walkforward import walk_forward
 from bt_service.walkforward import _budget_s, _finite, _score, METRICS, MAX_CANDIDATES, MAX_DAYS, MAX_RUNS
-from bt_service.walkforward import MIN_TEST_DAYS, MIN_TRAIN_DAYS
+from bt_service.walkforward import MIN_FOLD_BARS, MIN_TEST_DAYS, MIN_TRAIN_DAYS
 
 
 # ------------------------------------------------------------- main's walk_forward, copied verbatim
@@ -83,7 +89,8 @@ def _main_walk_forward(
         for idx, candidate in enumerate(candidates):
             remaining = deadline - clock()
             if remaining <= 0:
-                return {"ok": False, "error": "time budget exceeded", "folds": folds}
+                # TM2-39 Addendum: the budget return keeps the warnings collected so far.
+                return {"ok": False, "error": "time budget exceeded", "folds": folds, "warnings": warnings}
             res = run(
                 code=code,
                 symbols=symbols,
@@ -109,7 +116,8 @@ def _main_walk_forward(
         chosen = candidates[best_idx]
         remaining = deadline - clock()
         if remaining <= 0:
-            return {"ok": False, "error": "time budget exceeded", "folds": folds}
+            # TM2-39 Addendum: the budget return keeps the warnings collected so far.
+            return {"ok": False, "error": "time budget exceeded", "folds": folds, "warnings": warnings}
         test_res = run(
             code=code,
             symbols=symbols,
@@ -183,6 +191,20 @@ TRAIN, TEST = 20, 5
 D0 = date(2024, 1, 1)
 K = 4  # folds in the full run
 CANDS = [{"n": 0}, {"n": 1}, {"n": 2}]
+# Equity points per calendar day in fake runs (as on a 12h interval), so even a 5-day test window has
+# 10 points: >= MIN_FOLD_BARS, no TM2-39 thin-window warning.
+PTS_PER_DAY = 2
+assert TEST * PTS_PER_DAY >= MIN_FOLD_BARS
+
+
+def _equity(s: date, span: int, v0: float, n: int) -> list[dict]:
+    t0 = datetime(s.year, s.month, s.day)
+    return [{"date": (t0 + timedelta(hours=24 // PTS_PER_DAY * d)).isoformat(),
+             "value": v0 * (1 + 0.01 * d * (n + 1))} for d in range(span * PTS_PER_DAY)]
+
+
+def _assert_no_thin(res: dict) -> None:
+    assert not [w for w in res.get("warnings") or [] if " thin " in w], res["warnings"]
 
 
 def _end(n_folds: int) -> str:
@@ -225,7 +247,8 @@ class Fake:
             if self.fail == ("train_nan", i):
                 return {"ok": True, "metrics": {"sharpe": float("nan")}, "warnings": [f"{tag} nan"]}
             score = ((n * 7 + i * 3) % 5) - 1.5 + n / 10
-            return {"ok": True, "metrics": {"sharpe": score}, "warnings": [tag] if n == 1 else []}
+            return {"ok": True, "metrics": {"sharpe": score}, "equity": _equity(s, span, 100.0, n),
+                    "warnings": [tag] if n == 1 else []}
         assert span == TEST, kw
         i = (s - D0).days // TEST - TRAIN // TEST
         tag = f"test {kw['start']} n={n}"
@@ -234,8 +257,7 @@ class Fake:
         if self.fail == ("test_noerr", i):
             return {"ok": False, "warnings": [f"{tag} failed"]}
         v0 = self.eq0.get(i, 100.0 + i)
-        equity = [{"date": (s + timedelta(days=d)).isoformat(), "value": v0 * (1 + 0.01 * d * (n + 1))}
-                  for d in range(span)]
+        equity = _equity(s, span, v0, n)
         return {"ok": True, "metrics": {"sharpe": 0.25 * (i + 1) - n * 0.1, "total_return": 0.01 * i,
                                         "trade_count": float(n)},
                 "equity": equity, "warnings": [tag, f"{tag} again"]}
@@ -328,6 +350,7 @@ def test_warnings_before_failure_preserved_in_order(kind, i):
         expected += [f"fold {fold}: {w}" for w in replay.get("warnings") or []]
     assert res["warnings"] == expected
     assert expected, "fixture should emit warnings"
+    _assert_no_thin(res)
 
     # the completed folds' warnings are a prefix, identical to the shorter clean run's
     if i:
@@ -387,6 +410,7 @@ def test_success_path_byte_identical_to_main(case):
     new = _run(walk_forward, make(), **dict(spec))
     old = _run(_main_walk_forward, make(), **dict(spec))
     assert new["ok"] is True
+    _assert_no_thin(new)
     assert json.dumps(new) == json.dumps(old)
     assert repr(new) == repr(old)
 
@@ -408,10 +432,21 @@ def test_budget_path_unchanged(n_ok):
     new = _run(walk_forward, Fake(), clock=_step_clock(n_ok))
     old = _run(_main_walk_forward, Fake(), clock=_step_clock(n_ok))
     assert new == old
-    assert set(new) == {"ok", "error", "folds"}  # still folds only, no warnings key
+    # TM2-39 Addendum: same shape as the other failure returns, warnings collected so far included.
+    assert set(new) == {"ok", "error", "folds", "warnings"}
     assert new["error"] == "time budget exceeded"
     completed = (n_ok - 1) // (len(CANDS) + 1)
-    assert new["folds"] == _run(walk_forward, Fake())["folds"][:completed]
+    clean = _run(walk_forward, Fake())
+    assert new["folds"] == clean["folds"][:completed]
+    # Exactly the warnings of the n_ok - 1 runs made before the budget ran out, in call order:
+    # per fold, train n=0, n=1 (warns "train <start> n=1"), n=2, then the test run with the chosen n
+    # (warns "test <start> n=<chosen>" and "... again").
+    order = []
+    for i in range(K):
+        order += [[f"fold {i}: train {_train_start(i)} n=1"] if c["n"] == 1 else [] for c in CANDS]
+        chosen = clean["folds"][i]["chosen"]["n"]
+        order.append([f"fold {i}: test {_test_start(i)} n={chosen}", f"fold {i}: test {_test_start(i)} n={chosen} again"])
+    assert new["warnings"] == [w for ws in order[:n_ok - 1] for w in ws]
 
 
 # ------------------------------------------------------------- serialisation

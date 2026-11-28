@@ -318,7 +318,9 @@ def test_all_fail_in_second_fold_clear_error_no_test_run():
         "train_score": 1.0,
         "test_metrics": {"sharpe": 1.0},
     }]
-    assert res["warnings"] == []
+    # TM2-39: fold 0's runs report no equity points, so it is thin on both sides; the failed fold 1
+    # adds nothing (no winner, no test run).
+    assert res["warnings"] == ["fold 0: thin train window (0 bars < 10)", "fold 0: thin test window (0 bars < 10)"]
     assert "oos_equity" not in res and "summary" not in res
     assert len(rec.calls) == 3 + 2  # fold 0 complete, fold 1 trains only
     assert len(rec.test_calls()) == 1
@@ -532,10 +534,21 @@ def test_test_run_failure_after_warnings_is_error():
 
 
 def test_warnings_prefixed_with_fold():
+    # Runs with 10 equity points (not thin), so only the runs' own warnings appear, fold-prefixed.
+    eq = [{"date": f"2024-01-{d:02d}", "value": 100.0} for d in range(1, 11)]
+    rec = Recorder(20, 5, train=lambda p, kw: {**ok(1.0, equity=eq), "warnings": ["tw"]},
+                   test=lambda p, kw: {**ok(1.0, equity=eq), "warnings": ["sw"]})
+    res = wf(rec, "2024-01-01", "2024-01-31")
+    assert res["warnings"] == ["fold 0: tw", "fold 0: sw", "fold 1: tw", "fold 1: sw"]
+    # TM2-39: with no equity points each fold is thin on both sides; the thin train warning follows the
+    # train runs' warnings and the thin test warning follows the test run's, under the same prefix.
     rec = Recorder(20, 5, train=lambda p, kw: {**ok(1.0), "warnings": ["tw"]},
                    test=lambda p, kw: {**ok(1.0), "warnings": ["sw"]})
     res = wf(rec, "2024-01-01", "2024-01-31")
-    assert res["warnings"] == ["fold 0: tw", "fold 0: sw", "fold 1: tw", "fold 1: sw"]
+    assert res["warnings"] == [
+        "fold 0: tw", "fold 0: thin train window (0 bars < 10)", "fold 0: sw", "fold 0: thin test window (0 bars < 10)",
+        "fold 1: tw", "fold 1: thin train window (0 bars < 10)", "fold 1: sw", "fold 1: thin test window (0 bars < 10)",
+    ]
 
 
 # ---------------------------------------------------------------- route /walkforward

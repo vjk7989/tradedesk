@@ -54,7 +54,8 @@ def test_budget_spent_before_first_run_returns_no_folds(monkeypatch):
 
     res = walk_forward("x", ["A"], "2024-01-01", "2024-01-26", train_days=20, test_days=5,
                        candidates=[{"n": 1}], run=run, clock=advancing_clock(100))
-    assert res == {"ok": False, "error": "time budget exceeded", "folds": []}
+    # TM2-39 Addendum: the budget return has the same shape as the other failures, warnings included.
+    assert res == {"ok": False, "error": "time budget exceeded", "folds": [], "warnings": []}
     assert calls == []
 
 
