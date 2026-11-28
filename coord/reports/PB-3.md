@@ -1,0 +1,1 @@
+PB-3: paper-bot added to the egress network (hotfix already live on VM) so it can fetch Delta public candles; pinned internal-only tests in deploy/test_pb2.py and deploy/test_pb2_edge.py need updating by the test writer.
