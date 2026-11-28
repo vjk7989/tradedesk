@@ -17,7 +17,7 @@
 | TM2-58 | TM2 | merged #94 | coord/tasks/TM2-58.md | tm3_holidays perf test under 8 s |
 | TM2-57 | TM2 | merged #96 | coord/tasks/TM2-57.md | de-flake tm2_46 SIGKILL/other-hostname test |
 | TM2-59 | TM2 | merged #101 | coord/tasks/TM2-59.md | explicit-unit asserts in pass-through tests |
-| TM2-60 | TM2 | in progress | coord/tasks/TM2-60.md | datetime columns vs int64 audit |
+| TM2-60 | TM2 | merged (#100) | coord/tasks/TM2-60.md | datetime columns vs int64 audit |
 | O-15 | OWNER | done | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
 | TM2-53 | TM2 | merged #91 | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
 | TM2-54 | TM2 | merged #88 | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
