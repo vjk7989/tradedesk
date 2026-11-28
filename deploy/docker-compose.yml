@@ -113,7 +113,7 @@ services:
       - paper_bot_data:/data
     mem_limit: ${PAPER_BOT_MEM_LIMIT:-256m}
     memswap_limit: ${PAPER_BOT_MEM_LIMIT:-256m}
-    networks: [internal]
+    networks: [internal, egress]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=3).status==200 else 1)"]
       interval: 30s

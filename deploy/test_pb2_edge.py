@@ -112,11 +112,39 @@ def test_paper_bot_publishes_no_ports():
     assert "ports" not in pb()
 
 
+def _net_names(s):
+    nets = s.get("networks") or []
+    return set(nets.keys() if isinstance(nets, dict) else nets)
+
+
 def test_paper_bot_only_internal_network():
-    nets = pb()["networks"]
-    names = set(nets.keys() if isinstance(nets, dict) else nets)
-    assert names == {"internal"}
+    # PB-3: exactly internal + egress (outbound HTTPS to Delta); never public, never host mode.
+    names = _net_names(pb())
+    assert names == {"internal", "egress"}
+    assert "public" not in names
     assert "network_mode" not in pb()
+    assert not pb().get("ports")
+
+
+def test_egress_network_is_not_internal():
+    nets = yaml.safe_load(COMPOSE.read_text())["networks"]
+    assert "egress" in nets
+    assert not (nets["egress"] or {}).get("internal", False), "egress must reach the internet"
+    assert nets["internal"]["internal"] is True, "internal must stay isolated"
+
+
+def test_paper_bot_shares_egress_pattern_with_bt_service():
+    svcs = yaml.safe_load(COMPOSE.read_text())["services"]
+    assert _net_names(svcs["paper-bot"]) == _net_names(svcs["bt-service"]) == {"internal", "egress"}
+    assert not svcs["bt-service"].get("ports")
+
+
+def test_caddy_is_only_service_on_public_or_with_ports():
+    svcs = yaml.safe_load(COMPOSE.read_text())["services"]
+    on_public = {n for n, s in svcs.items() if "public" in _net_names(s)}
+    with_ports = {n for n, s in svcs.items() if s.get("ports")}
+    assert on_public == {"caddy"}
+    assert with_ports == {"caddy"}
 
 
 def test_internal_network_is_not_public():
@@ -390,7 +418,10 @@ def test_compose_config_resolves_paper_bot_defaults():
     s = cfg["services"]["paper-bot"]
     assert s["environment"] == STRATEGY_DEFAULTS
     assert not s.get("ports")
-    assert set(s["networks"]) == {"internal"}
+    assert set(s["networks"]) == {"internal", "egress"}
+    assert "public" not in s["networks"]
+    assert cfg["networks"]["internal"].get("internal") is True
+    assert not cfg["networks"]["egress"].get("internal", False)
     assert s["mem_limit"] == s["memswap_limit"]
     caddy_env = cfg["services"]["caddy"]["environment"]
     assert caddy_env["DASH_USER"] == "admin"
