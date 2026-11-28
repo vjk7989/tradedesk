@@ -1,0 +1,11 @@
+[
+  {
+    "name": "paper-crypto-gemini",
+    "schedule": { "days": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], "time": "00:00", "tz": "UTC" },
+    "backend": "api-gemini",
+    "prompt": "Paper-trading check for BTCUSD. Use the tradedesk search tool first to read the API, then work through execute. Step 1: call risk.status() and check mode FIRST. If risk.status().mode !== \"paper\", place nothing: report the mode and STOP. Also place nothing and stop if killSwitch is true or remainingOrders is 0, and report why. Step 2: use market.search({ query: \"BTCUSD\", exchange: \"CRYPTO\" }) to confirm the exact crypto symbol, then market.history for that symbol with exchange \"CRYPTO\", interval \"1h\" and a start/end range (YYYY-MM-DD) covering at least the last 3 days, so you have at least 21 candles. Step 3: apply exactly ONE rule: compute the simple moving average of the last 20 closes; if the latest close is above it, BUY; if below it, SELL; if equal, do nothing. Step 4: place AT MOST ONE paper order with trade.place: exchange CRYPTO, MARKET order, quantity 1 (never more than 1), product as allowed by risk.status limits.allowedProducts (NRML or MIS). If the order is denied or errors, report the exact error text and do NOT retry, modify or place any other order. Always end with your reasoning: the latest close, the SMA(20) value, the rule outcome and what you did. Never touch live mode; never use trade.cancel, trade.closePosition or trade.modify.",
+    "mcp": { "name": "tradedesk", "url": "https://mcp.example.com/mcp", "tokenEnv": "MCP_TOKEN" },
+    "timeoutMs": 600000,
+    "outputDir": "./runs"
+  }
+]

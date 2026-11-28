@@ -50,21 +50,24 @@ npm test
 `--jobs` defaults to `jobs.json`.
 
 ## Gemini paper-trading job
-`jobs.example.json` ships `paper-crypto-gemini`: backend `api-gemini`, tz `UTC`, MCP url `https://mcp.<DOMAIN>/mcp` (replace the placeholder). Each run reads `risk.status()`, pulls recent BTCUSD candles with `market.history`, applies one rule (latest close vs the 20-period SMA) and places at most one paper order of quantity 1. It states its reasoning, and reports a denied or failed order without retrying it.
+`jobs.gemini-paper.example.json` (kept separate so `jobs.example.json` stays read-only) holds `paper-crypto-gemini`: backend `api-gemini`, tz `UTC`, MCP url `https://mcp.<DOMAIN>/mcp` (replace the placeholder). Each run reads `risk.status()` first and stops, placing nothing, unless `mode` is `paper` (it also stops on kill switch). It then pulls recent BTCUSD candles with `market.history`, applies one rule (latest close vs the 20-period SMA) and places at most one paper order of quantity 1. It states its reasoning, and reports a denied or failed order without retrying it.
 
 - **Keys:** `GEMINI_API_KEY` (Gemini API key) in the runner's environment. Model: default `gemini-3.8-flash` (`DEFAULT_GEMINI_MODEL` in `src/gemini.ts`), override with `GEMINI_MODEL`.
 - **Token:** the job's `mcp.tokenEnv` is `MCP_TOKEN`, the FULL token, not `MCP_TOKEN_READONLY`, because it places paper orders (the read-only token removes the `trade` namespace). WARNING: the full token can place orders. Keep it secret, never commit it, and do not use this job against a server running with `MODE=live`; the prompt tells the model to stop unless `risk.status().mode` is `paper`, but run it only on a paper-mode server.
 - **Paper only, limits server side:** risk limits (quantity, notional, orders per day and per run, allowed symbols, kill switch) are enforced in trade-mcp whatever the model decides; static checks (O-17) run before any broker call and a violation is denied.
-- **Schedule:** a job has one `HH:MM` per day (see the table above), so the example runs once a day at 00:00 UTC. For a 30-minute cadence, add more jobs with different names and `time` values, or use `--once paper-crypto-gemini` from cron or a systemd timer.
+- **Schedule:** the schema allows one `HH:MM` per job (days list plus one time, tz `UTC` or `Asia/Kolkata`), so the file has ONE job that runs daily at 00:00 UTC. Interval scheduling is coming as TM2-74. Until then, for a 30-minute cadence run `--once` from an external cron (every 30 min, UTC host clock; use absolute paths and set the env vars in the crontab or an env file):
+  ```
+  */30 * * * * cd /path/to/agent-runner && GEMINI_API_KEY=... MCP_TOKEN=... node dist/main.js --jobs jobs.gemini-paper.example.json --once paper-crypto-gemini
+  ```
 - **Cost:** each run is one Gemini request loop with several MCP tool calls, so cost grows with runs per day times tokens per run (prompt plus candle data returned). Start with the default Flash model and a low cadence, and check your Google billing page.
 
 Try it before enabling:
 ```
 export GEMINI_API_KEY=... MCP_TOKEN=...
-node dist/main.js --jobs jobs.example.json --check
-node dist/main.js --jobs jobs.example.json --dry-run paper-crypto-gemini
-node dist/main.js --jobs jobs.example.json --next 3
-node dist/main.js --jobs jobs.example.json --once paper-crypto-gemini
+node dist/main.js --jobs jobs.gemini-paper.example.json --check
+node dist/main.js --jobs jobs.gemini-paper.example.json --dry-run paper-crypto-gemini
+node dist/main.js --jobs jobs.gemini-paper.example.json --next 3
+node dist/main.js --jobs jobs.gemini-paper.example.json --once paper-crypto-gemini
 ```
 
 ## Reports
