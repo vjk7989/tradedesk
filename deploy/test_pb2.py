@@ -19,8 +19,10 @@ def svc():
 
 
 def test_internal_only_no_ports():
+    # PB-3: egress added so the bot can fetch Delta public candles; still no ingress.
     s = svc()
-    assert s["networks"] == ["internal"]
+    assert sorted(s["networks"]) == ["egress", "internal"]
+    assert "public" not in s["networks"]
     assert "ports" not in s
 
 
