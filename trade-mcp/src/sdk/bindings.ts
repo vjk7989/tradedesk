@@ -333,6 +333,11 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
       place: async (args) =>
         audited("trade.place", args, async (note) => {
           const { o } = parseOrder(args, "trade.place");
+          const sd = risk.checkStatic(riskOrder(o, o.price ?? 0), { ordersThisRun: runState.ordersThisRun });
+          if (!sd.allow) {
+            note("riskReasons", sd.reasons);
+            throw new Error("risk denied: " + sd.reasons.join("; "));
+          }
           const { price, dayPnl } = await gather(o, note);
           // synchronous from here to placeOrder: reserve + per-run counter in one tick
           const d = risk.reserve(riskOrder(o, price), { ordersThisRun: runState.ordersThisRun }, dayPnl);
@@ -366,6 +371,11 @@ export function createBindings(deps: BindingDeps, run: { id: string }): LooseBin
       modify: async (args) =>
         audited("trade.modify", args, async (note) => {
           const { o, a } = parseOrder(args, "trade.modify", ["orderId"]);
+          const sd = risk.checkStatic(riskOrder(o, o.price ?? 0), { ordersThisRun: runState.ordersThisRun });
+          if (!sd.allow) {
+            note("riskReasons", sd.reasons);
+            throw new Error("risk denied: " + sd.reasons.join("; "));
+          }
           const { price, dayPnl } = await gather(o, note);
           const d = risk.checkOrder(riskOrder(o, price), { ordersThisRun: runState.ordersThisRun }, dayPnl);
           note("riskReasons", d.reasons);
