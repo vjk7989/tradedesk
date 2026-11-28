@@ -13,7 +13,7 @@ paper-bot is a small crypto strategy simulator that ships in this stack. It is *
 
 paper-bot must reach `DELTA_BASE_URL` to fetch candles. In `deploy/docker-compose.yml` it sits on both `internal` (an `internal: true` network with no outbound route, used by Caddy to reach it) and `egress` (added in PB-3). If the `egress` network is removed, every fetch fails and the bot never trades.
 
-What that failure looks like: the dashboard shows no trades, and the Decisions table fills with `skip` rows (red tag) whose reason is `data error: <ExceptionName> <message>` (for example `data error: ConnectError ...`, or `data error: http 403`). The header turns `STALE` once no tick has completed for `2 x INTERVAL_SEC + 30` seconds. The container log stays quiet, because data errors are recorded as decisions, not logged.
+What that failure looks like: the dashboard shows no trades, and the Decisions table fills with `skip` rows (red tag) whose reason is `data error: <ExceptionName> <message>` (for example `data error: ConnectError ...`, or `data error: http 403`). The header turns `STALE` once no tick has completed for `2 x INTERVAL_SEC + 30` seconds. With no network there is no response at all, so nothing is added to the container log: these failures show only as `skip` rows. An HTTP error response (`http 403`) does leave the usual request line in the log, with its status.
 
 ## Configuration
 
@@ -51,7 +51,7 @@ Generate a hash (this is the command in `deploy/.env.example`; it needs Docker):
 docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your-password'
 ```
 
-If you have Python with the `bcrypt` package instead, this produces a compatible `$2b$12$...` hash:
+If you have Python instead, run `pip install bcrypt` (or prefix the command below with `uv run --with bcrypt`); this then produces a compatible `$2b$12$...` hash:
 
 ```
 python3 -c "import bcrypt;print(bcrypt.hashpw(b'your-password',bcrypt.gensalt(12)).decode())"
@@ -74,7 +74,7 @@ The page refreshes itself every 30 seconds. All times are UTC (`Z`).
 - **Cards**: Equity (cash plus unrealised); Total P&L (amount and % of start capital); Realised; Unrealised; Trades (all fills, opens and closes); Win rate (closed trades with positive P&L, `-` if none); Max drawdown (peak-to-trough of equity, starting from start capital).
 - **Open positions**: symbol, side, qty, entry (fill price after slippage), mark (last closed candle close) and unrealised P&L. `flat` means none.
 - **Equity curve**: line of total equity per tick, with min/max below it. It shows `no equity data yet` until two ticks exist.
-- **Decisions (latest 200)**: one row per symbol per tick, with time, candle, close, fast and slow SMA, signal, action and reason. Filter by symbol and by action, then press Filter.
+- **Decisions (latest 200)**: one row per symbol per tick, with time, symbol, candle, close, fast and slow SMA, signal, action and reason. Filter by symbol and by action, then press Filter.
 - **Trades**: every fill, newest first. `Kind` is `open` or `close`; `Realised P&L` is filled on closes and is net of both fees.
 
 Actions in Decisions:
@@ -93,7 +93,7 @@ Read-only JSON endpoints, behind the same login: `/api/summary`, `/api/positions
 
 Run these from `deploy/`.
 
-- **Logs**: `docker compose logs -f --tail=200 paper-bot`. Only startup, unexpected exceptions (`tick error <symbol>`, `tick failed`, `snapshot error`) and HTTP access lines appear; ordinary data errors are visible in Decisions.
+- **Logs**: `docker compose logs -f --tail=200 paper-bot`. Logging is at INFO: expect one httpx line per symbol per tick (`HTTP Request: GET .../v2/history/candles?... "HTTP/1.1 200 OK"`) plus uvicorn access lines, and exceptions (`tick error <symbol>`, `tick failed`, `snapshot error`). Connection failures (no response) add no line; look for `data error:` skip rows in Decisions.
 - **Restart**: `docker compose restart paper-bot`. The service is `restart: unless-stopped`. Cash, positions, trades, decisions and equity persist in `paper.db`, so a restart resumes where it left off, and a candle already handled is not traded twice.
 - **Changing capital**: cash is stored in the database the first time the bot starts, so changing `START_CAPITAL_USD` later does not change cash (the P&L baseline does change). Reset the account to start clean.
 - **Reset the paper account** (this deletes all history):
