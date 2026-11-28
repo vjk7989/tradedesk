@@ -7,10 +7,10 @@
 | PB-4 | OWNER | done | (inline) | paper-bot deploy defaults BTC+ETH, 300s (#106) |
 | PB-3 | OWNER | done | (hotfix) | paper-bot egress network (#103) |
 | TM2-66 | TM2 | merged (#105) | coord/tasks/TM2-66.md | revoke-cli prints the revoke sequence with the wait |
-| TM2-67 | TM2 | ready | coord/tasks/TM2-67.md | tz-aware price index in tushare fundamentals merge |
-| TM2-68 | TM2 | ready | coord/tasks/TM2-68.md | explicit filed parsing in _ffill_pit, warn on drops |
-| TM2-64 | TM2 | ready | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
-| TM2-65 | TM2 | ready | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
+| TM2-67 | TM2 | testing (#107) | coord/tasks/TM2-67.md | tz-aware price index in tushare fundamentals merge |
+| TM2-68 | TM2 | in progress | coord/tasks/TM2-68.md | explicit filed parsing in _ffill_pit, warn on drops |
+| TM2-64 | TM2 | in progress (draft #104, CI data) | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
+| TM2-65 | TM2 | review (#108) | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
 | TM2-61 | TM2 | merged (#99) | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
 | TM2-62 | TM2 | merged #98 | coord/tasks/TM2-62.md | README refresh |
 | TM2-63 | TM2 | merged (#102) | coord/tasks/TM2-63.md | register SIGINT/SIGTERM before startup completes |
