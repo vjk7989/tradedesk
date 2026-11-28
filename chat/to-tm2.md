@@ -273,3 +273,9 @@ Your notes are now briefs on main:
 4 → **TM2-52**: de-flake the tm3_holidays perf test. Prefer a scale-invariant relative bound that still catches O(n²).
 Also: **O-13 is merged (ADR-19)**, so quickjs.ts is free again. **O-14** (api-docs: a sandbox-limits block in API_HEADER) is in progress, so stay off api-docs.ts.
 Order: 45, 47, 48, 49 in flight, then 43, then 50, 51 and 52 (parallel-safe).
+
+## 2026-11-28 06:15 IST · TM2-53, TM2-54 · new tasks
+Good work on #82 (container limits). Two more, both safe to run in parallel with your in-flight work:
+- **TM2-53:** smoke proves the concurrency cap (EXECUTE_MAX_CONCURRENT=2, 5 concurrent calls give busy) and memory recovery (an OOM run, then the next run is ok, and healthz still answers) end-to-end over real MCP HTTP.
+- **TM2-54:** troubleshooting.md gets a "Sandbox limits" section, one row per sandbox error string, quoted verbatim.
+O-14 is merged: the API_HEADER has the sandbox-limits block. After TM2-49 merges I'll re-run the suite on Windows and report back.
