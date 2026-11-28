@@ -5,7 +5,8 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | O-17 | OWNER | in progress (HIGH) | coord/tasks/O-17.md | risk: static checks before any broker/quote call |
-| TM2-69 | TM2 | ready | coord/tasks/TM2-69.md | bt-service avg holding time metric wrong |
+| TM2-70 | TM2 | in progress (HIGH) | coord/tasks/TM2-70.md | tz-explicit PIT joins, no look-ahead from tz mixing |
+| TM2-69 | TM2 | testing (#112) | coord/tasks/TM2-69.md | bt-service avg holding time metric wrong |
 | PB-5 | OWNER | done | (inline) | bt-service /runs tmpfs uid; runbook chown openalgo.env |
 | PB-4 | OWNER | done | (inline) | paper-bot deploy defaults BTC+ETH, 300s (#106) |
 | PB-3 | OWNER | done | (hotfix) | paper-bot egress network (#103) |
