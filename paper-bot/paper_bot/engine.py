@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import time
 
 from . import db as D
@@ -135,6 +136,9 @@ class Engine:
                 candles = closed_only(raw, now, cfg.period)
                 if len(candles) < cfg.slow + 1:
                     raise DataError(f"only {len(candles)} closed candles")
+                if not all(math.isfinite(c[k]) and c[k] > 0 for c in candles[-(cfg.slow + 1):]
+                           for k in ("open", "high", "low", "close")):
+                    raise DataError("non-finite price")
                 results[sym] = candles
             except DataError as e:
                 results[sym] = e

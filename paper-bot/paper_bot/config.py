@@ -30,6 +30,30 @@ class Config:
         if self.resolution not in RES_SEC:
             raise ValueError(f"invalid RESOLUTION {self.resolution!r}; valid values: {', '.join(RES_SEC)}")
 
+    def validate(self) -> "Config":
+        """Startup validation (called from from_env; direct construction stays permissive for tests)."""
+        bad = []
+        if not self.symbols:
+            bad.append("SYMBOLS must not be empty")
+        if self.fast < 1:
+            bad.append(f"FAST={self.fast} must be >= 1")
+        if self.slow < 2:
+            bad.append(f"SLOW={self.slow} must be >= 2")
+        if self.fast >= self.slow:
+            bad.append(f"FAST={self.fast} must be < SLOW={self.slow}")
+        if not self.notional > 0:
+            bad.append(f"NOTIONAL_USD={self.notional} must be > 0")
+        if not self.capital > 0:
+            bad.append(f"START_CAPITAL_USD={self.capital} must be > 0")
+        if self.interval_sec < 1:
+            bad.append(f"INTERVAL_SEC={self.interval_sec} must be >= 1")
+        for name, v in (("TAKER_FEE", self.fee), ("SLIPPAGE", self.slippage)):
+            if not 0 <= v < 0.1:
+                bad.append(f"{name}={v} must be in [0, 0.1)")
+        if bad:
+            raise ValueError("invalid config: " + "; ".join(bad))
+        return self
+
     @property
     def period(self) -> int:
         return RES_SEC[self.resolution]
@@ -49,4 +73,4 @@ class Config:
             allow_short=_b(g("ALLOW_SHORT", "true")), notional=float(g("NOTIONAL_USD", d.notional)),
             capital=float(g("START_CAPITAL_USD", d.capital)), fee=float(g("TAKER_FEE", d.fee)),
             slippage=float(g("SLIPPAGE", d.slippage)),
-            base_url=g("DELTA_BASE_URL", d.base_url).rstrip("/"), data_dir=g("DATA_DIR", d.data_dir))
+            base_url=g("DELTA_BASE_URL", d.base_url).rstrip("/"), data_dir=g("DATA_DIR", d.data_dir)).validate()

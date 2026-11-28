@@ -4,7 +4,10 @@ def sma(vals, n):
 
 def closed_only(candles, now, period):
     """Drop the still-forming candle (open time + period > now); sort oldest first."""
-    return sorted((c for c in candles if c["time"] + period <= now), key=lambda c: c["time"])
+    # Dedupe by open time, keeping the LAST occurrence (a later copy is the API's most recent
+    # revision of that candle); otherwise duplicates would inflate the SLOW+1 count and skew the SMAs.
+    uniq = {c["time"]: c for c in candles if c["time"] + period <= now}
+    return [uniq[t] for t in sorted(uniq)]
 
 
 def evaluate(closes, fast_n, slow_n):
