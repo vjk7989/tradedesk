@@ -182,7 +182,17 @@ def _ffill_pit(series: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
         return pd.Series(index=target_index, dtype="float64")
 
     sparse = series.copy()
-    sparse["filed"] = pd.to_datetime(sparse["filed"], errors="coerce").dt.normalize()
+    raw_filed = sparse["filed"]
+    # Explicit ISO8601 (SEC emits YYYY-MM-DD) so date and date-time strings can
+    # mix; inference from the first string would silently NaT the rest.
+    sparse["filed"] = pd.to_datetime(raw_filed, format="ISO8601", errors="coerce").dt.normalize()
+    failed = raw_filed.notna() & sparse["filed"].isna()
+    if failed.any():
+        logger.warning(
+            "_ffill_pit dropped %d unparseable filed value(s); examples: %s",
+            int(failed.sum()),
+            ", ".join(repr(v) for v in raw_filed[failed].head(3)),
+        )
     sparse["value"] = pd.to_numeric(sparse["value"], errors="coerce")
     sparse = sparse.dropna(subset=["filed", "value"]).sort_values("filed")
     if sparse.empty:
