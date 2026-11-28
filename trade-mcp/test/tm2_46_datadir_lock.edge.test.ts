@@ -780,16 +780,10 @@ const portOpen = (port: number) =>
     c.on("error", () => r(false));
   });
 
-/** Opt-in child preload (observes only): prints SIGTERM_READY once index.ts has added its SIGTERM listener. Node
- *  catches SIGTERM from startup (and then dies by the signal), so /proc SigCgt cannot tell; "newListener" fires just
- *  before the add, and the microtask runs after main()'s synchronous tail, by which time the handler is in place. */
-const SIGTERM_READY = "[tm2-57] SIGTERM listener installed";
-const SIGTERM_READY_PRELOAD = "data:text/javascript," + encodeURIComponent(
-  `process.on("newListener", (e) => { if (e === "SIGTERM") queueMicrotask(() => process.stderr.write(${JSON.stringify(SIGTERM_READY + "\n")})); });`,
-);
-
-function startServer(dir: string, port: number, opts: { sigtermReady?: boolean } = {}) {
-  const p = spawn(process.execPath, ["--import", "tsx", ...(opts.sigtermReady ? ["--import", SIGTERM_READY_PRELOAD] : []), INDEX_TS], {
+// TM2-63: index.ts registers its SIGINT/SIGTERM stop right after acquireLock(), before the heartbeat and listen(),
+// so once "trade-mcp started" is printed a signal always runs stop() (exit 0, lock released). Tests signal only after it.
+function startServer(dir: string, port: number) {
+  const p = spawn(process.execPath, ["--import", "tsx", INDEX_TS], {
     cwd: ROOT,
     stdio: ["ignore", "pipe", "pipe"],
     env: {
@@ -804,11 +798,7 @@ function startServer(dir: string, port: number, opts: { sigtermReady?: boolean }
   p.stdout!.on("data", (c) => (out += c));
   p.stderr!.on("data", (c) => (out += c));
   const exited = new Promise<{ code: number | null; signal: string | null }>((r) => p.on("exit", (code, signal) => r({ code, signal })));
-  // With sigtermReady, "started" also needs the marker after the started line (main() adds its SIGTERM listener there).
-  const isStarted = () => {
-    const i = out.indexOf("trade-mcp started");
-    return i >= 0 && (!opts.sigtermReady || out.lastIndexOf(SIGTERM_READY) > i);
-  };
+  const isStarted = () => out.includes("trade-mcp started");
   const started = new Promise<boolean>((r) => {
     const t = setInterval(() => {
       if (isStarted()) { clearInterval(t); r(true); }
@@ -877,8 +867,8 @@ describe("real trade-mcp process", () => {
     expect(readFileSync(lockPath(dir), "utf8")).toBe(lockA); // loser did not touch it
     noSecrets(b.out());
 
-    a.p.kill("SIGTERM");
-    expect((await a.exited).code).toBe(0);
+    a.p.kill("SIGTERM"); // after a's started line: its handler exists (TM2-63)
+    expect(await a.exited).toEqual({ code: 0, signal: null });
     expect(existsSync(lockPath(dir))).toBe(false);
 
     // Same host: a SIGKILLed server's pid is dead, so its lock is stale immediately (no 15 s wait).
@@ -894,8 +884,9 @@ describe("real trade-mcp process", () => {
     expect(d.out()).toMatch(/replacing stale trade-mcp\.lock/);
     expect(readLock(dir)).toMatchObject({ pid: d.p.pid });
     expect(await portOpen(pd)).toBe(true);
+    // Only after d's started line (awaited above): the SIGINT handler is registered before it is printed (TM2-63).
     d.p.kill("SIGINT");
-    expect((await d.exited).code).toBe(0);
+    expect(await d.exited).toEqual({ code: 0, signal: null });
     expect(existsSync(lockPath(dir))).toBe(false);
     noSecrets(a.out() + c.out() + d.out());
   });
@@ -949,14 +940,14 @@ describe("real trade-mcp process", () => {
     // whileFresh has stopped), so the lock stays stale however long the start takes.
     age(f, OLD_HEARTBEAT);
     expect(checkLock(dir)).toBe("stale");
-    const c = startServer(dir, p3, { sigtermReady: true }); // SIGTERM below only after the handler exists
+    const c = startServer(dir, p3); // SIGTERM below only after the started line, so the handler exists (TM2-63)
     expect(await c.started, c.out()).toBe(true);
     expect(c.out()).toMatch(/replacing stale trade-mcp\.lock.*crashed-container-1/);
     expect(readLock(dir)).toMatchObject({ pid: c.p.pid, hostname: HOST });
     expect(await portOpen(p3)).toBe(true);
     // SIGTERM removes it.
     c.p.kill("SIGTERM");
-    expect((await c.exited).code).toBe(0);
+    expect(await c.exited).toEqual({ code: 0, signal: null });
     expect(existsSync(f)).toBe(false);
     expect(leftovers(dir)).toEqual([]);
     noSecrets(a.out() + b.s.out() + c.out() + cli.stdout + cli.stderr);

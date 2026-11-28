@@ -80,7 +80,7 @@ services:
       OPENALGO_API_KEY: ${OPENALGO_API_KEY:?set OPENALGO_API_KEY}
       BT_RUNS_DIR: /runs
     tmpfs:
-      - /runs
+      - /runs:uid=1000,gid=1000,mode=0700
     mem_limit: ${BT_MEM_LIMIT:-1g}
     memswap_limit: ${BT_MEM_LIMIT:-1g}
     cpus: ${BT_CPUS:-1}
@@ -88,6 +88,35 @@ services:
     networks: [internal, egress]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  paper-bot:
+    build:
+      context: ../paper-bot
+    environment:
+      SYMBOLS: ${SYMBOLS:-BTCUSD,ETHUSD}
+      RESOLUTION: ${RESOLUTION:-5m}
+      # >= the candle period (RESOLUTION) so ticks align to candle close; smaller values just repeat "already processed" holds.
+      INTERVAL_SEC: ${INTERVAL_SEC:-300}
+      FAST: ${FAST:-9}
+      SLOW: ${SLOW:-21}
+      ALLOW_SHORT: ${ALLOW_SHORT:-0}
+      NOTIONAL_USD: ${NOTIONAL_USD:-1000}
+      START_CAPITAL_USD: ${START_CAPITAL_USD:-10000}
+      TAKER_FEE: ${TAKER_FEE:-0.0005}
+      SLIPPAGE: ${SLIPPAGE:-0.0002}
+      DELTA_BASE_URL: ${DELTA_BASE_URL:-https://api.india.delta.exchange}
+    volumes:
+      - paper_bot_data:/data
+    mem_limit: ${PAPER_BOT_MEM_LIMIT:-256m}
+    memswap_limit: ${PAPER_BOT_MEM_LIMIT:-256m}
+    networks: [internal, egress]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=3).status==200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -102,12 +131,15 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      DASH_USER: ${DASH_USER:-admin}
+      # Default is a valid bcrypt hash of a discarded random secret: dashboard is locked until the operator sets their own.
+      DASH_PASSWORD_HASH: ${DASH_PASSWORD_HASH:-$$2b$$12$$limWPi5G0rGNHgYTSHGcme4PGfdr8lAwWHAeJHj6LX9nbmiwq0fMa}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     networks: [internal, public]
-    depends_on: [trade-mcp, openalgo]
+    depends_on: [trade-mcp, openalgo, paper-bot]
     mem_limit: ${CADDY_MEM_LIMIT:-128m}
     memswap_limit: ${CADDY_MEM_LIMIT:-128m}
     restart: unless-stopped
@@ -125,5 +157,6 @@ volumes:
   openalgo_keys:
   openalgo_tmp:
   trade_mcp_data:
+  paper_bot_data:
   caddy_data:
   caddy_config:

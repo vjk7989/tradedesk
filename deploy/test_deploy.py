@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "deploy"
 COMPOSE = DEPLOY / "docker-compose.yml"
 ENV_EX = DEPLOY / ".env.example"
-SERVICES = {"openalgo", "trade-mcp", "bt-service", "caddy"}
+SERVICES = {"openalgo", "trade-mcp", "bt-service", "paper-bot", "caddy"}
 
 
 @pytest.fixture(scope="module")

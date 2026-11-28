@@ -18,6 +18,7 @@ import type { Config } from "../src/config.js";
 import type { OAuthConfig } from "../src/oauth/config.js";
 import { TradeOAuthProvider } from "../src/oauth/provider.js";
 import { run } from "../src/oauth/revoke-cli.js";
+import { LIVE_WINDOW_MS, lockPath } from "../src/datadir-lock.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI_TS = path.join(ROOT, "src/oauth/revoke-cli.ts");
@@ -536,8 +537,9 @@ describe("TM2-35 edge: atomicity on write failure", () => {
   });
 });
 
-const RUNBOOK_CMD =
-  "docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
+// TM2-61: the runbook inserts a wait after stop (TM2-46 lock heartbeat: lock younger than 15 s counts as live).
+const RUNBOOK_CMD_WITH_WAIT =
+  "docker compose stop trade-mcp && sleep 20 && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
 
 describe("TM2-35 edge: why stop -> run -> start is required (revoking against a live server is unsupported)", () => {
   // Documented-unsupported behaviour: a live trade-mcp keeps the OAuth store in memory and rewrites oauth.json from
@@ -591,7 +593,7 @@ describe("TM2-35 edge: why stop -> run -> start is required (revoking against a 
     expect(r.code).toBe(2);
     expect(r.err).toMatch(/--force confirms trade-mcp is STOPPED/);
     expect(r.err).toMatch(/while it runs is undone/);
-    expect(r.err).toContain(RUNBOOK_CMD);
+    expect(r.err).toContain(RUNBOOK_CMD_WITH_WAIT);
     expect(r.out + r.err).not.toContain("docker compose exec");
   });
 
@@ -678,10 +680,68 @@ describe("TM2-35 edge: exit codes 0/1/2/3", () => {
   });
 });
 
+// TM2-66: the CLI hint must be the runbook's one-liner, byte for byte, and its sleep must outlast the lock live window.
+const RUNBOOK_RE =
+  /docker compose stop trade-mcp && sleep (\d+) && docker compose run --rm --no-deps trade-mcp node dist\/src\/oauth\/revoke-cli\.js --force && docker compose start trade-mcp/;
+function runbookOneLiner(): string {
+  const m = RUNBOOK_RE.exec(readFileSync(path.join(ROOT, "..", "docs", "vps-runbook.md"), "utf8"));
+  expect(m, "docs/vps-runbook.md has no revoke one-liner").not.toBeNull();
+  return m![0];
+}
+/** A lock written just now counts as live (mtime inside LIVE_WINDOW_MS), whatever host/pid it names. */
+function liveLockDir(): string {
+  const dir = dirOf();
+  writeFileSync(lockPath(dir), JSON.stringify({ pid: 1, startedAt: new Date().toISOString(), hostname: "other-host.invalid" }));
+  return dir;
+}
+
+describe("TM2-66: CLI revoke hint == docs/vps-runbook.md one-liner (drift guard)", () => {
+  it("no --force (exit 2): stderr contains the runbook one-liner byte for byte, store unchanged", async () => {
+    const want = runbookOneLiner();
+    const { dir } = await populatedDir(1);
+    const before = readFileSync(stateFile(dir));
+    const r = runCaptured([], envFor(dir));
+    expect(r.code).toBe(2);
+    expect(r.err.includes(want), r.err).toBe(true);
+    expect(r.err).toContain("\n  " + want);
+    expect(readFileSync(stateFile(dir)).equals(before)).toBe(true);
+  });
+
+  it("live lock + --force (exit 4): stderr contains the runbook one-liner byte for byte, store and lock unchanged", async () => {
+    const want = runbookOneLiner();
+    const { dir: src } = await populatedDir(1);
+    const dir = liveLockDir();
+    writeFileSync(stateFile(dir), readFileSync(stateFile(src)));
+    const store = readFileSync(stateFile(dir));
+    const lock = readFileSync(lockPath(dir));
+    const r = runCaptured(["--force"], envFor(dir));
+    expect(r.code).toBe(4);
+    expect(r.err).toMatch(/trade-mcp is running/);
+    expect(r.err.includes(want), r.err).toBe(true);
+    expect(r.err).toContain(`(${want})`);
+    expect(readFileSync(stateFile(dir)).equals(store)).toBe(true);
+    expect(readFileSync(lockPath(dir)).equals(lock)).toBe(true);
+    expect(r.out + r.err).not.toContain("docker compose exec");
+  });
+
+  it("the sleep in both CLI hints is > LIVE_WINDOW_MS/1000", () => {
+    const outs = [runCaptured([], envFor(dirOf())).err, runCaptured(["--force"], envFor(liveLockDir())).err];
+    for (const text of outs) {
+      const m = RUNBOOK_RE.exec(text);
+      expect(m, text).not.toBeNull();
+      expect(Number(m![1])).toBeGreaterThan(LIVE_WINDOW_MS / 1000);
+    }
+  });
+});
+
 describe("TM2-35 edge: docs/vps-runbook.md", () => {
   it("contains the stop -> run --rm --no-deps -> start command and never instructs exec", () => {
     const md = readFileSync(path.join(ROOT, "..", "docs", "vps-runbook.md"), "utf8");
-    expect(md).toContain(RUNBOOK_CMD);
+    expect(md).toContain(RUNBOOK_CMD_WITH_WAIT);
+    // order + wait >= 16 s (heartbeat window is 15 s), so removing the wait fails
+    const m = RUNBOOK_RE.exec(md);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(16);
     // any mention of `docker compose exec` near revoke-cli must be a prohibition, never a command to run
     const lines = md.split("\n");
     for (const l of lines) {

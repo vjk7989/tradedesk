@@ -447,7 +447,17 @@ def enrich_price_frames_with_fundamentals(
 
             left = frame.copy()
             original_index = left.index
-            left["_trade_date"] = pd.to_datetime(left.index).normalize()
+            # merge_asof refuses keys of different datetime units. Loader
+            # frames are ns (TM2-45) while pandas 3 parses the pit dates to
+            # us, so pin both keys to ns.
+            # Tz-aware bars are keyed by their CN-local calendar date (the
+            # PIT dates are CN-local), then made naive; naive indexes are
+            # used as-is.
+            trade_keys = pd.DatetimeIndex(pd.to_datetime(left.index))
+            if trade_keys.tz is not None:
+                trade_keys = trade_keys.tz_convert("Asia/Shanghai").tz_localize(None)
+            left["_trade_date"] = trade_keys.normalize().as_unit("ns")
+            right["_pit_date"] = pd.to_datetime(right["_pit_date"]).dt.as_unit("ns")
             left["_original_order"] = range(len(left))
 
             merged = pd.merge_asof(

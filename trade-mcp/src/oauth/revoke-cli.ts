@@ -10,8 +10,10 @@ const out = (s: string) => process.stdout.write(s + "\n");
 const err = (s: string) => process.stderr.write(s + "\n");
 
 const USAGE = "usage: revoke-cli.js --force   (--force confirms trade-mcp is STOPPED; revoking while it runs is undone by the server)";
+// Wait = lock live window + 5 s margin; derived so it cannot drift below LIVE_WINDOW_MS (== 20 today, as in docs/vps-runbook.md).
+const WAIT_S = Math.ceil(LIVE_WINDOW_MS / 1000) + 5;
 const RUNBOOK =
-  "docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
+  `docker compose stop trade-mcp && sleep ${WAIT_S} && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp`;
 
 /** Exit codes: 0 ok / nothing to revoke, 1 corrupt or wrong-shape store, 2 usage, 3 unexpected error, 4 trade-mcp is running. */
 export function run(argv: string[], env: NodeJS.ProcessEnv = process.env): number {
