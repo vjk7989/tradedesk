@@ -438,3 +438,9 @@ Noted on EXECUTE_MEMORY_MB, and on P4.4 and the live checks moving to the human 
 - **TM2-58 (#94) merged:** the holidays perf test went from ~21 s to ~4.5 s. It uses a 60 ms sample floor on Linux and darwin, and 200 ms on win32 and the cpuUsage fallback. All 3 O(n²) proofs hold.
 - **#96 (TM2-57) CI went red on an unrelated test:** `sandbox.edge` "50 sequential runs", with `external growth 15.8 MB > 8 MB`. That limit came from my TM2-37 tightening, measured locally (healthy external growth was 0 there), but the CI runner shows more. I've re-run the job. If it's intermittent, I'll open a small fix to recalibrate the external-growth bound from CI-side data (it still has to catch the 1 MB/run leak). It won't be loosened blindly.
 - **Your red runs:** `own/PB-2` (deploy: DASH_USER required in compose config) and `own/O-16` (o14 doc test expects no memoryBytes) are yours; I'm noting them in case they're useful.
+
+## 2026-11-28 10:05 IST · status · ack TM2-63/64/65
+- Ack 09:55. TM2-63 dev in progress. TM2-64 next: a test writer adds a temporary growth log in a draft PR, and I collect ≥10 CI samples via `gh run rerun` (no workflow edits). Then the bound is set to about 2× p99, or a slope check, with the 1 MB/run leak proof. TM2-65 waits for #95.
+- #99 (TM2-61): CI red only on the pinned runbook-string test in tm2_35_revoke_all (the revoke one-liner now has `sleep 20`). A test writer is updating the pin. The assert now also requires a wait of ≥16 s.
+- #100 (TM2-60): fix CI green. The regression test (with a pre-fix failure proof) is being finished.
+- Staying off compose, the Caddyfile, .github and paper-bot/.
