@@ -62,21 +62,25 @@ if [ "$FORCE" -ne 1 ]; then
   fi
 fi
 
+# Verify the paper_bot_data snapshot before ANY volume is touched, so "nothing changed" is
+# true (MANIFEST only proves the hash). Runs in a one-off python:3.12-slim container
+# (stdlib sqlite3; the same base as the paper-bot image, so host python/sqlite3 are not
+# needed). immutable=1 because the mount is read-only and a WAL-flagged db would
+# otherwise need to create -shm.
+if [ -f "$BDIR/$SNAPSHOT_VOL.db" ]; then
+  if ! docker run --rm -v "$BDIR:/src:ro" python:3.12-slim python -c \
+    'import sqlite3,sys; c=sqlite3.connect("file:/src/paper_bot_data.db?mode=ro&immutable=1",uri=True); sys.exit(0 if c.execute("PRAGMA integrity_check").fetchone()[0]=="ok" else 1)'; then
+    echo "paper_bot_data.db failed integrity_check; nothing changed" >&2; exit 1
+  fi
+fi
+
 for vol in "${VOLUMES[@]}"; do
   if [ "$vol" = "$SNAPSHOT_VOL" ]; then
-    # Snapshot db (see backup.sh): verify, stop the bot, swap paper.db in atomically,
+    # Snapshot db (see backup.sh; already verified above): stop the bot, swap paper.db in atomically,
     # drop stale -wal/-shm (they belong to the old db), restart the bot if it was running.
     if [ -f "$BDIR/$vol.db" ]; then
-      # 1. Verify the snapshot before touching anything (MANIFEST only proves the hash).
-      #    Runs in a one-off python:3.12-slim container (stdlib sqlite3; the same base as the
-      #    paper-bot image, so host python/sqlite3 are not needed). immutable=1 because the
-      #    mount is read-only and a WAL-flagged db would otherwise need to create -shm.
-      if ! docker run --rm -v "$BDIR:/src:ro" python:3.12-slim python -c \
-        'import sqlite3,sys; c=sqlite3.connect("file:/src/'"${vol}"'.db?mode=ro&immutable=1",uri=True); sys.exit(0 if c.execute("PRAGMA integrity_check").fetchone()[0]=="ok" else 1)'; then
-        echo "paper_bot_data.db failed integrity_check; nothing changed" >&2; exit 1
-      fi
       was_up="$(docker ps -q --filter "name=^${PREFIX}[-_]paper-bot[-_]")"
-      # 2. Stop the bot; from here any failure removes the temp copy and restarts the bot
+      # Stop the bot; from here any failure removes the temp copy and restarts the bot
       #    with the old db intact (the trap also fires under set -e).
       swap_cleanup() {
         trap - EXIT
@@ -88,7 +92,7 @@ for vol in "${VOLUMES[@]}"; do
       trap 'rc=$?; [ "$rc" -eq 0 ] || swap_cleanup; exit "$rc"' EXIT
       # shellcheck disable=SC2086 # as above
       [ -z "$was_up" ] || docker stop $was_up
-      # 3. Copy to paper.db.new, atomic mv over paper.db, only then drop stale -wal/-shm.
+      # Copy to paper.db.new, atomic mv over paper.db, only then drop stale -wal/-shm.
       docker run --rm -v "${PREFIX}_${vol}:/dst" -v "$BDIR:/src:ro" alpine \
         sh -c "cp /src/${vol}.db /dst/paper.db.new && chown 10001:10001 /dst /dst/paper.db.new && chmod 600 /dst/paper.db.new && mv -f /dst/paper.db.new /dst/paper.db && rm -f /dst/paper.db-wal /dst/paper.db-shm"
       trap - EXIT

@@ -74,8 +74,9 @@ over existing files, so stale files may remain.
 
 `paper_bot_data.db` is restored with a verify-then-swap sequence:
 1. `PRAGMA integrity_check` runs on the snapshot in a one-off `python:3.12-slim`
-   container (stdlib sqlite3, read-only mount), before anything is stopped. A bad
-   snapshot aborts with the bot and volume untouched.
+   container (stdlib sqlite3, read-only mount) after the MANIFEST and running-stack checks, before
+   any volume is extracted or anything is stopped. A bad snapshot aborts with
+   "nothing changed", which is true: no volume, container or file was touched.
 2. paper-bot is stopped if it is running (only possible with `--force`; without it
    the stack must already be down).
 3. The snapshot is copied to `paper.db.new` in the volume (mode 600, owner uid 10001,
