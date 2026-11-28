@@ -243,6 +243,10 @@ def load_industry_frame_with_coverage(
 
     # Later in_date wins, then later/open out_date: a fixed sort makes the
     # per-date winner independent of API row order (dict(zip) keeps the last).
+    # Pin every operand of the int64 comparison to ns: pandas 3 infers us for
+    # to_datetime/DatetimeIndex, and mixed units would compare raw counts.
+    in_dt = in_dt.dt.as_unit("ns")
+    out_dt = out_dt.dt.as_unit("ns")
     order = np.lexsort((out_dt.to_numpy(dtype="int64"), in_dt.to_numpy(dtype="int64")))
     codes = rows["ts_code"].to_numpy()[order]
     ordered_labels = labels.to_numpy()[order]
@@ -251,7 +255,7 @@ def load_industry_frame_with_coverage(
 
     position = {symbol: j for j, symbol in enumerate(columns)}
     values = np.full((len(index), len(columns)), np.nan, dtype=object)
-    for i, day_ns in enumerate(index.asi8):
+    for i, day_ns in enumerate(pd.DatetimeIndex(index).as_unit("ns").asi8):
         applicable = (in_ns <= day_ns) & (day_ns < out_ns)
         if not applicable.any():
             continue
