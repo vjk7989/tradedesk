@@ -434,7 +434,8 @@ def win_rate_and_stats(trades: List[TradeRecord]) -> Dict[str, Optional[float]]:
 
     Returns:
         Dict with win_rate, profit_loss_ratio, max_consecutive_loss,
-        avg_holding_bars, profit_factor. profit_loss_ratio and profit_factor
+        avg_holding_bars, avg_holding_days (calendar days, fractional),
+        profit_factor. profit_loss_ratio and profit_factor
         are ``None`` when no trade lost, since both divide by the losses.
         Average holding bars includes valid zero-duration completed trades.
     """
@@ -444,6 +445,7 @@ def win_rate_and_stats(trades: List[TradeRecord]) -> Dict[str, Optional[float]]:
             "profit_loss_ratio": 0.0,
             "max_consecutive_loss": 0,
             "avg_holding_bars": 0.0,
+            "avg_holding_days": 0.0,
             "profit_factor": 0.0,
         }
 
@@ -477,6 +479,18 @@ def win_rate_and_stats(trades: List[TradeRecord]) -> Dict[str, Optional[float]]:
     hold_bars = [t.holding_bars for t in trades if t.holding_bars >= 0]
     avg_holding = float(np.mean(hold_bars)) if hold_bars else 0.0
 
+    # Calendar days from timestamps, independent of bar size. Bars are not
+    # days on 1m/1h series, and on crypto/equity calendars a bar's span varies.
+    hold_days = []
+    for t in trades:
+        try:
+            span = (t.exit_time - t.entry_time).total_seconds() / 86400.0
+        except Exception:
+            continue
+        if np.isfinite(span) and span >= 0:
+            hold_days.append(span)
+    avg_holding_days = float(np.mean(hold_days)) if hold_days else 0.0
+
     return {
         "win_rate": win_rate,
         "profit_loss_ratio": (
@@ -484,6 +498,7 @@ def win_rate_and_stats(trades: List[TradeRecord]) -> Dict[str, Optional[float]]:
         ),
         "max_consecutive_loss": max_consec,
         "avg_holding_bars": round(avg_holding, 1),
+        "avg_holding_days": round(avg_holding_days, 4),
         "profit_factor": round(profit_factor, 4) if profit_factor is not None else None,
     }
 
@@ -876,7 +891,7 @@ def calc_metrics(
         "profit_loss_ratio": trade_stats["profit_loss_ratio"],
         "profit_factor": trade_stats["profit_factor"],
         "max_consecutive_loss": trade_stats["max_consecutive_loss"],
-        "avg_holding_days": trade_stats["avg_holding_bars"],
+        "avg_holding_days": trade_stats["avg_holding_days"],
         "trade_count": len(trades),
         "benchmark_return": round(bench_return, 6),
         "excess_return": round(excess, 6),
