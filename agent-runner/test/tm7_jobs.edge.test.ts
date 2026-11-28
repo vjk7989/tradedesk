@@ -114,11 +114,12 @@ describe("TM-7 api-openai jobs through main (mocked runOpenAiTask, no network)",
   });
 });
 
-describe("TM-7 jobs.example.json", () => {
-  it("still parses with the five-backend list", () => {
-    const raw = JSON.parse(readFileSync(fileURLToPath(new URL("../jobs.example.json", import.meta.url)), "utf8"));
+describe("TM-7 example job files", () => {
+  // Backend list mirrors src/jobs.ts BACKENDS (not exported); api-gemini added in TM2-3.
+  it.each(["jobs.example.json", "jobs.gemini-paper.example.json"])("%s still parses with the six-backend list", (f) => {
+    const raw = JSON.parse(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), "utf8"));
     const jobs = parseJobs(raw);
     expect(jobs.length).toBeGreaterThan(0);
-    for (const j of jobs) expect(["claude", "codex", "gemini", "api", "api-openai"]).toContain(j.backend);
+    for (const j of jobs) expect(["claude", "codex", "gemini", "api", "api-openai", "api-gemini"]).toContain(j.backend);
   });
 });

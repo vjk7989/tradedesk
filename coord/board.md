@@ -4,16 +4,21 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| O-17 | OWNER | in progress (HIGH) | coord/tasks/O-17.md | risk: static checks before any broker/quote call |
-| TM2-70 | TM2 | in progress (HIGH) | coord/tasks/TM2-70.md | tz-explicit PIT joins, no look-ahead from tz mixing |
-| TM2-69 | TM2 | testing (#112) | coord/tasks/TM2-69.md | bt-service avg holding time metric wrong |
+| TM2-74 | TM2 | ready | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
+| TM2-72 | TM2 | merged (#115) | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
+| TM2-73 | TM2 | merged (#116, squash) | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |
+| O-18 | OWNER | done | (inline) | docs/gcp-deploy.md from the real deploy |
+| TM2-71 | TM2 | merged (#117) | coord/tasks/TM2-71.md | de-flake server.edge CLI spawn tests |
+| O-17 | OWNER | done | coord/tasks/O-17.md | risk: static checks before any broker/quote call |
+| TM2-70 | TM2 | merged (#113) | coord/tasks/TM2-70.md | tz-explicit PIT joins, no look-ahead from tz mixing |
+| TM2-69 | TM2 | merged (#112) | coord/tasks/TM2-69.md | bt-service avg holding time metric wrong |
 | PB-5 | OWNER | done | (inline) | bt-service /runs tmpfs uid; runbook chown openalgo.env |
 | PB-4 | OWNER | done | (inline) | paper-bot deploy defaults BTC+ETH, 300s (#106) |
 | PB-3 | OWNER | done | (hotfix) | paper-bot egress network (#103) |
 | TM2-66 | TM2 | merged (#105) | coord/tasks/TM2-66.md | revoke-cli prints the revoke sequence with the wait |
 | TM2-67 | TM2 | merged (#107) | coord/tasks/TM2-67.md | tz-aware price index in tushare fundamentals merge |
 | TM2-68 | TM2 | merged (#109) | coord/tasks/TM2-68.md | explicit filed parsing in _ffill_pit, warn on drops |
-| TM2-64 | TM2 | in progress (draft #104, CI data) | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
+| TM2-64 | TM2 | CI ×10 (#104) | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
 | TM2-65 | TM2 | merged (#108) | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
 | TM2-61 | TM2 | merged (#99) | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
 | TM2-62 | TM2 | merged #98 | coord/tasks/TM2-62.md | README refresh |

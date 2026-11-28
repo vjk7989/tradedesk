@@ -24,3 +24,28 @@ def summary(conn, cfg):
             "win_rate": wins / len(closes) * 100 if closes else None,
             "max_drawdown_pct": max_drawdown([cfg.capital] + [e["total"] for e in eq]) * 100,
             "last_tick": float(D.get_state(conn, "last_tick", 0)) or None}
+
+
+def per_symbol(conn, cfg):
+    """Per-symbol breakdown built from the same tables and formulas as summary().
+
+    realised   = sum(close pnl) - entry fee of the still-open position. Global realised is cash - capital, and cash
+                 pays every open fee when it is charged, so this is what makes the symbols sum to summary()["realised"].
+    unrealised = (mark - entry) * qty * side, the formula the engine uses for the equity snapshot.
+    win_rate   = closed trades with pnl > 0 / closed trades (None if none), as in summary().
+    """
+    pos = {p["symbol"]: p for p in D.rows(conn, "SELECT * FROM positions")}
+    trades = D.rows(conn, "SELECT symbol, kind, pnl FROM trades")
+    last = {d["symbol"]: d for d in D.rows(
+        conn, "SELECT * FROM decisions WHERE id IN (SELECT MAX(id) FROM decisions GROUP BY symbol)")}
+    syms = list(cfg.symbols) + sorted({r["symbol"] for r in trades} | set(pos) | set(last) - set(cfg.symbols))
+    out = []
+    for sym in dict.fromkeys(syms):
+        closes = [t["pnl"] for t in trades if t["symbol"] == sym and t["kind"] == "close"]
+        p = pos.get(sym)
+        unreal = (p["mark"] - p["entry"]) * p["qty"] * (1 if p["side"] == "long" else -1) if p else 0.0
+        out.append({"symbol": sym, "realised": sum(closes) - (p["entry_fee"] if p else 0.0), "unrealised": unreal,
+                    "trades": sum(1 for t in trades if t["symbol"] == sym), "closed_trades": len(closes),
+                    "win_rate": sum(1 for c in closes if c > 0) / len(closes) * 100 if closes else None,
+                    "side": p["side"] if p else "flat", "last_decision": last.get(sym)})
+    return out

@@ -49,6 +49,41 @@ npm test
 ```
 `--jobs` defaults to `jobs.json`.
 
+## Gemini paper-trading job
+`jobs.gemini-paper.example.json` (kept separate so `jobs.example.json` stays read-only) holds `paper-crypto-gemini`: backend `api-gemini`, tz `UTC`, MCP url `https://mcp.<DOMAIN>/mcp` (replace the placeholder). Each run reads `risk.status()` first and stops, placing nothing, unless `mode` is `paper` (it also stops on kill switch). It then pulls recent BTCUSD candles with `market.history`, applies one rule (latest close vs the 20-period SMA) and places at most one paper order of quantity 1. It states its reasoning, and reports a denied or failed order without retrying it.
+
+- **Keys:** `GEMINI_API_KEY` (Gemini API key) in the runner's environment. Model: default `gemini-3.8-flash` (`DEFAULT_GEMINI_MODEL` in `src/gemini.ts`), override with `GEMINI_MODEL`.
+- **Token:** the job's `mcp.tokenEnv` is `MCP_TOKEN`, the FULL token, not `MCP_TOKEN_READONLY`, because it places paper orders (the read-only token removes the `trade` namespace). WARNING: the full token can place orders. Keep it secret, never commit it, and do not use this job against a server running with `MODE=live`; the prompt tells the model to stop unless `risk.status().mode` is `paper`, but run it only on a paper-mode server.
+- **What is and is not guaranteed:** trade-mcp enforces, whatever the model decides, the kill switch (`trade-mcp/src/risk/engine.ts:111`), allowed exchange/product and `symbolAllow`/`symbolDeny` (:112-118), integer quantity up to `maxQtyPerOrder` (:119, default 100, `src/config.ts:27`), the notional caps (:140), `maxOrdersPerDay` (:147, default 20) and `maxOrdersPerRun` (:148, default 5), and the O-17 static checks run before any broker call (:84). These do NOT force quantity 1 or one order per run (the defaults allow 100 and 5), and they do NOT block live mode: `mode` is only reported by `risk.status()` (:210). "Paper only", "quantity 1" and "one order" are therefore prompt rules; the real paper-only protection is running this job against a server started with `MODE=paper`.
+- **Tight risk.json for this job:** on the trade-mcp server use exact key names from `trade-mcp/src/config.ts:25-33`, for example (symbol is the BTC perpetual returned by `market.search`; `BTCUSDFUT` per the crypto note in `trade-mcp/src/sdk/api-docs.ts:10`, confirm yours):
+  ```
+  { "symbolAllow": ["BTCUSDFUT"], "maxQtyPerOrder": 1, "maxOrdersPerRun": 1 }
+  ```
+  (see `deploy/risk.example.json` for the full file). Note that a SELL on a perpetual opens a short position.
+- **Schedule:** the schema allows one `HH:MM` per job (days list plus one time, tz `UTC` or `Asia/Kolkata`), so the file has ONE job that runs daily at 00:00 UTC. Interval scheduling is coming as TM2-74. Until then, for a 30-minute cadence run `--once` from an external cron. Keep secrets out of the crontab: put them in a root-owned env file and load it from a wrapper script (all paths are placeholders).
+  1. Env file `/etc/tradedesk/agent-runner.env`, `chmod 600`, owned by the runner user, with the lines `GEMINI_API_KEY=<your key>` and `MCP_TOKEN=<full token>`.
+  2. Wrapper `/path/to/run-gemini-paper.sh` (`chmod 700`):
+     ```
+     #!/bin/sh
+     set -a; . /etc/tradedesk/agent-runner.env; set +a
+     cd /path/to/agent-runner && exec flock -n /tmp/agent-runner-gemini.lock node dist/main.js --jobs jobs.gemini-paper.example.json --once paper-crypto-gemini
+     ```
+     `flock -n` skips a run if the previous one is still going.
+  3. Crontab (UTC host clock):
+     ```
+     */30 * * * * /path/to/run-gemini-paper.sh >> /var/log/agent-runner-gemini.log 2>&1
+     ```
+  Alternative: a systemd service with `EnvironmentFile=/etc/tradedesk/agent-runner.env` (mode 600) and a timer.
+- **Cost:** each run is one Gemini request loop with several MCP tool calls, so cost grows with runs per day times tokens per run (prompt plus candle data returned). Start with the default Flash model and a low cadence, and check your Google billing page.
+
+Try it before enabling. Do not type the secrets as `export KEY=...`: that lands in shell history. Load the env file instead (`set -a; . /etc/tradedesk/agent-runner.env; set +a`) or use `read -s`:
+```
+node dist/main.js --jobs jobs.gemini-paper.example.json --check
+node dist/main.js --jobs jobs.gemini-paper.example.json --dry-run paper-crypto-gemini
+node dist/main.js --jobs jobs.gemini-paper.example.json --next 3
+node dist/main.js --jobs jobs.gemini-paper.example.json --once paper-crypto-gemini
+```
+
 ## Reports
 Each run writes `<outputDir>/<name>/<YYYY-MM-DD>.md` (date in the job's time zone; a repeat run the same day gets `-1`, `-2`, ...). The file has status, duration, any error, the prompt and the result. The MCP token is redacted from the output.
 

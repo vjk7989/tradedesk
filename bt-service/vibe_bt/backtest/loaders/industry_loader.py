@@ -47,6 +47,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from vibe_bt.backtest.loaders.pit_calendar import (
+    assert_clean_datetime_index,
+    market_calendar_index,
+)
 from vibe_bt.backtest.loaders.tushare import (
     TUSHARE_TOKEN_PLACEHOLDERS,
     _call_with_backoff,
@@ -66,6 +70,9 @@ _SNAPSHOT_ROW_CAP = 2000
 #: Sentinel standing in for a null ``out_date`` (still a member). Inside the
 #: ``datetime64[ns]`` range so int64 comparisons against trading days work.
 _OPEN_ENDED = pd.Timestamp("2262-01-01")
+
+#: Tushare membership dates are CN-local calendar dates.
+_CN_MARKET_TZ = "Asia/Shanghai"
 
 
 def validate_industry_params(level: str, src: str) -> str:
@@ -255,7 +262,13 @@ def load_industry_frame_with_coverage(
 
     position = {symbol: j for j, symbol in enumerate(columns)}
     values = np.full((len(index), len(columns)), np.nan, dtype=object)
-    for i, day_ns in enumerate(pd.DatetimeIndex(index).as_unit("ns").asi8):
+    # in_date/out_date are naive CN-local calendar dates (Tushare). A tz-aware
+    # bar index is keyed by its Asia/Shanghai wall clock (not its UTC epoch,
+    # which would shift every day boundary by the offset); a naive index is
+    # taken as already CN-local. ``frame`` keeps the caller's exact index.
+    key_index = market_calendar_index(pd.DatetimeIndex(index), _CN_MARKET_TZ)
+    assert_clean_datetime_index(key_index, "industry PIT bar keys")
+    for i, day_ns in enumerate(key_index.as_unit("ns").asi8):
         applicable = (in_ns <= day_ns) & (day_ns < out_ns)
         if not applicable.any():
             continue
