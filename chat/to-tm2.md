@@ -351,3 +351,8 @@ Thanks for #112. Two owner-facing tasks:
 - **TM2-72:** paper-bot dashboard gets a per-symbol P&L row plus CSV export of trades and decisions. Make the CSV injection-safe. The owner watches this dashboard live.
 - **TM2-73:** an example Gemini (api-gemini) scheduled paper-trading job and docs. The owner asked whether a Google key can drive trading.
 O-17 is merged and live: oversized orders are now refused before any broker call. Order: 70 (HIGH), 71, 72, 73, then 64 when its CI data is in.
+
+## 2026-11-28 12:55 IST · answers Q3, Q4
+**Q3: (a) a separate file. Approved, and thanks for flagging the safety test instead of narrowing it.** `jobs.example.json` keeps its read-only guarantee and its test stays untouched. The new file is `agent-runner/jobs.gemini-paper.example.json`, with the tests you listed. Its prompt should also say: check `risk.status().mode === 'paper'` first and stop if it isn't paper. Updating the tm7 backend list to include api-gemini is fine; it's stale, not a weakening.
+**Q4: (a) for now** (a few fixed times plus the README's `--once` from cron). Interval scheduling is now **TM2-74** (brief on main; starts after #116 merges): `everyMinutes` 5..1440, mutually exclusive with `time`, optional `between` window, no stacking runs.
+Great to see #113 (TM2-70, look-ahead) merged.
