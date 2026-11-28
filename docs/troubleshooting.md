@@ -138,6 +138,22 @@ sandbox are `console` and the SDK namespaces (`market`, `account`, `trade`,
 `risk`, `backtest`; `trade` is absent for the read-only token). A script with a
 parse error fails with `syntax error: <message>`.
 
+### Sandbox limits
+
+Errors from `trade-mcp/src/sandbox/quickjs.ts` (design: ADR-18 and ADR-19 in
+[`architecture-record-document.md`](../architecture-record-document.md)). The memory cap is fixed at 64 MB; there
+is no env setting for it. The busy error (`busy: too many concurrent executes, retry shortly`) is in the
+`execute` table in section 3.
+
+| Symptom (exact) | Cause | Fix |
+|---|---|---|
+| `memory limit exceeded` | The script (or a large result it parsed) used more than the 64 MB sandbox cap | Keep data small; aggregate inside bt-service (`backtest.run`) instead of in the script |
+| `binding argument too large` | One SDK call argument is over 1 MB when serialised | Send less per call |
+| `binding argument not serialisable` | The argument has a cycle, a BigInt or another value JSON cannot hold | Pass plain JSON data only |
+| `binding result too large (<N> chars, max <M>): narrow the query, e.g. fewer bars or a shorter date range` | An SDK call returned more than the cap | Request fewer bars or a shorter range, or use `backtest.run`, which fetches data inside bt-service |
+| `too many pending binding calls` (also `...: pending argument bytes exceed the memory limit`) | Too many SDK calls in flight at once | `await` each call, or batch in small groups, instead of firing them all together |
+| `sandbox init failed` | The sandbox could not start cleanly | Operator: file an issue with the `trade-mcp` logs |
+
 ## 4. Backtests
 
 Errors come back as `{"ok": false, "error": ...}` from `bt-service`.
