@@ -11,7 +11,7 @@ Personal project. Not financial advice. Paper-trade first.
 - **bt-service**: Python/FastAPI backtests on the engine extracted from Vibe-Trading ([ADR-4](architecture-record-document.md)).
 - **agent-runner**: scheduled agent jobs using the Claude, Codex or Gemini CLIs, or the Anthropic, OpenAI or Gemini APIs ([ADR-7](architecture-record-document.md)).
 - **Fincept Terminal**: optional desktop cockpit via `mcp-remote` ([ADR-1](architecture-record-document.md)).
-- **paper-bot**: coming (PB-1/PB-2).
+- **paper-bot**: crypto paper-trading SMA bot with a dashboard, no keys and no real orders ([docs/paper-bot.md](docs/paper-bot.md)).
 
 ## Architecture
 
