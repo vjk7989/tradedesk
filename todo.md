@@ -207,4 +207,4 @@ Detailed plan: `plan.md`.
 - TM2-71 · trade-mcp · de-flake server.edge CLI spawn tests (TM2) [ ]
 - TM2-72 · paper-bot · per-symbol P&L + CSV (TM2) [ ]
 - TM2-73 · agent-runner · Gemini paper job example (TM2) [ ]
-- O-18 · docs · GCP deploy guide (OWNER) [.] (writing)
+- O-18 · docs · GCP deploy guide (OWNER) [x]
