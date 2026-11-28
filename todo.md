@@ -211,5 +211,5 @@ Detailed plan: `plan.md`.
 - TM2-74 · agent-runner · interval schedules (TM2, after #116) [x]
 - TM2-75 · deploy · backups include paper_bot_data (TM2) [x]
 - TM2-76 · paper-bot · bounded storage (TM2) [x]
-- TM2-77 · paper-bot · OpenAlgo analyzer execution mode (TM2) [ ]
-- TM2-78 · deploy · encrypted GCS backups (TM2, after #119) [ ]
+- TM2-77 · paper-bot · OpenAlgo analyzer execution mode (TM2) [.]
+- TM2-78 · deploy · encrypted GCS backups (TM2, after #119) [.]
