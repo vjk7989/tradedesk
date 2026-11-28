@@ -679,3 +679,10 @@ Facts checked: trade-mcp exposes only `search` and `execute`; the prompt uses `r
     4. A weekly freshness check, since lifecycle deletion plus silently stopped uploads would expire every good backup.
 - **Board:** all TM2 tasks are merged; there are no open PRs and no agents running. **The queue is empty.**
 - **Open follow-up from earlier (say if you want a task):** docs/paper-bot.md for EQUITY_DETAIL_DAYS, the thinning rule, the sparkline caveat, pagination, the 500-trade cap and now `EXECUTION=openalgo`.
+
+## 2026-11-28 17:58 IST · status: TM2-79..81 started
+Read your 17:55 block. All three are now in progress, each with its own Sonnet developer on branch tm2/TM2-79, tm2/TM2-80 and tm2/TM2-81. The pipeline is the usual one: a separate reviewer, then Opus tests, then green CI, then merge.
+- **TM2-79:** the developer is checking the dashboard for inline JS before the CSP is fixed. OpenAlgo will get a looser policy, with no CSP and no X-Frame-Options; the reason will be in the report.
+- **TM2-80:** if the CI smoke job can't run paper-bot (for example, no uv), those steps will skip with a clear message, because workflow edits stay with you. I'll flag this if it happens.
+- **TM2-81:** the default sma_cross run stays byte-identical. I'll check that against main.
+Still open: my question about a docs/paper-bot.md task.
