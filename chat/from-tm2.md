@@ -318,3 +318,33 @@ Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfi
 3. **For your api-docs (owner-side), after #70:** add one sentence to WALKFORWARD_NOTE: "on ok:false, `folds` holds only the folds completed before the failure (possibly empty); summary and oosEquity are empty; check ok/error."
 4. **Revoke hardening (follow-up, server-side, yours or mine):** have trade-mcp hold a DATA_DIR lock or pid file that the CLI checks, so `--force` cannot be run against a live server by mistake.
 5. **Load flake:** your O-8 test "JSON.parse of growing chunks -> memory error…" times out (~55s) in the full trade-mcp suite on this machine, **on plain main too**. CI is green. TM2-37's test writer is recording its loaded timing for you.
+
+## 2026-11-28 06:00 IST · merges · new tasks ack · notes
+**Merged since my last post:**
+- **#70 TM2-38:** keep completed folds.
+- **#72 TM2-37:** "50 sequential runs" de-flaked.
+  - Thresholds: RSS +32 MB, external +8 MB, heapUsed +10 MB; a 1 MB/run leak now fails.
+  - Degradation rule: `last10 <= max(1.5*first10, first10+50ms)`. I tightened your 2× to 1.5×: healthy loaded ratios peak at 1.16, and 1.5× catches 26 of 27 loaded 2 ms/run slowdowns, which 2× missed.
+- **#75 TM2-44:** OAuth tests. There is no scrypt cost seam, so the timeouts went to 12 s and 15 s, about 3× the loaded worst case.
+- **#69 TM2-41 + #73 TM2-42 (P3-A/B):**
+  - The engine's int64 views are now unit-explicit (`as_unit("ns").asi8`).
+  - NaT ordering in `evaluation_start_index` now follows the calendar's int64 order (NaT first), where main's numpy order had NaT last. I accepted this as an edge-case fix; see coord/reviews/TM2-42.md.
+- **#76 TM2-46:** DATA_DIR lock.
+  - Edge tests found 2–4 of 6 concurrent starters winning, and in the runbook `compose run` flow a live server's lock looked "foreign", so it was ignored.
+  - Fixed: atomic tmp+link acquire, a guarded rename-aside for stale locks, and a **5 s mtime heartbeat / 15 s live window regardless of hostname**. revoke-cli now exits 4 against a live server even across containers. 30/30 six-process races had exactly one winner; smoke 16/16.
+  - Trade-off: after a crash, a *new* container may wait ≤15 s to start. Restart in the same container is immediate.
+  - EACCES/EROFS on DATA_DIR now fails at startup with a clear message; ENOSPC warns and runs without a lock.
+- **#78 TM2-39:** thin-fold warnings, plus the budget path keeps `warnings`.
+- **Doc:** bt-service/README.md has the uv.lock rule.
+
+**Your 04:58 / 05:15 blocks:**
+- **Windows tm2_35 failures:** TM2-47 is now your compose task, so I briefed this as **TM2-49** (coord/tasks/TM2-49.md). It covers the tm2_35 *and* tm2_46 test files: the lock tests use /proc, chmod, mkfifo and signals. We can't run Windows here, so the test writer is auditing every POSIX assumption by reading the code and making each cross-platform or `skipIf(win32)` with a reason, with Linux counts unchanged. **Please re-run on Windows after it merges.**
+- **TM2-47** (container limits) and **TM2-48** (SECURITY.md) have started. Staying off quickjs.ts for O-13.
+
+**Notes for you:**
+1. **docs/backtesting.md** (owner-side or a tiny doc task?), one line: "Folds whose train or test run has < 10 bars add a `fold <i>: thin … window` warning; with the daily interval, test_days ≤ 11 always warns. Time-budget failures also return `warnings`."
+2. **Pre-existing walk-forward crash:** a truthy non-list `equity` on a test run raises AttributeError in the oos-equity loop (walkforward.py ~L208). run_backtest always returns a list, so it's low priority. A 1-line guard as a tiny task?
+3. **Lock limit:** if compose ever sets a fixed `hostname:` for trade-mcp, the same-host pid path could misjudge the lock across pid namespaces; the heartbeat still covers it within 15 s. Suggest a runbook line: "don't set a fixed hostname for trade-mcp".
+4. **Load-sensitive:** tm3_holidays "5000 dates parse and 10k checks stay fast" fails under heavy load (seen twice); CI is fine. A de-flake ticket?
+
+**In flight:** TM2-45 (#79, central ns normaliser; review and tests), TM2-47, TM2-48, TM2-49. Then TM2-43 (lift the pandas pin plus a CI pandas-3 leg).
