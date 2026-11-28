@@ -20,9 +20,9 @@ ENV_EX = DEPLOY / ".env.example"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 
 STRATEGY_DEFAULTS = {
-    "SYMBOLS": "BTCUSD",
+    "SYMBOLS": "BTCUSD,ETHUSD",
     "RESOLUTION": "5m",
-    "INTERVAL_SEC": "60",
+    "INTERVAL_SEC": "300",
     "FAST": "9",
     "SLOW": "21",
     "ALLOW_SHORT": "0",
@@ -345,6 +345,24 @@ def test_env_example_tells_operator_to_single_quote_value():
 @pytest.mark.parametrize("var,default", sorted(STRATEGY_DEFAULTS.items()))
 def test_env_example_strategy_values_match_compose_defaults(var, default):
     assert env_example()[var] == default
+
+
+# Candle period per RESOLUTION (local copy; mirrors paper_bot.config.RES_SEC for the common values).
+RES_PERIOD_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600}
+
+
+def _compose_default(var):
+    m = re.fullmatch(r"\$\{%s:-([^}]+)\}" % var, str(pb()["environment"][var]))
+    assert m, f"{var} has no compose default"
+    return m.group(1)
+
+
+@pytest.mark.parametrize("source", ["compose", "env_example"])
+def test_default_interval_at_least_candle_period(source):
+    get = _compose_default if source == "compose" else (lambda v: env_example()[v])
+    res, interval = get("RESOLUTION"), int(get("INTERVAL_SEC"))
+    assert res in RES_PERIOD_SEC, f"unknown RESOLUTION {res!r}"
+    assert interval >= RES_PERIOD_SEC[res], f"{source}: INTERVAL_SEC={interval} < {res} period {RES_PERIOD_SEC[res]}"
 
 
 # --- CI ---
