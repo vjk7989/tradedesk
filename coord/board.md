@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-15 | OWNER | ready (right after #85) | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
 | TM2-53 | TM2 | ready | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
 | TM2-54 | TM2 | ready | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
 | TM2-50 | TM2 | ready | coord/tasks/TM2-50.md | docs: thin-fold warning + no fixed hostname |

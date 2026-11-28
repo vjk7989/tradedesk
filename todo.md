@@ -178,3 +178,4 @@ Detailed plan: `plan.md`.
 - TM2-52 · trade-mcp · de-flake tm3_holidays perf (TM2) [ ]
 - TM2-53 · e2e · smoke concurrency cap + memory recovery (TM2) [ ]
 - TM2-54 · docs · troubleshooting sandbox-limit errors (TM2) [ ]
+- O-15 · repo · CI asserts pandas 3 (OWNER, right after #85) [ ]
