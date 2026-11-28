@@ -18,7 +18,9 @@ A JSON array of jobs (see `jobs.example.json`):
 |---|---|
 | `name` | `[A-Za-z0-9_-]+`, unique |
 | `schedule.days` | non-empty list of `Mon`..`Sun` |
-| `schedule.time` | `HH:MM`, 24h |
+| `schedule.time` | `HH:MM`, 24h. Exactly one of `time` or `everyMinutes` is required |
+| `schedule.everyMinutes` | integer 5..1440; runs at local 00:00 then every N minutes (see "Interval schedules") |
+| `schedule.between` | optional `["HH:MM","HH:MM"]`, only with `everyMinutes` |
 | `schedule.tz` | `"Asia/Kolkata"` or `"UTC"` |
 | `backend` | `claude`, `codex`, `gemini`, `api`, `api-openai` or `api-gemini` |
 | `prompt` | non-empty string |
@@ -26,6 +28,9 @@ A JSON array of jobs (see `jobs.example.json`):
 | `timeoutMs` | optional, positive |
 | `notify` | optional, `{ "telegram": { "chatIdEnv" } }`; `chatIdEnv` is the NAME of the env var holding the chat id. No other keys allowed |
 | `outputDir` | directory for reports |
+
+### Interval schedules
+`everyMinutes` (5..1440, integer, mutually exclusive with `time`) runs the job on a fixed grid in the job's `tz`: minute 0 of each local day, then every N minutes. `days` still filters by the local weekday. The grid restarts at 00:00 each day, so if N does not divide 1440 the last gap of the day is shorter (`7` gives 23:55 then 00:00). `between: ["09:15","15:30"]` keeps only slots inside the window; both ends are inclusive, start must be before end (no overnight windows) and the window does not shift the grid (every 45 min gives 09:45, not 09:15). `between` is rejected with `time`. A `between` window that contains no grid slot (for example every 60 min between 09:10 and 09:50) is a parse error naming the job. Unknown keys inside `schedule` are ignored. The runner executes all jobs sequentially in one loop, so a long run of one job delays the others: a `time` job whose minute passes during another job's run is not skipped, it runs late as soon as the runner is free (this is unchanged from before TM2-74), while interval slots missed while the runner is busy are skipped. Runs never stack: if a job's own run is still going when a slot arrives, that slot is skipped and logged as `skipped (previous run still active)`; later slots keep the same grid. `--next N` and `--dry-run` show interval runs in the job's tz.
 
 ```json
 { "name": "eod-review",
@@ -60,7 +65,7 @@ npm test
   { "symbolAllow": ["BTCUSDFUT"], "maxQtyPerOrder": 1, "maxOrdersPerRun": 1 }
   ```
   (see `deploy/risk.example.json` for the full file). Note that a SELL on a perpetual opens a short position.
-- **Schedule:** the schema allows one `HH:MM` per job (days list plus one time, tz `UTC` or `Asia/Kolkata`), so the file has ONE job that runs daily at 00:00 UTC. Interval scheduling is coming as TM2-74. Until then, for a 30-minute cadence run `--once` from an external cron. Keep secrets out of the crontab: put them in a root-owned env file and load it from a wrapper script (all paths are placeholders).
+- **Schedule:** the schema allows one `HH:MM` per job (days list plus one time, tz `UTC` or `Asia/Kolkata`), so the file has ONE job that runs daily at 00:00 UTC. Interval scheduling is available since TM2-74 (`schedule.everyMinutes: 30`); this example file is left on the daily `time` schedule. The pre-TM2-74 alternative for a 30-minute cadence was to run `--once` from an external cron. Keep secrets out of the crontab: put them in a root-owned env file and load it from a wrapper script (all paths are placeholders).
   1. Env file `/etc/tradedesk/agent-runner.env`, `chmod 600`, owned by the runner user, with the lines `GEMINI_API_KEY=<your key>` and `MCP_TOKEN=<full token>`.
   2. Wrapper `/path/to/run-gemini-paper.sh` (`chmod 700`):
      ```
