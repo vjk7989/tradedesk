@@ -1,6 +1,6 @@
 # VPS runbook
 
-Stack: Caddy (80/443) -> trade-mcp, OpenAlgo; bt-service internal only. Files live in `deploy/`.
+Stack: Caddy (80/443) -> trade-mcp, OpenAlgo; bt-service internal only. Files live in `deploy/`. A `paper-bot` section is coming (PB-2).
 
 ## 1. Server
 - Ubuntu 24.04, minimum 2 vCPU / 4 GB RAM / 40 GB disk. The compose file caps container memory so trade-mcp, bt-service and Caddy total at most 2176 MB by default, leaving the rest for OpenAlgo and the OS (see section 5, Memory limits). Do not go below 4 GB without lowering the limits.
@@ -20,23 +20,32 @@ Follow https://docs.docker.com/engine/install/ubuntu/ (apt repo method), then `s
 
 ## 4. Get the code
 ```
-git clone <this-repo> uday-demos && cd uday-demos
+git clone <this-repo> <repo-dir> && cd <repo-dir>
 git clone https://github.com/marketcalls/openalgo vendor/openalgo
 git -C vendor/openalgo checkout f83592a
 ```
-(If `vendor/openalgo` is already in the repo, just check out/pin that commit.)
+`vendor/` is not part of this repo; the OpenAlgo checkout above is required (compose builds from `OPENALGO_SRC`, default `../vendor/openalgo`).
 
 ## 5. Configure
 ```
 cd deploy
-cp .env.example .env          # edit: DOMAIN, ACME_EMAIL, MODE=paper
+cp .env.example .env          # edit: see the checklist below
 sed -i "s/^MCP_TOKEN=.*/MCP_TOKEN=$(openssl rand -hex 32)/; s/^BT_TOKEN=.*/BT_TOKEN=$(openssl rand -hex 32)/" .env
 cp ../vendor/openalgo/.sample.env openalgo.env
 cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
 chmod 600 .env openalgo.env
 ```
+**Minimum env to fill in** (`deploy/.env`; compose refuses to start if `DOMAIN`, `ACME_EMAIL`, `MCP_TOKEN`, `BT_TOKEN` or `OPENALGO_API_KEY` is empty):
+- [ ] `DOMAIN` (not `example.com`) and `ACME_EMAIL`
+- [ ] `MCP_TOKEN` and `BT_TOKEN` (the `sed` above sets both)
+- [ ] `OPENALGO_API_KEY` (a placeholder is fine for the first start; replace it in section 7)
+- [ ] `MODE=paper` (leave as is until section 10)
+- [ ] `RISK_CONFIG_FILE=./risk.json` (default is `./risk.example.json`)
+- [ ] `openalgo.env`: `HOST_SERVER`, `FLASK_HOST_IP`, `WEBSOCKET_HOST`, `WEBSOCKET_URL`, and the broker keys (below)
+- Everything else (`MCP_TOKEN_READONLY`, `EXECUTE_*`, `*_MEM_LIMIT`, `BT_CPUS`, `OAUTH_*`, `OPENALGO_ENV_FILE`, `OPENALGO_SRC`) has a working default or is optional.
+
 Lint `risk.json` with the linter in the trade-mcp image (the host needs only Docker; run from `deploy/`). Candidate file before deploying: `docker compose run --rm --no-deps -v "$PWD/risk.json:/tmp/risk.json:ro" trade-mcp node dist/src/risk/lint.js /tmp/risk.json [--strict]`. Deployed file (the running container's `/config/risk.json`): `docker compose exec trade-mcp node dist/src/risk/lint.js /config/risk.json [--strict]`. Exit 0 = OK or warnings only, 1 = invalid config, unreadable file or usage error, 2 = warnings under `--strict`. Re-run each January to confirm the new year's NSE/MCX `marketHolidays` are filled in. From a local checkout instead: `cd trade-mcp && npm ci && npm run build && npm run risk:lint -- <file>`.
-To fill `marketHolidays` from OpenAlgo, use `deploy/sync_holidays.py` (usage and env: [docs/holidays.md](holidays.md)); after a write, `docker compose restart trade-mcp`.
+To fill `marketHolidays` from OpenAlgo, use `deploy/sync_holidays.py` (usage and env: [docs/holidays.md](holidays.md)); OpenAlgo's port 5000 is not published to the host, so set `OPENALGO_URL=https://openalgo.<DOMAIN>`; after a write, `docker compose restart trade-mcp`.
 `EXECUTE_TIMEOUT_MS` (default 60000) is the execute time limit in ms, clamped 5000-900000. Set it to 660000 or more if you use `backtest.walkForward`; MCP clients also have their own tool-call timeout.
 `EXECUTE_MAX_CONCURRENT` (default 4, range 1-32) caps simultaneous execute runs; each can use up to about 160 MB (memoryBytes 64 MB + 32 MB WASM + up to 64 MB of pending binding arguments), so size it to the VPS RAM, see Memory limits below. If clients see "busy: too many concurrent executes, retry shortly", raise it and restart.
 Edit `openalgo.env`:
@@ -54,6 +63,7 @@ docker compose up -d --build     # from deploy/
 docker compose ps
 curl -s https://mcp.<DOMAIN>/healthz
 ```
+Until you set the real `OPENALGO_API_KEY` in section 7, trade-mcp is up but `/readyz` returns 503 and calls to OpenAlgo fail; that is expected on this first start.
 `/healthz` is the liveness check. `GET /readyz` is the readiness check: no auth, internal only (Caddy does not route it, so run it inside the stack, e.g. `docker compose exec trade-mcp wget -qO- http://127.0.0.1:8787/readyz`), cached 5 s, 200 when ready or 503, body `{ok, checks:{openalgo, bt, auditWritable}}`. `bt` is `not_configured` when `BT_URL` is unset, which does not cause a 503.
 
 ## 7. First login
@@ -74,7 +84,7 @@ docker compose exec trade-mcp rm /data/KILL        # resume
 Hard stop: `docker compose stop trade-mcp`. Also disable the OpenAlgo API key or log out the broker in the UI.
 
 ## 10. Going live checklist
-- [ ] Paper (Analyzer) run for at least N = 5 trading days with no unexpected orders; review audit logs in `/data`.
+- [ ] Paper (Analyzer) run for at least N = 5 trading days with no unexpected orders; review the audit log `/data/audit.jsonl` (`docker compose exec trade-mcp ls -l /data`).
 - [ ] `risk.json` limits set conservatively (small qty/notional/daily loss).
 - [ ] Static IP registered with broker / Delta; broker login works.
 - [ ] `semi_auto` on for the first live days.
@@ -104,8 +114,9 @@ Optional: `OAUTH_ALLOWED_REDIRECT_HOSTS` (default `chatgpt.com,claude.ai,claude.
 ### Emergency: revoke all OAuth tokens
 Use when a connector token may have leaked. Kills every OAuth access token, refresh token and pending code; registered clients and login rate-limit state are kept, so users just log in again.
 ```
-docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp
+docker compose stop trade-mcp && sleep 15 && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp
 ```
+From a local checkout the same tool is `npm run oauth:revoke-all -- --force` (with `DATA_DIR` set; same rules).
 - Do not run against a live server: it re-persists its in-memory store and undoes the revoke. `--force` means "trade-mcp is stopped". Do not use `docker compose exec`.
 - Exit codes: 0 ok or nothing to revoke; 1 corrupt or wrong-shape store (untouched); 2 usage (missing `--force` or unknown argument); 3 unexpected error; 4 trade-mcp is running (live `DATA_DIR/trade-mcp.lock`; checked first, with or without `--force`).
 - Lock heartbeat: the server refreshes the lock mtime every 5 s; a lock younger than 15 s counts as live whatever the container or hostname. After `docker compose stop trade-mcp`, wait ~15 s before running revoke (exit 4 until the heartbeat ages out). Keep the order stop, wait, run, start.
