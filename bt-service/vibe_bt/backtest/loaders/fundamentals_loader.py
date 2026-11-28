@@ -21,9 +21,17 @@ import pandas as pd
 
 from vibe_bt.backtest.loaders import sec_edgar_client
 from vibe_bt.backtest.loaders.base import cached_loader_fetch, validate_date_range
+from vibe_bt.backtest.loaders.pit_calendar import (
+    assert_clean_datetime_index,
+    market_calendar_index,
+)
 from vibe_bt.backtest.loaders.sec_frames import ANNUAL_SPAN_DAYS, QUARTER_SPAN_DAYS
 
 logger = logging.getLogger(__name__)
+
+# SEC ``filed`` dates are US/Eastern calendar dates (EDGAR acceptance time is
+# Eastern), so a tz-aware bar index is keyed by its US/Eastern wall clock.
+_SEC_MARKET_TZ = "America/New_York"
 
 _VALID_FREQS = {"annual", "quarterly", "ttm"}
 _ANNUAL_FORMS = {"10-K"}
@@ -43,6 +51,20 @@ _FLOW_CONCEPTS = {
     "NetCashProvidedByUsedInOperatingActivities",
     "PaymentsToAcquirePropertyPlantAndEquipment",
 }
+
+
+def _parse_iso_dates(raw: pd.Series) -> pd.Series:
+    """Parse raw SEC date strings as explicit ISO8601 (never inferred).
+
+    Mixed tz-aware/naive strings make pandas raise even with ``coerce``; those
+    fall back to per-value parsing where tz-aware values become NaT.
+    """
+    try:
+        return pd.to_datetime(raw, format="ISO8601", errors="coerce")
+    except ValueError:
+        return pd.Series(
+            [_parse_naive_filed(v) for v in raw], index=raw.index, dtype="datetime64[us]"
+        )
 
 
 def _extract_concept_series(
@@ -100,9 +122,9 @@ def _extract_concept_series(
         return pd.DataFrame(columns=columns)
 
     df = pd.DataFrame(rows)
-    df["period_start"] = pd.to_datetime(df["period_start"], errors="coerce").dt.normalize()
-    df["period_end"] = pd.to_datetime(df["period_end"], errors="coerce").dt.normalize()
-    df["filed"] = pd.to_datetime(df["filed"], errors="coerce").dt.normalize()
+    df["period_start"] = _parse_iso_dates(df["period_start"]).dt.normalize()
+    df["period_end"] = _parse_iso_dates(df["period_end"]).dt.normalize()
+    df["filed"] = _parse_iso_dates(df["filed"]).dt.normalize()
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df = df.dropna(subset=["period_end", "filed", "value"])
     if df.empty:
@@ -206,7 +228,16 @@ def _ffill_pit(series: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
         parsed = pd.Series(
             [_parse_naive_filed(v) for v in raw_filed], index=raw_filed.index, dtype="datetime64[us]"
         )
-    sparse["filed"] = parsed.dt.normalize()
+    if isinstance(parsed.dtype, pd.DatetimeTZDtype):
+        # tz-suffixed ``filed``: the date must not precede either reading of
+        # it, so take the later of the stated wall-clock date and the
+        # US/Eastern date of the instant (never visible before the PIT date).
+        wall = parsed.dt.tz_localize(None).dt.normalize()
+        eastern = parsed.dt.tz_convert(_SEC_MARKET_TZ).dt.tz_localize(None).dt.normalize()
+        parsed = wall.where(wall >= eastern, eastern)
+        sparse["filed"] = parsed
+    else:
+        sparse["filed"] = parsed.dt.normalize()
     failed = raw_filed.notna() & sparse["filed"].isna()
     if failed.any():
         logger.warning(
@@ -221,8 +252,19 @@ def _ffill_pit(series: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
 
     values = sparse.set_index("filed")["value"].sort_index()
     values = values[~values.index.duplicated(keep="last")]
-    aligned_index = values.index.union(target_index)
-    return values.reindex(aligned_index).ffill().reindex(target_index)
+    # Both sides naive US/Eastern wall-clock before the union (a tz-aware caller
+    # index would otherwise form an unsorted object index and ffill backwards).
+    key_index = market_calendar_index(target_index, _SEC_MARKET_TZ)
+    assert_clean_datetime_index(values.index, "_ffill_pit filed keys")
+    # A tz-aware index can repeat a wall-clock time (DST fall-back); unique keys
+    # keep the union reindexable. Naive indexes are used exactly as before.
+    union_keys = key_index.unique() if target_index.tz is not None else key_index
+    aligned_index = values.index.union(union_keys)
+    assert_clean_datetime_index(aligned_index, "_ffill_pit union", monotonic=True)
+    result = values.reindex(aligned_index).ffill().reindex(key_index)
+    if target_index.tz is not None:
+        result.index = target_index  # keep the caller's exact index
+    return result
 
 
 def load_fundamental_panel(

@@ -33,6 +33,10 @@ from xml.etree import ElementTree as ET  # shim: stdlib instead of defusedxml
 class DefusedXmlException(Exception):  # shim: never raised without defusedxml
     pass
 
+from vibe_bt.backtest.loaders.pit_calendar import (
+    assert_clean_datetime_index,
+    market_calendar_index,
+)
 from vibe_bt.backtest.loaders.base import positive_env_float, retry_with_budget
 from vibe_bt.backtest.loaders.acquisition import remaining_timeout
 from vibe_bt.src.data_gateway.reads import managed_reader
@@ -50,6 +54,9 @@ DEFAULT_BUDGET_S = 60.0
 #: knowable only on the next calendar day, matching the event-driven skill's
 #: "released after market close -> use the next trading day" rule.
 DEFAULT_CLOSE_CUTOFF_HOUR = 16
+
+#: Knowable dates and cutoffs are CN-local (A-share close), see ``_knowable_date``.
+_CN_MARKET_TZ = "Asia/Shanghai"
 
 #: Canonical column order for the tidy event frame.
 EVENT_COLUMNS: tuple[str, ...] = (
@@ -387,7 +394,14 @@ class RSSHubEventProvider:
         feed_names = list(feeds) if feeds is not None else self.list_feeds()
         # Knowable dates are local calendar dates, independent of an offset.
         # Preserve that same calendar convention for aware caller boundaries.
-        as_of_date = pd.Timestamp(as_of).tz_localize(None).normalize()
+        as_of_ts = pd.Timestamp(as_of)
+        as_of_date = as_of_ts.tz_localize(None).normalize()
+        if as_of_ts.tzinfo is not None:
+            # Never later than the CN-local date of the same instant (a boundary
+            # east of CN could otherwise admit tomorrow's items).
+            as_of_date = min(
+                as_of_date, as_of_ts.tz_convert(_CN_MARKET_TZ).tz_localize(None).normalize()
+            )
 
         code_list = list(codes)
         rows: list[dict[str, Any]] = []
@@ -576,9 +590,13 @@ def enrich_price_frames_with_events(
     for code, frame in enriched.items():
         rows = events[events["ts_code"] == code]
         # Daily bars carry calendar labels, just like the feed's knowable dates.
-        bar_dates = (
-            pd.DatetimeIndex(pd.to_datetime(frame.index)).tz_localize(None).normalize()
-        )
+        # Knowable dates are CN-local calendar dates, so a tz-aware bar index is
+        # keyed by its Asia/Shanghai date (not its own wall clock); a naive index
+        # is taken as CN-local. The frame keeps the caller's exact index.
+        bar_dates = market_calendar_index(
+            pd.DatetimeIndex(pd.to_datetime(frame.index)), _CN_MARKET_TZ
+        ).normalize()
+        assert_clean_datetime_index(bar_dates, "rsshub event bar dates")
         scores = pd.Series(0.0, index=frame.index)
         counts = pd.Series(0, index=frame.index)
         if not rows.empty and len(frame) > 0:
