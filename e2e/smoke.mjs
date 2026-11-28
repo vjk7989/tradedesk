@@ -153,6 +153,7 @@ async function main() {
     RISK_CONFIG: riskCfg,
     PORT: String(mcpPort),
     HOST: "127.0.0.1",
+    EXECUTE_MAX_CONCURRENT: "2",
   });
   await waitHealth(`http://127.0.0.1:${oaPort}/healthz`, oa);
   await waitHealth(`http://127.0.0.1:${btPort}/healthz`, bt);
@@ -315,6 +316,31 @@ class SignalEngine:
     const j = JSON.stringify(r);
     assert(j.includes("backtest"), `earlier backtest step not in entries: ${j.slice(0, 600)}`);
     for (const s of [MCP_TOKEN, MCP_RO, BT_TOKEN, API_KEY]) assert(!j.includes(s), "token value found in audit.recent output");
+  });
+  const BUSY = "busy: too many concurrent executes, retry shortly";
+  await step("17 EXECUTE_MAX_CONCURRENT=2: 5 concurrent ~1.5s executes (host-yielding) -> exactly 2 ok, 3 exact busy text, follow-up ok", async () => {
+    // Each loop iteration round-trips to the fake OpenAlgo over HTTP, so the host event loop runs and the 5 executes truly overlap.
+    const spin = "const end = Date.now() + 1500; let n = 0; while (Date.now() < end) { await account.funds(); n++; } return n > 0;";
+    const clients = await Promise.all([1, 2, 3, 4, 5].map(() => connect(MCP_TOKEN)));
+    try {
+      const rs = await Promise.all(clients.map((c) => exec(c, spin)));
+      const ok = rs.filter((r) => r.ok);
+      const busy = rs.filter((r) => !r.ok && r.error === BUSY);
+      assert(ok.length === 2, `expected 2 ok, got ${ok.length}: ${JSON.stringify(rs)}`);
+      assert(busy.length === 3, `expected 3 busy, got ${busy.length}: ${JSON.stringify(rs)}`);
+      const after = await exec(full, "return 1+1");
+      assert(after.ok && after.result === 2, `follow-up: ${JSON.stringify(after)}`);
+    } finally {
+      await Promise.all(clients.map((c) => c.close()));
+    }
+  });
+  await step("18 memory cap: huge string arrays -> 'memory limit exceeded', next execute ok, /healthz ok", async () => {
+    const r = await exec(full, 'const a = []; for (let i = 0; i < 5000000; i++) a.push("x".repeat(1000) + i); return a.length;');
+    assert(r.ok === false && /memory limit exceeded/.test(r.error ?? ""), JSON.stringify(r).slice(0, 400));
+    const next = await exec(full, "return 1+1");
+    assert(next.ok && next.result === 2, `next execute: ${JSON.stringify(next)}`);
+    const h = await fetch(`http://127.0.0.1:${mcpPort}/healthz`);
+    assert(h.ok, `/healthz status ${h.status}`);
   });
   await full.close();
 }
