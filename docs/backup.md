@@ -70,10 +70,26 @@ The script first checks that every MANIFEST entry is a plain file name, exists a
 matches its hash, and that the folder has no unlisted files. Any problem aborts
 before anything changes. It refuses if any container exists (`ps -aq`, running or
 stopped) unless `--force`. Volumes are NOT cleared first: the archive is extracted
-over existing files, so stale files may remain. `paper_bot_data.db` is restored by stopping paper-bot if it is running (only possible
-with `--force`), deleting the old `paper.db`, `paper.db-wal` and `paper.db-shm`, copying
-the snapshot in as `paper.db` (mode 600, owner uid 10001, the image's `bot` user), and
-starting paper-bot again if it was running; otherwise `up -d` starts it. Existing `.env`, `openalgo.env`,
+over existing files, so stale files may remain.
+
+`paper_bot_data.db` is restored with a verify-then-swap sequence:
+1. `PRAGMA integrity_check` runs on the snapshot in a one-off `python:3.12-slim`
+   container (stdlib sqlite3, read-only mount), before anything is stopped. A bad
+   snapshot aborts with the bot and volume untouched.
+2. paper-bot is stopped if it is running (only possible with `--force`; without it
+   the stack must already be down).
+3. The snapshot is copied to `paper.db.new` in the volume (mode 600, owner uid 10001,
+   the image's `bot` user), moved over `paper.db` with an atomic `mv`, and only then
+   are the stale `paper.db-wal` and `paper.db-shm` removed.
+4. If any step after the stop fails, a trap removes `paper.db.new`, restarts the bot
+   if it was running, and the old `paper.db` is left intact.
+5. The bot is started again if it was running before; if the stack was down (no
+   `--force`), start it with `up -d`.
+
+`backup.sh` passes `-p "$PREFIX"` to its compose calls, so the paper-bot snapshot always
+uses the same volume prefix as the tar archives, whatever the deploy dir is named.
+
+Existing `.env`, `openalgo.env`,
 `risk.json` are moved to `<file>.pre-restore` (or `.pre-restore.<UTC timestamp>` if
 that exists).
 

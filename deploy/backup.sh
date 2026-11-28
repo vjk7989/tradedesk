@@ -15,6 +15,7 @@ VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_da
 # consistent snapshot (sqlite backup API run inside paper-bot) named paper_bot_data.db.
 SNAPSHOT_VOL="paper_bot_data"
 # Every named volume in docker-compose.yml must be in VOLUMES or here (name:reason).
+# shellcheck disable=SC2034 # read by the guard test, not by this script
 EXCLUDED_VOLUMES=(
   "openalgo_tmp:scratch space, rebuilt by the app"
   "caddy_data:TLS certs and ACME state, re-issued automatically"
@@ -23,15 +24,23 @@ EXCLUDED_VOLUMES=(
 # Run inside the paper-bot container: online-consistent copy of paper.db to stdout.
 PYSNAP='import os,sqlite3,sys,tempfile
 p=os.path.join(os.environ.get("DATA_DIR","/data"),"paper.db")
-s=sqlite3.connect("file:"+p+"?mode=rw",uri=True,timeout=30)
-d=tempfile.mkstemp(suffix=".db")
-t=sqlite3.connect(d[1])
-s.backup(t)
-ok=t.execute("PRAGMA integrity_check").fetchone()[0]
-t.close(); s.close()
-if ok!="ok": sys.exit("integrity_check failed")
-sys.stdout.buffer.write(open(d[1],"rb").read()); os.close(d[0]); os.remove(d[1])'
-COMPOSE=(docker compose -f "$DEPLOY_DIR/docker-compose.yml")
+fd,tmp=tempfile.mkstemp(suffix=".db"); os.close(fd)
+try:
+    s=sqlite3.connect("file:"+p+"?mode=rw",uri=True,timeout=30)
+    t=sqlite3.connect(tmp)
+    s.backup(t)
+    ok=t.execute("PRAGMA integrity_check").fetchone()[0]
+    t.close(); s.close()
+    if ok!="ok": sys.exit("integrity_check failed")
+    with open(tmp,"rb") as f:
+        while True:
+            c=f.read(1<<20)
+            if not c: break
+            sys.stdout.buffer.write(c)
+    sys.stdout.buffer.flush()
+finally:
+    os.remove(tmp)'
+COMPOSE=(docker compose -p "$PREFIX" -f "$DEPLOY_DIR/docker-compose.yml")
 # source file (in deploy dir) : name inside the backup
 FILES=(".env:env" "openalgo.env:openalgo.env" "risk.json:risk.json")
 
