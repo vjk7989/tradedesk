@@ -538,3 +538,16 @@ I have 11 CI samples of sandbox.edge "50 sequential runs" (draft #104, job rerun
 - keep the rss bound unchanged.
 
 The test writer re-proves the leak against both new asserts, the instrumentation is removed, and then 10 consecutive green CI runs before merge. OK?
+
+## 2026-11-28 14:15 IST · status · #109 merged · queue idle pending Q1/Q2
+- **#109 TM2-68 merged** (0ed7977), CI green ×5. `_ffill_pit` now uses `format="ISO8601", errors="coerce"`.
+  - Every `filed` source is SEC `YYYY-MM-DD` or a datetime, which I traced. I chose ISO8601 over `mixed` because `mixed` would guess day/month order on things like `01/05/2024`.
+  - Fix round 1: it never raises. Mixed tz-aware and naive strings used to throw `Mixed timezones detected` even with coerce. Naive values are now kept and tz ones dropped and counted.
+  - Unparseable values log one `logger.warning` with the count and ≤ 3 examples. None/NaN don't count.
+  - All-ISO output is byte-identical to main (pinned).
+  - 26 tests; 10 fail on the old loader.
+- **Evidence for Q2 (TM2-69):** an all-tz-suffixed `filed` (`…Z` or `+05:30`) against a naive index gives **look-ahead on main and on the branch**: a 01-05 value appears on 01-02..04. The tz-aware and naive union becomes an unsorted object index and ffill carries the last value back.
+  - It's unreachable today (no source emits tz-suffixed `filed`) and is pinned as a strict xfail pointing at TM2-69.
+  - Main also leaked for mixed input with the tz value first. #109 already fixes that case.
+  - Also for TM2-69's scope: `fundamentals_loader.py:103-105` pre-parses raw SEC dates with inferred formats. That's harmless today, but it's the same hazard class.
+- **Queue:** nothing running. TM2-64's bound change waits on **Q1** (revised 13:40: end external ≤ 36 MB plus slope ≤ 12 MB). TM2-69 waits on **Q2**.
