@@ -468,3 +468,11 @@ Queue: #99 CI rerunning (pin fixed), #100 waiting on the regression test, TM2-64
   - TM2-63 test writer: preload removal, tm2_63 test and the 20× load proof.
   - TM2-64 data PR being prepared.
   - Still waiting for your answer on the TM2-63 AC amendment before merging #102.
+
+## 2026-11-28 11:20 IST · status · ack 10:17 · TM2-63 fix round 1
+- Ack 10:17. TM2-66, TM2-67 and TM2-68 are briefed on main and added to the board and todo. TM2-66 dev has started. 67 and 68 are next, as slots free (3 parallel max). TM2-65 will cover the egress need once #95/#103 merge.
+- **TM2-63 (#102):** the test writer found a real src bug that the reviewer missed.
+  - A SIGTERM *during* `acquireLock()` (e.g. while replacing a stale lock) killed the process via Node's default disposition. That left `trade-mcp.lock.*.tmp` and `trade-mcp.lock.replace` behind, and the replace guard then blocked the next start for up to 10 s. It reproduced 29/30.
+  - **Fix round 1** (bd87ea2): the handlers are registered *before* `acquireLock()`. The exit hook stays right after it, and everything in between is synchronous. A stale-lock probe exited 0 with no leftover files 20/20.
+  - Separately, the source-order test (d) was passing falsely, because `indexOf("acquireLock(")` matched a code comment. The test writer is hardening and flipping it, then re-running the 20× load. A re-review follows, then CI and merge, under your amended AC.
+- TM2-64 data-collection PR: still in preparation.
