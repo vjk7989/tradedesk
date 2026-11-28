@@ -382,7 +382,10 @@ describe("sandbox limits", () => {
   // - end external after the final gc: healthy CI 2.05 or 18.05 MB, local 2.35 MB; the leak gives >= 52.
   // - slope = mean external of runs 26-50 minus runs 1-25 (sampled after each run, gc every 5th run, as
   //   in the calibration data): healthy CI -6.0..+5.8 MB, local -7.8..+4.4; the leak gives +22.9..+27.3.
-  // The "flags a 1 MB/run leak" test below runs the same loop with the leak and proves both checks fire.
+  // End external is the primary leak signal (leak 52.35 MB vs bound 36). Slope is secondary: it catches a
+  // gradual leak whose end value is still under 36 MB, but under load the 1 MB/run leak's slope fell to 13.0,
+  // just over 12. The "flags a 1 MB/run leak" test below therefore asserts the real test's verdict and the
+  // end check, and only reports the slope.
   const MB = 1024 * 1024;
   const END_EXTERNAL_MAX_MB = 36;
   const EXTERNAL_SLOPE_MAX_MB = 12;
@@ -395,16 +398,20 @@ describe("sandbox limits", () => {
   const once = (i: number) =>
     runCode(`globalThis.counter = (globalThis.counter ?? 0) + 1; return [counter, await m.f(${i})];`, { m: { f: echo } });
 
-  /** Both TM2-64 external checks, in MB. `series` = external after each run, `endExternal` after the final gc. */
+  /** Both TM2-64 external checks, in MB. `series` = external after each run, `endExternal` after the final gc.
+   *  `ok` is the verdict the real test asserts; the leak proof asserts it is false. */
   function externalChecks(series: number[], endExternal: number) {
     const half = series.length >> 1;
     const endMB = endExternal / MB;
     const slopeMB = (mean(series.slice(half)) - mean(series.slice(0, half))) / MB;
+    const endOk = endMB <= END_EXTERNAL_MAX_MB;
+    const slopeOk = slopeMB <= EXTERNAL_SLOPE_MAX_MB;
     return {
       endMB,
       slopeMB,
-      endOk: endMB <= END_EXTERNAL_MAX_MB,
-      slopeOk: slopeMB <= EXTERNAL_SLOPE_MAX_MB,
+      endOk,
+      slopeOk,
+      ok: endOk && slopeOk,
       endMsg: `end external ${endMB.toFixed(2)} MB (bound ${END_EXTERNAL_MAX_MB} MB)`,
       slopeMsg: `external slope ${slopeMB.toFixed(2)} MB, mean runs ${half + 1}-${series.length} minus runs 1-${half} (bound ${EXTERNAL_SLOPE_MAX_MB} MB)`,
     };
@@ -444,8 +451,7 @@ describe("sandbox limits", () => {
     // 0.5 MB/run of heap fails on heapUsed.
     expect(end.rss - base.rss, "rss growth").toBeLessThan(32 * MB);
     const ext = externalChecks(external, end.external);
-    expect(ext.endMB, ext.endMsg).toBeLessThanOrEqual(END_EXTERNAL_MAX_MB);
-    expect(ext.slopeMB, ext.slopeMsg).toBeLessThanOrEqual(EXTERNAL_SLOPE_MAX_MB);
+    expect(ext.ok, `${ext.endMsg}; ${ext.slopeMsg}`).toBe(true);
     expect(end.heapUsed - base.heapUsed, "heapUsed growth").toBeLessThan(10 * MB);
     // No timers/handles left behind per run.
     expect(process.getActiveResourcesInfo().length, "active handles").toBeLessThanOrEqual(baseHandles + 2);
@@ -462,14 +468,16 @@ describe("sandbox limits", () => {
     );
   }, 21_000);
 
-  // TM2-64 leak proof: the same loop retaining a 1 MB Buffer per run (+50 MB) must trip BOTH external checks.
+  // TM2-64 leak proof: the same loop retaining a 1 MB Buffer per run (+50 MB) must fail the real test's verdict
+  // (`ok`), and the end check alone must catch it. The slope is reported in the messages but not asserted.
   it("50 sequential runs: the external checks flag a simulated 1 MB/run leak", async () => {
     const leak: Buffer[] = [];
     try {
       const { external, end } = await fiftyRuns(() => leak.push(Buffer.alloc(MB, 1)));
       const ext = externalChecks(external, end.external);
-      expect(ext.endOk, `leak must fail: ${ext.endMsg}`).toBe(false);
-      expect(ext.slopeOk, `leak must fail: ${ext.slopeMsg}`).toBe(false);
+      const info = `${ext.endMsg}; ${ext.slopeMsg}, slope ${ext.slopeOk ? "passes" : "fails"} (not asserted)`;
+      expect(ext.ok, `the real test must fail on the leak: ${info}`).toBe(false);
+      expect(ext.endOk, `the end check must catch the leak: ${info}`).toBe(false);
     } finally {
       leak.length = 0;
     }
