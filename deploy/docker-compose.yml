@@ -80,7 +80,7 @@ services:
       OPENALGO_API_KEY: ${OPENALGO_API_KEY:?set OPENALGO_API_KEY}
       BT_RUNS_DIR: /runs
     tmpfs:
-      - /runs
+      - /runs:uid=1000,gid=1000,mode=0700
     mem_limit: ${BT_MEM_LIMIT:-1g}
     memswap_limit: ${BT_MEM_LIMIT:-1g}
     cpus: ${BT_CPUS:-1}
