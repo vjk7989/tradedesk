@@ -618,3 +618,45 @@ def test_docker_round_trip(tmp_path):
                 subprocess.run(["docker", "rm", "-f", *ids], capture_output=True)
             subprocess.run(["docker", "volume", "rm", "-f", *[f"{p}_{v}" for v in vols]], capture_output=True)
         # Backup files may be root-owned on some hosts; let pytest's tmp cleanup cope.
+
+
+TGZ_VOLS = ["openalgo_db", "openalgo_log", "openalgo_strategies", "openalgo_keys", "trade_mcp_data"]
+
+
+def _tree(d):
+    return {str(p.relative_to(d)): p.read_bytes() for p in sorted(d.rglob("*")) if p.is_file()}
+
+
+@posix_only
+@pytest.mark.parametrize("bot_up", [True, False])
+def test_restore_bad_snapshot_touches_no_volume(shim, bot_up):
+    """Fix round 2: the snapshot integrity_check runs before the volume loop, so a bad
+    paper_bot_data.db leaves every volume (not only paper_bot_data) untouched."""
+    e, tmp, vols = shim
+    assert set(TGZ_VOLS) | {"paper_bot_data"} == set(_bash_array(_read("restore.sh"), "VOLUMES"))
+    for v in TGZ_VOLS:
+        (vols / f"deploy_{v}" / "sub").mkdir(parents=True)
+        (vols / f"deploy_{v}" / "sub" / "state").write_bytes(f"backed-up {v}".encode())
+    b = do_backup(e, tmp, vols)
+    # Live state diverges after the backup: a tgz extraction would revert it.
+    for v in TGZ_VOLS:
+        (vols / f"deploy_{v}" / "sub" / "state").write_bytes(f"current {v}".encode())
+        (vols / f"deploy_{v}" / "new-file").write_bytes(b"added after backup")
+    (b / "paper_bot_data.db").write_bytes(b"this is not a sqlite database" * 100)
+    write_manifest(b)
+    pv = _old_volume(vols)
+    before = {v: _tree(vols / f"deploy_{v}") for v in TGZ_VOLS}
+    before_pv = _tree(pv)
+    if bot_up:
+        e["FAKE_BOT_UP"] = "1"
+    clear_log(e)
+    r = sh("restore.sh", ["--force", b], e)
+    assert r.returncode != 0
+    assert b"paper_bot_data.db failed integrity_check; nothing changed" in r.stderr
+    cs = calls(e)
+    assert not any("tar xzf" in " ".join(c) for c in cs), cs
+    assert not any(c[0] in ("stop", "start", "ps") for c in cs), cs
+    assert [c for c in cs if c[0] == "run"] == [c for c in cs if "python:3.12-slim" in c], cs
+    for v in TGZ_VOLS:
+        assert _tree(vols / f"deploy_{v}") == before[v], v
+    assert _tree(pv) == before_pv
