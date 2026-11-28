@@ -1,7 +1,8 @@
 // Emergency operator command: revoke every OAuth access token, refresh token and pending code.
 // Prints counts only. Never prints tokens, codes, hashes or client secrets.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { TradeOAuthProvider } from "./provider.js";
 import { checkLock, lockAgeSeconds, lockPath, LIVE_WINDOW_MS } from "../datadir-lock.js";
 
@@ -79,6 +80,14 @@ export function run(argv: string[], env: NodeJS.ProcessEnv = process.env): numbe
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+const samePath = (a: string, b: string): boolean => {
+  // argv[1] is as typed (may be a symlink); import.meta.url is the realpath. Compare realpaths.
+  const real = (p: string): string => {
+    try { return realpathSync(p); } catch { return path.resolve(p); }
+  };
+  const x = real(a), y = real(b);
+  return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y;
+};
+if (process.argv[1] && samePath(process.argv[1], fileURLToPath(import.meta.url))) {
   process.exit(run(process.argv.slice(2)));
 }

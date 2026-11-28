@@ -21,7 +21,9 @@ import { run } from "../src/oauth/revoke-cli.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI_TS = path.join(ROOT, "src/oauth/revoke-cli.ts");
-const TSX = path.join(ROOT, "node_modules/.bin/tsx");
+// Windows: chmod(0o555) on a directory does not make it read-only (NTFS ignores POSIX mode bits), so the
+// read-only DATA_DIR tests are POSIX-only and skipped there.
+const IS_WIN = process.platform === "win32";
 
 const TOKEN = "s".repeat(32); // fake static MCP token
 const PASSWORD = "fake-edge-password";
@@ -197,9 +199,12 @@ function runCaptured(argv: string[], env: NodeJS.ProcessEnv) {
   return { code, out, err, thrown };
 }
 
-/** Run the CLI as a real process (catches uncaught-exception output too). */
+/** Run the CLI as a real process (catches uncaught-exception output too).
+ *  Spawns this node binary with `--import tsx` (no shell): node_modules/.bin/tsx is a sh shim on POSIX and a
+ *  .cmd shim on Windows, which spawnSync cannot execute without a shell. */
 function runProc(argv: string[], dataDir: string, extraEnv: Record<string, string> = {}) {
-  const r = spawnSync(TSX, [CLI_TS, ...argv], {
+  const r = spawnSync(process.execPath, ["--import", "tsx", CLI_TS, ...argv], {
+    cwd: ROOT,
     env: { ...process.env, DATA_DIR: dataDir, OAUTH_PASSWORD_HASH: PW_HASH, ...extraEnv },
     encoding: "utf8",
     timeout: 60_000,
@@ -398,7 +403,8 @@ describe("TM2-35 edge: output secrecy on every path", () => {
     expectNoSecrets(r.out + r.err, [PW_HASH, PW_HEX, TOKEN]);
   });
 
-  it("write failure (read-only DATA_DIR) in a real process: crash output carries no secrets", async () => {
+  // POSIX-only: chmod 0o555 does not make a directory read-only on Windows.
+  it.skipIf(IS_WIN)("write failure (read-only DATA_DIR) in a real process: crash output carries no secrets", async () => {
     const { dir, c } = await populatedDir(3);
     chmodSync(dir, 0o555);
     roDirs.push(dir);
@@ -497,7 +503,8 @@ describe("TM2-35 edge: CLI argument and store paths", () => {
 });
 
 describe("TM2-35 edge: atomicity on write failure", () => {
-  it("read-only DATA_DIR: original store byte-identical, no partial/tmp file, non-zero exit (real process)", async () => {
+  // POSIX-only: chmod 0o555 does not make a directory read-only on Windows.
+  it.skipIf(IS_WIN)("read-only DATA_DIR: original store byte-identical, no partial/tmp file, non-zero exit (real process)", async () => {
     const { dir } = await populatedDir(2);
     const before = rawState(dir);
     chmodSync(dir, 0o555);
@@ -508,7 +515,8 @@ describe("TM2-35 edge: atomicity on write failure", () => {
     expect(readdirSync(dir).filter((f) => f.startsWith("oauth.json"))).toEqual(["oauth.json"]);
   });
 
-  it("read-only DATA_DIR in-process: run() fails (throws or non-zero), store intact", async () => {
+  // POSIX-only: chmod 0o555 does not make a directory read-only on Windows.
+  it.skipIf(IS_WIN)("read-only DATA_DIR in-process: run() fails (throws or non-zero), store intact", async () => {
     const { dir } = await populatedDir(2);
     const before = rawState(dir);
     chmodSync(dir, 0o555);
@@ -643,7 +651,8 @@ describe("TM2-35 edge: exit codes 0/1/2/3", () => {
     }
   });
 
-  it("read-only DATA_DIR exits 3 (real process) with a one-line message, no stack trace, store intact", async () => {
+  // POSIX-only: chmod 0o555 does not make a directory read-only on Windows.
+  it.skipIf(IS_WIN)("read-only DATA_DIR exits 3 (real process) with a one-line message, no stack trace, store intact", async () => {
     const { dir, c } = await populatedDir(2);
     const before = rawState(dir);
     chmodSync(dir, 0o555);

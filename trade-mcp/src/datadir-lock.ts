@@ -22,12 +22,13 @@ export interface LockInfo {
 }
 
 /** live: fresh heartbeat, a live same-host pid, an unreadable lock, or a young unparseable lock.
- *  stale: heartbeat older than LIVE_WINDOW_MS, or same-host dead/reused/own pid. "foreign" is no longer returned. */
+ *  stale: heartbeat older than LIVE_WINDOW_MS (foreign host, or same-host live pid on a non-Linux platform), or same-host dead/reused/own pid. "foreign" is no longer returned. */
 export type LockState = "missing" | "live" | "stale" | "foreign" | "corrupt";
 
 export const lockPath = (dataDir: string) => path.join(dataDir, LOCK_NAME);
 
 function procStart(pid: number): string | undefined {
+  if (process.platform !== "linux") return undefined; // unverifiable elsewhere; never "different"
   try {
     const s = readFileSync(`/proc/${pid}/stat`, "utf8");
     return s.slice(s.lastIndexOf(")") + 2).split(" ")[19]; // field 22 (starttime)
@@ -77,6 +78,8 @@ export function classify(
     const now = procStart(info.pid);
     if (now !== undefined && now !== info.procStart) return "stale"; // pid reused by an unrelated process
   }
+  // Non-Linux (win32, darwin) has no /proc start time to detect pid reuse: a live pid whose heartbeat is stale is a reused pid.
+  if (process.platform !== "linux" && Number.isFinite(ageMs) && ageMs >= LIVE_WINDOW_MS) return "stale";
   return "live";
 }
 

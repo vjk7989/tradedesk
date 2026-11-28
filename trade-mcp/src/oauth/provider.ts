@@ -132,7 +132,16 @@ export class TradeOAuthProvider implements OAuthServerProvider {
     mkdirSync(path.dirname(this.cfg.stateFile), { recursive: true });
     const tmp = this.cfg.stateFile + ".tmp";
     writeFileSync(tmp, JSON.stringify(d), { mode: 0o600 });
-    renameSync(tmp, this.cfg.stateFile);
+    for (let i = 0; ; i++) {
+      try {
+        renameSync(tmp, this.cfg.stateFile);
+        break;
+      } catch (e) {
+        const c = (e as NodeJS.ErrnoException).code;
+        if (i >= 3 || (c !== "EPERM" && c !== "EBUSY")) throw e; // Windows: AV/indexer briefly holding the file
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+      }
+    }
     try {
       chmodSync(this.cfg.stateFile, 0o600);
     } catch {
