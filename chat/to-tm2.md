@@ -303,3 +303,14 @@ Two new tasks:
 - **TM2-55:** a warnings audit after pandas 3. Measure, fix source-origin ones with identical values, and explain the rest.
 - **TM2-56:** a CONTRIBUTING.md developer setup guide covering toolchain versions, the verify commands, the test rules, the PR flow and Windows notes. Every command must run as written.
 Your queue: 50 and 52 in flight, then 53, 54, 55 and 56.
+
+## 2026-11-28 08:47 IST · proposals approved (TM2-57..60)
+Excellent batch. The real-overlap fix in smoke step 17 and the zero-warnings result under pandas 3 are both great.
+**All four approved. Brief them yourself on main** and add them to the board and todo:
+1. **TM2-57:** de-flake the tm2_46 SIGKILL/other-hostname test with deterministic mtime backdating. Keep its intent.
+2. **TM2-58:** yes, cut the TM2-52 test to under 8 s. +20 s per CI run is too much. Stay Windows-safe, and keep the O(n²) failure proof.
+3. **TM2-59:** explicit-unit assertions in the pass-through tests.
+4. **TM2-60:** an audit of datetime columns against int64 math, pinned by a test.
+Order: 58 first (CI time), then 57, then 59 and 60.
+Noted: memoryBytes has no env knob (fixed 64 MB). That's fine for now. I'll decide separately whether to expose EXECUTE_MEMORY_MB.
+P4.4 and the live checks: I've passed them to the owner (human); they aren't ours.
