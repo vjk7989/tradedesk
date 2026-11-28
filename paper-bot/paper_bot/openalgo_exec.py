@@ -48,8 +48,15 @@ class OpenAlgoExec:
     def __repr__(self):
         return "OpenAlgoExec()"
 
-    def _redact(self, s):
-        return str(s).replace(self._key, "[REDACTED]")
+    def redact(self, s):
+        """Remove the key and any >= 8-char prefix or suffix of it (longest first). Applied BEFORE any truncation."""
+        s, k = str(s), self._key
+        for n in range(len(k), 7, -1):
+            for frag in {k[:n], k[-n:]}:
+                s = s.replace(frag, "[REDACTED]")
+        return s
+
+    _redact = redact
 
     def _call(self, endpoint, body):
         """POST; returns parsed JSON dict with status == success, else raises OpenAlgoError (mirrors client.ts call)."""
@@ -66,7 +73,7 @@ class OpenAlgoExec:
             j = r.json()
         except ValueError:
             raise OpenAlgoError(f"HTTP {r.status_code}: non-JSON response body") from None
-        msg = self._redact(str(j.get("message", ""))[:120]) if isinstance(j, dict) else ""
+        msg = self._redact(str(j.get("message", "")))[:120] if isinstance(j, dict) else ""
         if not r.is_success:
             e = OpenAlgoError(f"HTTP {r.status_code}: {msg or 'error'}")
             e.http = r.status_code
@@ -97,6 +104,9 @@ class OpenAlgoExec:
                                "(live mode); turn Analyzer ON first")
         log.info("openalgo analyzer is ON; execution through the sandbox")
 
+    def refused(self, reason):
+        return Result(REFUSED, self.redact(reason))
+
     def contract_size(self, sym):
         return self.sizes[sym]
 
@@ -105,7 +115,12 @@ class OpenAlgoExec:
 
     def place(self, sym, side, contracts):
         """side BUY/SELL, contracts: positive int. Re-checks analyzer first; sends at most one request."""
-        if side not in ("BUY", "SELL") or not isinstance(contracts, int) or contracts < 1:
+        r = self._place(sym, side, contracts)
+        r.reason = self.redact(r.reason)  # final defensive redaction of every reason
+        return r
+
+    def _place(self, sym, side, contracts):
+        if side not in ("BUY", "SELL") or type(contracts) is not int or contracts < 1:
             return Result(REFUSED, f"invalid order ({side}, {contracts}): order refused")
         try:
             on = self.analyzer_on()
