@@ -8,7 +8,7 @@
 | TM2-51 | TM2 | in progress | coord/tasks/TM2-51.md | walk-forward non-list equity guard |
 | TM2-52 | TM2 | ready | coord/tasks/TM2-52.md | de-flake tm3_holidays perf test |
 | O-14 | OWNER | done | coord/tasks/O-14.md | api-docs: sandbox limits for the AI |
-| TM2-47 | TM2 | in progress | coord/tasks/TM2-47.md | container mem/cpu limits (compose) |
+| TM2-47 | TM2 | merged #82 | coord/tasks/TM2-47.md | container mem/cpu limits (compose) |
 | TM2-48 | TM2 | merged #80 | coord/tasks/TM2-48.md | SECURITY.md threat model + reporting |
 | O-13 | OWNER | done | coord/tasks/O-13.md | in-run memory check misses JSON.parse loop |
 | O-12 | OWNER | done | coord/tasks/O-12.md | api-docs walkForward partial folds; de-flake O-8 JSON.parse test |
