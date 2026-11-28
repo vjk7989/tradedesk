@@ -191,7 +191,7 @@ Detailed plan: `plan.md`.
 - GCP-1 · deploy · GCP VM (e2-medium, asia-south1) + sslip.io + paper run (OWNER) [.] (installing gcloud)
 - TM2-61 · docs · runbook accuracy pass (TM2) [x]
 - TM2-62 · docs · README refresh (TM2) [x]
-- TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [.]
+- TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [x]
 - TM2-64 · trade-mcp · recalibrate 50-runs bound from CI (TM2) [ ]
 - TM2-65 · docs · paper-bot operator guide, incl. egress need (TM2, after #95) [ ]
 - TM2-66 · trade-mcp · revoke-cli hint with the wait (TM2) [x]

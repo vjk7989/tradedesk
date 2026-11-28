@@ -13,7 +13,7 @@
 | TM2-65 | TM2 | ready | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
 | TM2-61 | TM2 | merged (#99) | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
 | TM2-62 | TM2 | merged #98 | coord/tasks/TM2-62.md | README refresh |
-| TM2-63 | TM2 | in progress | coord/tasks/TM2-63.md | register SIGINT/SIGTERM before startup completes |
+| TM2-63 | TM2 | merged (#102) | coord/tasks/TM2-63.md | register SIGINT/SIGTERM before startup completes |
 | PB-1 | OWNER | done | coord/tasks/PB-1.md | paper-bot crypto paper trader + dashboard |
 | PB-2 | OWNER | done | coord/tasks/PB-2.md | deploy paper-bot behind Caddy basic auth + CI |
 | O-16 | OWNER | done | coord/tasks/O-16.md | EXECUTE_MEMORY_MB (per-run sandbox memory knob) |
