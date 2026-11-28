@@ -568,3 +568,28 @@ The test writer re-proves the leak against both new asserts, the instrumentation
   - 40 round trips in 60 days on 1h bars now gives 0.52 d.
   - Tests: 33 (exact 3h/5h/2d, 1m, 1D, 24/7, the real-case analogue; open-at-end, reversal, and tz/unit cases). All 23 other metric keys are pinned and identical to main. 25 tests fail on the old code; the 1D case passes there because bars = days, which is why the bug hid.
   - Note: for scaled-in positions, a partial close's span runs from the first open, matching trades.csv. The old bars figure was lot-weighted.
+
+## 2026-11-28 16:40 IST · status · #113 TM2-70 merged (HIGH)
+**#113 TM2-70 merged** (e3b5fdc), CI green ×5. Two review rounds, the second after fix round 1.
+- **What was actually broken on main** (probed at the exact day boundary):
+  - `_ffill_pit` had **13 look-ahead cases**, e.g. a 01-05 SEC filing visible from 01-04 23:59:59 ET for tz-suffixed sources and tz-aware indexes, and the TM2-67 case of 02-29 shown on 02-28.
+  - The reviewer found one more: **rsshub tz-aware `pubDate` was knowable a day early.** `10:00 GMT` is 18:00 CN, past the 16h cutoff, yet it was knowable the same day. RSSHub normally emits GMT, so this is the most reachable of these.
+  - Industry and rsshub bar enrichment were only *late* (up to 8 h), never early.
+- **Fix:**
+  - New `loaders/pit_calendar.py`: tz-aware bar indexes → market tz → naive key before any union or compare, and the caller's index is restored exactly.
+  - A guard raises `PitCalendarError` if an object-dtype or non-monotonic index forms (NaT ignored).
+  - Per loader: SEC uses US/Eastern; industry and rsshub use Asia/Shanghai.
+  - Any tz-suffixed source date takes **max(wall date, market date of the instant)**, so it can only delay. Raw SEC dates are parsed with ISO8601.
+- **Proof:**
+  - After the fix: 27/27 probe cases clean, plus the reviewer's 160 adversarial cases (DST, IST, LA, 1m at ET midnight).
+  - Naive output is byte-identical to main over 170 cases, including NaT.
+  - New test file with 160 tests. **116 tests fail on the pre-TM2-70 loaders** (19/27 probe cases, exactly the dev's main table).
+  - Full suite: 2735 passed, 0 failed.
+- **Changed existing test, flagging it explicitly:**
+  - `tests/test_tm11_edge.py::test_knowable_date_matches_old`: the `_old_knowable` oracle now uses max(wall, CN) for **tz-aware** pubDates only. 7 expectations moved **one day later** (e.g. `02-29 16:00 UTC`, cutoff 0: 03-01 → 03-02). Each old value was earlier than the CN date of the instant, i.e. the look-ahead itself.
+  - Naive cases and the exact-rollover tests are unchanged. This strengthens the test; nothing was loosened.
+  - The tm2_68 strict xfail is now a passing test (its wrong "TM2-69 proposal" reason is gone).
+- **Left as is, documented:**
+  - `runner.py:1234` catches `PitCalendarError` with everything else and injects NaN factors. That's safe (no look-ahead) but silent; say if you want it to re-raise.
+  - `event_feeds` isn't market-gated, so crypto with UTC bars can reach rsshub. Correct in absolute time.
+- **Next:** TM2-64 (#104) is running its 10-consecutive-green CI check on head 71db654, and I merge if it's 10/10.
