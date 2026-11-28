@@ -72,7 +72,8 @@ def _sanitize(v):
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         return v
     s = str(v)
-    return "'" + s if s[:1] in ("=", "+", "-", "@", "\t", "\r", "\n") else s
+    # look past leading whitespace too (" =1+1"), but keep the original text after the quote
+    return "'" + s if s.lstrip(" \t\r\n\v\f\xa0")[:1] in ("=", "+", "-", "@") or s[:1] in ("\t", "\r", "\n") else s
 
 
 def to_csv(columns, rows):
@@ -90,7 +91,12 @@ def csv_response(body, name):
 
 
 def _iso(ts):
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts)) if ts else ""
+    if not ts:
+        return ""
+    try:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
+    except (TypeError, ValueError, OverflowError, OSError):
+        return _sanitize(ts)
 
 
 def decisions_csv(conn, cfg, symbol="", action=""):
@@ -115,7 +121,7 @@ def trades_csv(conn, cfg, symbol="", action=""):
     if symbol:
         conds.append("symbol=?"); args.append(symbol)
     if action:
-        conds.append("EXISTS(SELECT 1 FROM decisions d WHERE d.ts=trades.ts AND d.symbol=trades.symbol AND d.action=?)")
+        conds.append("(ts, symbol) IN (SELECT ts, symbol FROM decisions WHERE action=?)")
         args.append(action)
     rows = D.rows(conn, "SELECT * FROM trades" + (" WHERE " + " AND ".join(conds) if conds else "") +
                   " ORDER BY id DESC", args)
@@ -176,7 +182,7 @@ def render(conn, cfg, symbol="", action="", now=None):
         wr = "-" if ps["win_rate"] is None else f'{ps["win_rate"]:.0f}%'
         last_txt = (f'{escape(ld["action"])}: {escape(ld["reason"] or "")}' if ld else "no decision yet")
         h.append(f'<div class="card"><span>{escape(ps["symbol"])} ({escape(ps["side"])})</span>'
-                 f'<b>{_pnl(ps["realised"])}</b><span>realised</span><br>'
+                 f'<b>{_pnl(ps["realised"])}</b><span>realised (incl. open entry fee)</span><br>'
                  f'<span>unrealised {_pnl(ps["unrealised"])} | trades {ps["trades"]} | win rate {wr}</span><br>'
                  f'<span>last: {last_txt}</span></div>')
     qs = "?" + urlencode({k: v for k, v in (("symbol", sym_ok), ("action", act_ok)) if v})
