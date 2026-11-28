@@ -24,8 +24,8 @@ Personal project. Not financial advice. Paper-trade first.
  └──────────────────────┘          │   │    (risk engine, audit log, kill switch)    │
                                    │   │       ├─> OpenAlgo REST -> brokers, Delta   │
  agent-runner (VPS or any host)    │   │       └─> bt-service    -> backtests        │
-  scheduled jobs ── read-only ────▶│   ├─ OpenAlgo UI (login, Action Center)         │
-  token, via /mcp                  │   └─ paper-bot (coming, PB-1/PB-2)              │
+  scheduled jobs ─ read-only token ▶│   ├─ OpenAlgo UI (login, Action Center)         │
+  (recommended), via /mcp          │   └─ paper-bot (coming, PB-1/PB-2)              │
                                    └─────────────────────────────────────────────────┘
 ```
 
@@ -33,9 +33,9 @@ Personal project. Not financial advice. Paper-trade first.
 
 - Paper mode is the default; live mode is operator config only, never settable by a client or by sandbox code ([ADR-5](architecture-record-document.md)).
 - A server-side risk engine, outside the sandbox, enforces per-run and daily order caps, market hours and holidays. Orders are reserve-then-place and fail closed if the audit log cannot be written ([ADR-9](architecture-record-document.md)).
-- Kill switch: if the `KILL` file exists, `trade.place` and `trade.modify` are refused ([runbook section 9](docs/vps-runbook.md)).
+- Kill switch: if the `KILL` file exists, new orders and modifications (`trade.place`, `trade.modify`) are refused; `trade.cancel` and `trade.closePosition` still work so risk can be reduced ([runbook section 9](docs/vps-runbook.md)).
 - Sandbox limits: no binary buffers, capped binding traffic ([ADR-18](architecture-record-document.md)), a hard WASM memory maximum ([ADR-19](architecture-record-document.md)), and an execute timeout.
-- Read-only token (`MCP_TOKEN_READONLY`): the `trade` namespace does not exist for that scope. Use it for scheduled jobs ([connect-clients](docs/connect-clients.md)).
+- Read-only token (`MCP_TOKEN_READONLY`): the `trade` namespace does not exist for that scope. Recommended for scheduled jobs, but not enforced: a job only gets it if you point it at that token ([connect-clients](docs/connect-clients.md)).
 - OAuth for ChatGPT and claude.ai is built in and off by default.
 
 Security policy and threat model: [SECURITY.md](SECURITY.md).
@@ -45,7 +45,7 @@ Security policy and threat model: [SECURITY.md](SECURITY.md).
 - **Code Mode**: `search` finds the typed SDK, `execute` runs your code against it.
 - **Backtests** via `backtest.*`, including `backtest.walkForward`. Engines are picked by symbol: india_equity (CNC, MIS), india_fno, india_options, crypto perpetual with funding, and composite baskets. See [docs/backtesting.md](docs/backtesting.md).
 - **Scheduled jobs**: agent-runner with `--check`, `--next`, `--dry-run`, `--history`, per-job reports and optional Telegram notify. See [agent-runner/README.md](agent-runner/README.md).
-- **Audit**: every action is logged; `audit.recent()` returns the latest entries from the sandbox.
+- **Audit**: `trade.place`, `trade.modify`, `trade.cancel` and `trade.closePosition` (allowed, denied or error), plus `backtest.run`, `backtest.walkForward` and `audit.recent` calls, are written to the audit log; `audit.recent()` returns the latest entries.
 - **Operator tools**: `risk.status()`, backup and restore ([docs/backup.md](docs/backup.md)), exchange holidays sync ([docs/holidays.md](docs/holidays.md)), `oauth:revoke-all`.
 
 ## Quick start
