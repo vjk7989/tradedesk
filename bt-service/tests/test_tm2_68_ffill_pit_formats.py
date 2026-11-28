@@ -2,7 +2,8 @@
 
 Covers mixed date / date-time strings, the single drop warning, the never-raise
 fallback for mixed tz-aware and naive strings, byte-identical all-ISO output
-(pinned to hard-coded values), and the known tz-suffixed look-ahead (xfail).
+(pinned to hard-coded values), and no look-ahead for uniformly tz-suffixed
+``filed`` (fixed by TM2-70).
 """
 
 from __future__ import annotations
@@ -182,10 +183,9 @@ def test_empty_frame_output_pinned(caplog):
     assert _drop_warnings(caplog) == []
 
 
-# ── 6. Uniformly tz-suffixed filed vs naive index (known look-ahead) ──────────
+# ── 6. Uniformly tz-suffixed filed vs naive index (no look-ahead, TM2-70) ─────
 
 
-@pytest.mark.xfail(strict=True, reason="tz-suffixed filed vs naive index: look-ahead, see TM2-69 proposal")
 @pytest.mark.parametrize(
     "filed",
     [

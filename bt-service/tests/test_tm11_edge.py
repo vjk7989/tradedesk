@@ -450,12 +450,23 @@ def test_yfinance_exclusive_end_nat_same_as_old():
 # ── loaders/rsshub_events._knowable_date ──
 
 
-def _old_knowable(published, cutoff_hour):
-    stamp = published.tz_localize(None) if published.tzinfo is not None else published
+def _old_roll(stamp, cutoff_hour):
     base = stamp.normalize()
     if stamp.hour >= cutoff_hour:
         base = base + _old_td(days=1)
     return base
+
+
+def _old_knowable(published, cutoff_hour):
+    if published.tzinfo is None:
+        return _old_roll(published, cutoff_hour)
+    # TM2-70: for tz-aware input the wall clock alone allowed look-ahead (e.g.
+    # 16:00 UTC = 00:00 CN next day was knowable on the earlier UTC date), so the
+    # oracle takes the later of the rolled wall-clock date and the rolled
+    # Asia/Shanghai date of the instant (delay-only, never earlier than either).
+    wall = _old_roll(published.tz_localize(None), cutoff_hour)
+    cn = _old_roll(published.tz_convert("Asia/Shanghai").tz_localize(None), cutoff_hour)
+    return max(wall, cn)
 
 
 @pytest.mark.parametrize(
@@ -466,8 +477,8 @@ def _old_knowable(published, cutoff_hour):
         T("2024-02-29 15:59:59"),
         T("2023-12-31 23:59:59"),
         T("2024-02-29 16:00", tz="UTC"),
-        T("2024-02-29 23:30", tz=IST),  # = 18:00 UTC; wall time is kept
-        T("2024-03-01 00:30", tz=IST),  # = 29 Feb 19:00 UTC; wall time 00:30 does not roll
+        T("2024-02-29 23:30", tz=IST),  # = 18:00 UTC = 03-01 02:00 CN
+        T("2024-03-01 00:30", tz=IST),  # = 29 Feb 19:00 UTC = 03-01 03:00 CN; no roll
         T("2024-03-10 23:00", tz="America/New_York"),  # DST change day
     ],
 )
