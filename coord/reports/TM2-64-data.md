@@ -56,3 +56,21 @@ Signals that do separate the leak from healthy runs (healthy → leak):
 ## Still to collect
 - At least 10 CI (GitHub runner) TM2-64-DATA lines from this draft PR.
 - Local Windows numbers.
+
+## CI samples (GitHub ubuntu runner, trade-mcp job reruns of run 46110196926, collected by TM2)
+
+| attempt | result | Δext | end ext | slope ext | Δrss | ΔarrayBuf | max ext |
+|---|---|---|---|---|---|---|---|
+| 1 | success | -50.399 | 2.049 | 5.837 | -0.703 | 0 | 15.52 |
+| 2 | success | -16.96 | 2.049 | -5.99 | -2.609 | 0 | 64.96 |
+| 3 | success | -16.96 | 2.049 | -3.898 | 11.609 | 0 | 48.479 |
+| 4 | success | -0.96 | 18.049 | -1.92 | 0.215 | 0 | 32.96 |
+| 5 | success | -16.96 | 18.049 | 0.563 | -10.437 | 0 | 16.96 |
+| 6 | success | -0.96 | 18.049 | -3.994 | 9.742 | 0 | 48.96 |
+| 7 | success | -32.96 | 2.049 | 2.81 | 2.164 | -0.96 | 32.96 |
+| 8 | success | -0.96 | 18.049 | 4.48 | -2.078 | 0 | 48.96 |
+| 9 | success | -64.96 | 2.049 | 2.016 | 11.211 | 0 | 0.96 |
+| 10 | success | -16.96 | 2.049 | 3.219 | -0.426 | 0 | 33.44 |
+| 11 | success | -17.92 | 18.049 | 3.123 | -9.676 | 0 | 32 |
+
+Node v22.23.5. End external is bimodal (2.05 or 18.05 MB): one late 16 MB WASM block is sometimes still alive at the end.
