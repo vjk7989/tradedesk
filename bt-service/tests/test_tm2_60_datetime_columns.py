@@ -17,7 +17,6 @@ from contextlib import contextmanager
 import numpy as np
 import pandas as pd
 import pytest
-from pandas.errors import MergeError
 
 from vibe_bt.backtest.loaders import (
     fundamentals_loader,
@@ -128,13 +127,102 @@ def test_tushare_enrich_mixed_unit_frames_in_one_call(monkeypatch, unit):
         assert out[code].index.equals(frames[code].index)
 
 
-@pytest.mark.xfail(
-    raises=MergeError, strict=True,
-    reason="tz-aware price indexes are not supported: naive PIT dates vs tz-aware "
-           "bar keys (pre-existing, unit-independent; out of TM2-60 scope)",
-)
-def test_tushare_enrich_tz_aware_index_not_supported(monkeypatch):
-    _enrich(monkeypatch, _idx(_DAILY, "ns", tz="UTC"))
+# ── 1b. TM2-67: tz-aware price indexes are keyed by their CN-local date ────────
+# Tushare PIT dates are CN-local calendar dates, so a tz-aware bar is matched on
+# its Asia/Shanghai date. The caller's index comes back unchanged (tz and unit).
+
+TZS = ["UTC", "Asia/Shanghai"]
+
+
+def _cn_local_naive(index: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    return index.tz_convert("Asia/Shanghai").tz_localize(None)
+
+
+def _assert_same_index(got: pd.DatetimeIndex, index: pd.DatetimeIndex) -> None:
+    assert got.equals(index)
+    assert got.dtype == index.dtype  # tz and unit
+    assert str(got.tz) == str(index.tz)
+    assert got.unit == index.unit
+    assert got.asi8.tolist() == index.asi8.tolist()
+
+
+@pytest.mark.parametrize("unit", UNITS)
+@pytest.mark.parametrize("tz", TZS)
+def test_tushare_enrich_tz_aware_daily_index_supported(monkeypatch, tz, unit):
+    index = _idx(_DAILY, unit, tz=tz)
+    frame, got = _enrich(monkeypatch, index)
+    _assert_same_index(got.index, index)
+    assert got["close"].tolist() == frame["close"].tolist()
+    assert not {"_trade_date", "_pit_date", "_original_order"} & set(got.columns)
+
+    # Equivalent naive frame: the CN-local calendar dates (UTC midnight is
+    # 08:00 CST, which a naive frame would treat as an intraday bar).
+    _, naive = _enrich(monkeypatch, _cn_local_naive(index).normalize())
+    pd.testing.assert_frame_equal(got.reset_index(drop=True), naive.reset_index(drop=True))
+    # UTC midnight is 08:00 CST the same day; Shanghai midnight is itself.
+    assert _nan_aware(got["balancesheet_revenue"]) == [None, 42.0, 42.0]
+
+
+@pytest.mark.parametrize("unit", UNITS)
+@pytest.mark.parametrize("tz", TZS)
+def test_tushare_enrich_tz_aware_intraday_index_supported(monkeypatch, tz, unit):
+    index = _idx(_INTRADAY, unit, tz=tz)
+    _, got = _enrich(monkeypatch, index, subdaily="next_day")
+    _assert_same_index(got.index, index)
+    _, naive = _enrich(monkeypatch, _cn_local_naive(index), subdaily="next_day")
+    pd.testing.assert_frame_equal(got.reset_index(drop=True), naive.reset_index(drop=True))
+
+
+# Reviewer's no-look-ahead case: ann_date 2024-02-29, next_day => visible from
+# the first bar of CN-local 03-01, i.e. from 2024-02-29 16:00Z, not before.
+_EDGE = [
+    "2024-02-29 00:00",  # 08:00 CST 02-29
+    "2024-02-29 15:59",  # 23:59 CST 02-29
+    "2024-02-29 16:00",  # 00:00 CST 03-01
+    "2024-02-29 23:30",  # 07:30 CST 03-01
+    "2024-03-01 00:00",  # 08:00 CST 03-01
+]
+
+
+@pytest.mark.parametrize("unit", UNITS)
+def test_tushare_enrich_next_day_utc_no_look_ahead(monkeypatch, unit):
+    index = _idx(_EDGE, unit, tz="UTC")
+    _, got = _enrich(monkeypatch, index, subdaily="next_day")
+    assert _nan_aware(got["balancesheet_revenue"]) == [None, None, 42.0, 42.0, 42.0]
+    _assert_same_index(got.index, index)
+
+    # The same instants expressed in Asia/Shanghai give the same answer.
+    cn_index = index.tz_convert("Asia/Shanghai")
+    _, cn = _enrich(monkeypatch, cn_index, subdaily="next_day")
+    assert _nan_aware(cn["balancesheet_revenue"]) == [None, None, 42.0, 42.0, 42.0]
+    _assert_same_index(cn.index, cn_index)
+
+
+@pytest.mark.parametrize("unit", UNITS)
+def test_tushare_enrich_next_day_shanghai_wall_clock_control(monkeypatch, unit):
+    # Reviewer's control: the same wall-clock stamps localised to Asia/Shanghai
+    # are all on CN 02-29 except the last, so only 03-01 00:00 CST sees it.
+    index = _idx(_EDGE, unit, tz="Asia/Shanghai")
+    _, got = _enrich(monkeypatch, index, subdaily="next_day")
+    assert _nan_aware(got["balancesheet_revenue"]) == [None, None, None, None, 42.0]
+    _assert_same_index(got.index, index)
+
+
+@pytest.mark.parametrize("unit", UNITS)
+def test_tushare_enrich_reject_raises_for_non_midnight_utc_bars(monkeypatch, unit):
+    with pytest.raises(tushare_fundamentals.SubdailyPitError):
+        _enrich(monkeypatch, _idx(_EDGE, unit, tz="UTC"))
+
+
+@pytest.mark.parametrize("unit", UNITS)
+def test_tushare_enrich_unsorted_tz_index_keeps_order(monkeypatch, unit):
+    order = [3, 0, 4, 2, 1]
+    index = _idx([_EDGE[i] for i in order], unit, tz="UTC")
+    frame, got = _enrich(monkeypatch, index, subdaily="next_day")
+    _assert_same_index(got.index, index)
+    assert got["close"].tolist() == frame["close"].tolist()
+    expected = [None, None, 42.0, 42.0, 42.0]
+    assert _nan_aware(got["balancesheet_revenue"]) == [expected[i] for i in order]
 
 
 # ── 2. industry_loader membership int64 comparison ─────────────────────────────
