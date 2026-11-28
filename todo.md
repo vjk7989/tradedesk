@@ -198,3 +198,4 @@ Detailed plan: `plan.md`.
 - TM2-67 · bt-service · tz-aware index in tushare merge (TM2) [ ]
 - TM2-68 · bt-service · explicit filed parsing in _ffill_pit (TM2) [ ]
 - PB-3 · deploy · paper-bot egress hotfix (OWNER) [x]
+- PB-4 · deploy · paper-bot defaults BTC+ETH, candle-aligned (OWNER) [x]
