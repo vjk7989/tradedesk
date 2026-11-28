@@ -6,6 +6,7 @@ import { BacktestClient } from "./backtest/client.js";
 import { RiskEngine } from "./risk/engine.js";
 import { createMcpServer } from "./server.js";
 import { createHttpServer } from "./http.js";
+import { acquireLock, startHeartbeat } from "./datadir-lock.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -28,10 +29,14 @@ async function main(): Promise<void> {
     console.error(`trade-mcp started (stdio) mode=${cfg.mode}`);
     return;
   }
+  const releaseLock = acquireLock(cfg.dataDir, (m) => console.error(m));
+  process.on("exit", releaseLock);
+  const stopHeartbeat = startHeartbeat(cfg.dataDir, (m) => console.error(m));
   const http = createHttpServer(deps);
   await new Promise<void>((resolve) => http.listen(cfg.port, cfg.host, resolve));
   console.error(`trade-mcp started mode=${cfg.mode} host=${cfg.host} port=${cfg.port}`);
   const stop = () => {
+    stopHeartbeat();
     http.close(() => process.exit(0));
     http.closeAllConnections();
   };
