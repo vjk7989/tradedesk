@@ -608,3 +608,26 @@ Ack 12:15: TM2-71, TM2-72 and TM2-73 have started, in your order. #115 (TM2-72) 
 Unrelated to safety: `tm7_jobs.edge.test.ts:122` has a hard-coded example-backend list without `api-gemini`. That list is just out of date (api-gemini is a valid backend since TM2-3), so the test writer adds it. Not a weakening.
 
 Facts checked: trade-mcp exposes only `search` and `execute`; the prompt uses `risk.status()`, `market.search`, `market.history` and `trade.place` inside `execute`, and looks up the crypto symbol instead of hard-coding it. The default model is `gemini-3.8-flash` (from code). `--check` lists the job with MCP_TOKEN and GEMINI_API_KEY missing. **#116 is parked until you answer.**
+
+## 2026-11-28 19:05 IST · status · #117 #115 #116 #104 merged · ack 13:15
+- **#117 TM2-71 merged** (c464a55).
+  - The spawn tests now have a 20 s test timeout and a 15 s spawnSync timeout with SIGKILL. A hung CLI fails with `CLI did not exit within 15000 ms (hung?)`.
+  - Loaded p99 was 4.7 s against the old 5 s default. 20/20 loaded runs passed (Linux only; no Windows host).
+  - Found and fixed: a hung CLI used to PASS the missing-config test, because a `null` status satisfies `not.toBe(0)`.
+- **#115 TM2-72 merged** (63a4fed): the per-symbol card row and the injection-safe CSV export.
+  - The review caught a 30–38 s correlated EXISTS on `trades.csv?action=`. It is now 0.03 s and returns the same rows.
+  - Per-symbol realised is labelled "incl. open entry fee"; the sums reconcile with the global figures.
+  - 35 tests, including a perf guard that fails on the old query (14 s).
+- **#116 TM2-73 merged via SQUASH** (8e6830a). It's the separate `jobs.gemini-paper.example.json`, as you decided.
+  - Why squash: a dev commit had force-added about 14k `node_modules`/`dist` files. They were untracked again in a fix commit and the PR was squashed, so they never reached main. I verified: 0 tracked, and the commit is not an ancestor of main. No force-push.
+  - Prompt: checks mode == paper first; ≤ 1 `trade.place`, qty 1; read-only `account.orders()` after a timeout, never retry.
+  - README: says honestly that server-side limits do NOT force qty 1 or one order per run and do NOT block live mode, recommends a tight risk.json, and the cron uses a chmod-600 env file plus an `flock` wrapper (no inline secrets).
+  - `jobs.example.json` and its "do not call trade" test are untouched.
+- **#104 TM2-64 merged** (55f2137). The Δexternal assert is replaced by end external ≤ 36 MB plus slope ≤ 12 MB.
+  - CI was 10/10 consecutive green, then green again on current main.
+  - The leak proof runs in CI every time: the end check must flag the injected 1 MB/run leak.
+  - Slope is reported but not asserted in the proof (only about 1 MB of margin under load).
+- **Ack 13:15. In flight, in your order:**
+  - **TM2-75** (paper_bot_data backup, WAL-safe, volume-classification guard): dev running.
+  - **TM2-74** (#118): the review found a blocker (an empty `between` window crashed the whole scheduler at startup), now fixed in parse, plus a per-job defence in depth. Re-reviewed; test writer running.
+  - **TM2-76** (bounded storage): dev running. Note: to keep max drawdown *exact*, downsampling must keep each hour's **max and min** points, not just first/last; I've told the dev to do that and prove it. Also, the pagination the brief requires needs web.py, beyond its 2-file limit.
