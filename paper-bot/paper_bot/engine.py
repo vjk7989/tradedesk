@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -88,27 +89,60 @@ class Engine:
                         (now, cash, unreal, cash + unreal))
 
     # --- one tick -----------------------------------------------------------
+    def _txn(self, fn):
+        """Run fn in its own transaction; rollback (incl. last_candle) on any error, then re-raise."""
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            fn()
+            self.db.execute("COMMIT")
+        except BaseException:
+            self.db.execute("ROLLBACK")
+            raise
+
+    def _write(self, sym, result, now):
+        """result: closed candles (oldest first) or a DataError. One transaction per symbol."""
+        try:
+            if isinstance(result, DataError):
+                self._txn(lambda: self._decision(now, sym, None, None, None, None, "hold", "skip",
+                                                 f"data error: {result}"))
+            else:
+                self._txn(lambda: self.act(sym, result, now))
+        except Exception as e:  # partial writes already rolled back; record skip so the candle retries
+            log.exception("tick error %s", sym)
+            try:
+                self._txn(lambda: self._decision(now, sym, None, None, None, None, "hold", "skip",
+                                                 f"internal error: {type(e).__name__}"))
+            except Exception:
+                log.exception("could not record skip %s", sym)
+
+    def _finish(self, now):
+        def f():
+            self.snapshot(now)
+            D.set_state(self.db, "last_tick", now)
+        try:
+            self._txn(f)
+        except Exception:
+            log.exception("snapshot error")
+
     async def tick(self, now=None):
         now = now or time.time()
         cfg = self.cfg
-        for sym in cfg.symbols:
+        results = {}
+        for sym in cfg.symbols:  # network I/O stays on the event loop
             try:
                 raw = await fetch_candles(self.client, cfg.base_url, sym, cfg.resolution, cfg.period,
                                           cfg.slow + 5, now)
                 candles = closed_only(raw, now, cfg.period)
                 if len(candles) < cfg.slow + 1:
                     raise DataError(f"only {len(candles)} closed candles")
-                self.act(sym, candles, now)
+                results[sym] = candles
             except DataError as e:
-                self._decision(now, sym, None, None, None, None, "hold", "skip", f"data error: {e}")
-            except Exception as e:  # never crash the loop
-                log.exception("tick error %s", sym)
-                self._decision(now, sym, None, None, None, None, "hold", "skip",
-                               f"data error: {type(e).__name__} {e}"[:120])
-        try:
-            self.snapshot(now)
-            D.set_state(self.db, "last_tick", now)
-            self.db.commit()
-        except Exception:
-            log.exception("commit error")
-            self.db.rollback()
+                results[sym] = e
+            except Exception as e:
+                results[sym] = DataError(f"{type(e).__name__} {e}"[:120])
+
+        def work():
+            for sym, r in results.items():
+                self._write(sym, r, now)
+            self._finish(now)
+        await asyncio.to_thread(work)  # all sqlite writes off the event loop

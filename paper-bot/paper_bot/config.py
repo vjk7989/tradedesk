@@ -24,6 +24,11 @@ class Config:
     base_url: str = "https://api.india.delta.exchange"
     data_dir: str = "/data"
     port: int = 8090
+    align_delay: int = 5  # seconds after a candle boundary before acting
+
+    def __post_init__(self):
+        if self.resolution not in RES_SEC:
+            raise ValueError(f"invalid RESOLUTION {self.resolution!r}; valid values: {', '.join(RES_SEC)}")
 
     @property
     def period(self) -> int:

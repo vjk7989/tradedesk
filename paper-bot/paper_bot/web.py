@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from html import escape
 
 import httpx
@@ -60,7 +60,7 @@ def render(conn, cfg, symbol="", action="", now=None):
     now = now or time.time()
     s = summary(conn, cfg)
     last = s["last_tick"]
-    nxt = (last + cfg.interval_sec) if last else None
+    nxt = (last + next_delay(cfg, last)) if last else None
     healthy = bool(last) and now - last < cfg.interval_sec * 2 + 30
     dot = f'<span class="dot" style="background:{"#3fb950" if healthy else "#f85149"}"></span>'
     sym_ok = symbol if symbol in cfg.symbols else ""
@@ -126,17 +126,34 @@ def render(conn, cfg, symbol="", action="", now=None):
     return "".join(h)
 
 
+def next_delay(cfg, now):
+    """Seconds until the next tick: just after the next candle close when INTERVAL_SEC >= candle period,
+    else a plain INTERVAL_SEC sleep (fast smoke/debug runs)."""
+    if cfg.interval_sec < cfg.period:
+        return cfg.interval_sec
+    return (now // cfg.period + 1) * cfg.period + cfg.align_delay - now
+
+
 async def loop(engine, cfg):
     while True:
         try:
             await engine.tick()
         except Exception:
             log.exception("tick failed")
-        await asyncio.sleep(cfg.interval_sec)
+        await asyncio.sleep(next_delay(cfg, time.time()))
 
 
 def create_app(cfg, conn=None, client=None, run_loop=True):
-    conn = conn or D.connect(cfg.db_path)
+    conn = conn or D.connect(cfg.db_path)  # the writer: only the strategy loop uses it
+    path = D.db_file(conn)
+
+    @contextmanager
+    def reader():
+        r = D.connect_ro(path)
+        try:
+            yield r
+        finally:
+            r.close()
 
     @asynccontextmanager
     async def lifespan(app):
@@ -156,26 +173,32 @@ def create_app(cfg, conn=None, client=None, run_loop=True):
 
     @app.get("/", response_class=HTMLResponse)
     def index(symbol: str = "", action: str = ""):
-        return render(conn, cfg, symbol, action)
+        with reader() as r:
+            return render(r, cfg, symbol, action)
 
     @app.get("/api/decisions")
     def decisions(limit: int = Query(200, ge=1, le=1000)):
-        return D.rows(conn, "SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,))
+        with reader() as r:
+            return D.rows(r, "SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,))
 
     @app.get("/api/trades")
     def trades():
-        return D.rows(conn, "SELECT * FROM trades ORDER BY id DESC")
+        with reader() as r:
+            return D.rows(r, "SELECT * FROM trades ORDER BY id DESC")
 
     @app.get("/api/positions")
     def positions():
-        return D.rows(conn, "SELECT * FROM positions ORDER BY symbol")
+        with reader() as r:
+            return D.rows(r, "SELECT * FROM positions ORDER BY symbol")
 
     @app.get("/api/equity")
     def equity():
-        return D.rows(conn, "SELECT ts,cash,unrealised,total FROM equity ORDER BY id")
+        with reader() as r:
+            return D.rows(r, "SELECT ts,cash,unrealised,total FROM equity ORDER BY id")
 
     @app.get("/api/summary")
     def api_summary():
-        return summary(conn, cfg)
+        with reader() as r:
+            return summary(r, cfg)
 
     return app

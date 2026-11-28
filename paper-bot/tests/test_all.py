@@ -206,3 +206,54 @@ def test_dashboard_and_api(tmp_path):
         assert c.get("/api/positions").json()[0]["side"] == "short"
         assert len(c.get("/api/equity").json()) == 2
         assert c.get("/api/summary").json()["mode"] == "PAPER"
+
+
+# --- fix round 1 ----------------------------------------------------------
+def test_reversal_failure_rolls_back_only_that_symbol(tmp_path, monkeypatch):
+    cfg = dataclasses.replace(CFG, symbols=("BTCUSD", "ETHUSD"))
+    eng, feed, conn = make(tmp_path, cfg)
+    tick(eng, feed, FLAT + [200.0])  # both long
+    before = D.rows(conn, "SELECT * FROM trades")
+    orig = eng._open
+
+    def boom(sym, *a):
+        if sym == "BTCUSD":
+            raise RuntimeError("x")
+        return orig(sym, *a)
+    monkeypatch.setattr(eng, "_open", boom)
+    tick(eng, feed, [100.0] * 51 + [50.0])  # newer candle, down cross -> reverse both
+    trades = D.rows(conn, "SELECT * FROM trades ORDER BY id")
+    btc = [t for t in trades[len(before):] if t["symbol"] == "BTCUSD"]
+    assert btc == []  # close rolled back
+    assert D.rows(conn, "SELECT side FROM positions WHERE symbol='BTCUSD'")[0]["side"] == "long"
+    assert D.get_state(conn, "last_candle:BTCUSD") == str(T0 + 50 * P)  # not advanced: retried next tick
+    d = D.rows(conn, "SELECT * FROM decisions WHERE symbol='BTCUSD' ORDER BY id DESC")[0]
+    assert d["action"] == "skip" and d["reason"] == "internal error: RuntimeError"
+    assert D.rows(conn, "SELECT side FROM positions WHERE symbol='ETHUSD'")[0]["side"] == "short"
+    assert D.rows(conn, "SELECT action FROM decisions WHERE symbol='ETHUSD' ORDER BY id DESC")[0]["action"] == "reverse"
+
+
+def test_wal_and_readonly_reader(tmp_path):
+    conn = D.connect(str(tmp_path / "paper.db"))
+    assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    r = D.connect_ro(D.db_file(conn))
+    conn.execute("BEGIN")
+    D.set_state(conn, "k", "uncommitted")
+    assert D.get_state(r, "k") is None  # readers never see uncommitted state
+    conn.execute("COMMIT")
+    assert D.get_state(r, "k") == "uncommitted"
+    with pytest.raises(Exception):
+        r.execute("INSERT INTO state VALUES('a','b')")
+
+
+def test_next_delay_aligned():
+    from paper_bot.web import next_delay
+    cfg = Config(symbols=("BTCUSD",), interval_sec=300)
+    assert next_delay(cfg, T0 + 10) == 295  # T0 + P + 5 - (T0+10)
+    assert next_delay(cfg, T0 + P + 2) == P + 3
+    assert next_delay(dataclasses.replace(cfg, interval_sec=5), T0 + 10) == 5
+
+
+def test_invalid_resolution():
+    with pytest.raises(ValueError, match="valid values: 1m, 3m, 5m"):
+        Config.from_env({"RESOLUTION": "7m"})
