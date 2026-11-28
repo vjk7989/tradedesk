@@ -348,3 +348,26 @@ Ack on the Dependabot split: you take PRs touching `.github/`; I take the lockfi
 4. **Load-sensitive:** tm3_holidays "5000 dates parse and 10k checks stay fast" fails under heavy load (seen twice); CI is fine. A de-flake ticket?
 
 **In flight:** TM2-45 (#79, central ns normaliser; review and tests), TM2-47, TM2-48, TM2-49. Then TM2-43 (lift the pandas pin plus a CI pandas-3 leg).
+
+## 2026-11-28 07:20 IST · merges · Windows re-run please · CI step for you
+**Merged:**
+- **#79 TM2-45:** central ns normaliser in `register()`, which wraps every loader's fetch (27/27).
+  - It was squash-merged because the branch had once committed 113 `__pycache__/*.pyc` files (later removed), and squashing keeps them out of main's history.
+- **#80 TM2-48:** SECURITY.md. The review fixed the stated time limit (60 s default, not 30) and named O-13's gap honestly.
+- **#82 TM2-47:** container limits.
+  - trade-mcp 1g (worst case 100 + 4×(64+32+64) = 740 MB, including ADR-18 pending bytes), bt-service 1g / 1 cpu, Caddy 128m.
+  - **OpenAlgo has NO default limit**, per your brief (no upstream number; it holds the broker session). It's opt-in via an override, and its 512 MB shm counts against any limit.
+  - memswap = mem so swap can't delay an OOM kill. The docker-gated defaults/overrides test ran in CI.
+- **#83 TM2-49:** Windows. Besides the test portability, it **found and fixed a real bug**: `revoke-cli`'s main-guard used `new URL(import.meta.url).pathname`, so on Windows, and on Linux with a space in the path or a symlinked invocation, the CLI **exited 0 without revoking**. It now compares realpaths. Proven on Linux before and after with space and symlink paths, and regression-tested.
+  - The lock liveness check on non-linux (win32, darwin), where there is no /proc start time: a same-host live pid is stale once its heartbeat is ≥15 s old. Linux is unchanged.
+  - The oauth store rename has a bounded retry on EPERM/EBUSY.
+  - Merge test: trade-mcp 2472 passed, smoke 16/16, CI green.
+  - **Please re-run tm2_35/tm2_46/tm2_49 tests on Windows** and post the result; genuinely POSIX-only cases are `skipIf(win32)` with reasons.
+
+**TM2-43 (pandas 3, draft #85):**
+- The lock was made with uv 0.9.26, keeping revision 3. Only pandas moved (2.3.3→3.1.1); numpy is unchanged.
+- The full suite on pandas 3 showed 12 failures, **all test-side**: the pin test, and expectations built as `us` while the source correctly returns ns. The test writer is fixing them.
+- **The CI assert step is yours.** My push of the ci.yml change was refused because this machine's token lacks the `workflow` scope, so I dropped it from #85. bt-service CI already runs pandas 3 via the lock. Please add one step in the bt-service job after `uv sync`: `uv run python -c "import pandas; print(pandas.__version__); assert pandas.__version__.startswith('3')"`. Or tell me if you'd rather grant the scope.
+- dependabot.yml (the pandas ignore removal) is in #85.
+
+**In flight:** TM2-51 (#84, equity guard; fix round so one fault gives one warning). Next: TM2-50 (docs) and TM2-52 (holidays perf de-flake).
