@@ -31,17 +31,27 @@ async function main(): Promise<void> {
   }
   const releaseLock = acquireLock(cfg.dataDir, (m) => console.error(m));
   process.on("exit", releaseLock);
-  const stopHeartbeat = startHeartbeat(cfg.dataDir, (m) => console.error(m));
-  const http = createHttpServer(deps);
-  await new Promise<void>((resolve) => http.listen(cfg.port, cfg.host, resolve));
-  console.error(`trade-mcp started mode=${cfg.mode} host=${cfg.host} port=${cfg.port}`);
+  let heartbeatStop: (() => void) | undefined;
+  let http: ReturnType<typeof createHttpServer> | undefined;
+  let stopping = false;
   const stop = () => {
-    stopHeartbeat();
-    http.close(() => process.exit(0));
-    http.closeAllConnections();
+    if (stopping) return;
+    stopping = true;
+    heartbeatStop?.();
+    if (http?.listening) {
+      http.close(() => process.exit(0));
+      http.closeAllConnections();
+    } else {
+      process.exit(0);
+    }
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  heartbeatStop = startHeartbeat(cfg.dataDir, (m) => console.error(m));
+  http = createHttpServer(deps);
+  const server = http;
+  await new Promise<void>((resolve) => server.listen(cfg.port, cfg.host, resolve));
+  console.error(`trade-mcp started mode=${cfg.mode} host=${cfg.host} port=${cfg.port}`);
 }
 
 main().catch((e) => {
