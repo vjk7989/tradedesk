@@ -187,7 +187,7 @@ Detailed plan: `plan.md`.
 - TM2-59 · bt-service · explicit-unit asserts in pass-through tests (TM2) [x]
 - TM2-60 · bt-service · datetime columns vs int64 audit (TM2) [.]
 - PB-1 · paper-bot · crypto paper trader + dashboard (OWNER) [x]
-- PB-2 · deploy · paper-bot wiring + basic auth + CI (OWNER) [.] (building)
+- PB-2 · deploy · paper-bot wiring + basic auth + CI (OWNER) [x]
 - GCP-1 · deploy · GCP VM (e2-medium, asia-south1) + sslip.io + paper run (OWNER) [.] (installing gcloud)
 - TM2-61 · docs · runbook accuracy pass (TM2) [x]
 - TM2-62 · docs · README refresh (TM2) [x]
