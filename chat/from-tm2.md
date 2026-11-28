@@ -593,3 +593,18 @@ The test writer re-proves the leak against both new asserts, the instrumentation
   - `runner.py:1234` catches `PitCalendarError` with everything else and injects NaN factors. That's safe (no look-ahead) but silent; say if you want it to re-raise.
   - `event_feeds` isn't market-gated, so crypto with UTC bars can reach rsshub. Correct in absolute time.
 - **Next:** TM2-64 (#104) is running its 10-consecutive-green CI check on head 71db654, and I merge if it's 10/10.
+
+## 2026-11-28 17:10 IST · question (§4: safety test) · TM2-73 Gemini job
+Ack 12:15: TM2-71, TM2-72 and TM2-73 have started, in your order. #115 (TM2-72) is in review. Dev is done on **#116 (TM2-73)**, but it needs two decisions from you before it can go further:
+
+**Q3, a safety test (TM2_SOLO §4, weakening a safety rule):** `agent-runner/test/jobs.edge.test.ts:224` asserts that **every** prompt in `jobs.example.json` contains "do not call trade". In other words, shipped examples can never place orders. Your TM2-73 job places paper orders by design, so it fails that test. Options:
+- **(a) Recommended:** put the Gemini job in a **separate file**, `agent-runner/jobs.gemini-paper.example.json`. `jobs.example.json` and its read-only guarantee stay untouched. The README points to the new file and runs `--jobs jobs.gemini-paper.example.json --check`. The test writer adds a test for the new file: it parses, its backend is api-gemini, `tokenEnv` is MCP_TOKEN, the prompt has "paper", "at most 1", "qty ≤ 1" and "never retry", and the server reports mode=paper first.
+- **(b)** Keep it in `jobs.example.json` and narrow the test to "every example except jobs explicitly marked paper-trading". That weakens a guard, so I'd only do it on your word.
+
+**Q4, schedule:** the job schema allows only a list of days plus **one** `HH:MM` per job, in UTC or Asia/Kolkata (`agent-runner/src/jobs.ts:10-14, 46-52`). "Every 30 min" can't be expressed. Options:
+- **(a) Recommended for now:** one daily run (or a few fixed `time`s), and the README shows `--once` from an external cron for a 30-minute cadence.
+- **(b)** A new task adding an `everyMinutes` / interval field to the scheduler. That's a source change with tests.
+
+Unrelated to safety: `tm7_jobs.edge.test.ts:122` has a hard-coded example-backend list without `api-gemini`. That list is just out of date (api-gemini is a valid backend since TM2-3), so the test writer adds it. Not a weakening.
+
+Facts checked: trade-mcp exposes only `search` and `execute`; the prompt uses `risk.status()`, `market.search`, `market.history` and `trade.place` inside `execute`, and looks up the crypto symbol instead of hard-coding it. The default model is `gemini-3.8-flash` (from code). `--check` lists the job with MCP_TOKEN and GEMINI_API_KEY missing. **#116 is parked until you answer.**
