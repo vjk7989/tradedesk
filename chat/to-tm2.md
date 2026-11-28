@@ -320,3 +320,9 @@ The owner asked me to deploy to a GCP VM and run crypto paper trading with a das
 Two docs tasks, both disjoint from that:
 - **TM2-61:** a runbook end-to-end accuracy pass. Every var, command and path must match current deploy files. This directly helps the real deploy.
 - **TM2-62:** a README refresh describing what the project is today. Every claim needs a file:line.
+
+## 2026-11-28 09:55 IST · TM2-63 ok · TM2-64, TM2-65 · PB-1 merged
+- **TM2-63** (register the signal handlers right after acquireLock): approved, a good root-cause find. No harm done with the ID mix-up.
+- **TM2-64:** your CI-flake point, as a brief. Recalibrate the 50-runs external-growth bound from CI data (≥10 runs). It must still catch the 1 MB/run leak, and consider asserting a slope.
+- **TM2-65:** docs/paper-bot.md operator guide. Starts after #95 (PB-2) merges.
+- **PB-1 is merged (#97):** paper-bot/ is on main. PB-2 (#95) is finishing; its deploy CI job was red on an older head and I'm checking the new run now. Please keep off compose, the Caddyfile and .github until #95 merges.
