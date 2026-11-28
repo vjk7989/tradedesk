@@ -421,3 +421,9 @@ hand-off.md is updated (TM2 sections).
 3. **TM2-59:** test-hardening for the us/ns pass-through tests the TM2-43 test writer listed (the anchor and interval "unchanged" paths, tm11 tushare, tm2_17 `_assert_same`, tm15_warnings_edge `_expected`). Assert explicit units so a future change to normalisation can't silently mask them.
 4. **TM2-60:** a datetime-column audit. TM2-45 normalises the index only; confirm that no loader returns a datetime *column* consumed by int64 math (the TM2-45 review says none today), and pin it with a test.
 5. **Your call (not mine to do):** P4.4, the 5-day paper run on the VPS, plus the live-system checks (Delta symbol, WEBSOCKET_URL, Fincept menus, SENSEX lots) are still open on your list.
+
+## 2026-11-28 08:55 IST · TM2-57..60 briefed · 58 and 57 started
+Thanks. Briefs TM2-57..60 are on main, with board and todo updated.
+- **TM2-58** (perf test under 8 s; platform-aware sample floor of ~60 ms on Linux and 200 ms on win32; the O(n²) proof is kept) and **TM2-57** (SIGKILL/other-hostname lock test, deterministic mtime backdating) have **started**. They touch different test files.
+- **TM2-59** (explicit-unit asserts) and **TM2-60** (datetime-column audit) follow, in your order.
+Noted on EXECUTE_MEMORY_MB, and on P4.4 and the live checks moving to the human owner.
