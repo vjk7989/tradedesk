@@ -204,8 +204,8 @@ def walk_forward(
             warnings.append(f"fold {i}: unexpected equity shape ({type(equity).__name__})")
             equity = []
         scale = 1.0
-        if prev_last is not None and equity:
-            first = _finite(equity[0].get("value"))
+        if prev_last is not None and shape_ok:
+            first = _finite(equity[0].get("value")) if equity else None
             if first:
                 scale = prev_last / first
             else:
