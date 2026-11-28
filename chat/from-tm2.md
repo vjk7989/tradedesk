@@ -648,3 +648,34 @@ Facts checked: trade-mcp exposes only `search` and `execute`; the prompt uses `r
 - **Ack 13:35. TM2-77 and TM2-78 devs are running.**
   - **TM2-77:** fail-closed analyzer check at startup and before every order; never retries; mirrors trade-mcp's client shapes with file:line; `sim` byte-identical.
   - **TM2-78:** age, encrypt before upload, a magic-header check before any `gcloud` call; a VM SA with objectCreator only; lifecycle retention; a 02:30 IST timer; a restore drill.
+
+## 2026-11-28 21:10 IST · status · #122 TM2-77 + #121 TM2-78 merged · queue empty
+- **#122 TM2-77 merged** (5b4aaf9): paper-bot `EXECUTION=openalgo` via the analyzer. Default `sim` is unchanged (value-exact DB comparison against main).
+  - **Safety:**
+    - a fresh analyzer check (`data.analyze_mode is True`, a real bool) before startup and before EVERY placeorder, failing closed;
+    - one placeorder path, no retries anywhere;
+    - timeout, 5xx, non-JSON or no orderid → the symbol is halted until an operator reconciles. The exact SQL is in the skip reason.
+  - **Two review rounds found and fixed:**
+    - an API-key prefix could leak via truncate-before-redact;
+    - a crash after the POST but before the DB commit would resend on restart. Now an `openalgo_inflight` marker is committed *before* the POST. Hard-kill tests (`os._exit`) before and after the POST show exactly 1 order across a restart.
+    - Also: keys shorter than 16 chars are rejected; a sim-opened position that isn't a whole number of contracts refuses to start.
+  - 123 tests. The adversarial review tried 30+ analyzer, URL and reply cases, with 0 live-order paths found.
+  - **Before you enable it:**
+    1. Confirm the `FUT` symbol suffix against OpenAlgo's master contract (it comes from trade-mcp api-docs.ts:10, which itself says to confirm).
+    2. Confirm that OpenAlgo analyzer mode never routes to the broker; the repo can't prove that.
+    3. Use a **fresh DATA_DIR** when switching from sim.
+    4. `OPENALGO_URL` must be the in-network compose address or https; the key travels in the JSON body, as in trade-mcp.
+  - The compose env lines are in coord/reports/TM2-77.md. Fills are still modelled from the candle close (the analyzer reply has no fill price), and the order id is kept in the decision reason and state. A `trades.orderid` column is a possible follow-up.
+- **#121 TM2-78 merged** (60ca32d): `deploy/backup-gcs.sh` with age.
+  - It encrypts before upload; ONE upload function checks the `.tar.age` name and the 21-byte age header before the only `gcloud` call.
+  - The plaintext lives only in a root-only 700 work dir, never /tmp. The script never chmods a dir it didn't create, and refuses `/`, empty or relative paths.
+  - Only plain `age1…` recipients are accepted (age plugins refused).
+  - **The review caught a real blocker:** `gcloud storage cp` uses parallel composite uploads by default at ≥ 150 MiB, which need get/delete. **objectCreator-only would have failed once backups grew past 150 MiB.** It's now disabled via `CLOUDSDK_STORAGE_PARALLEL_COMPOSITE_UPLOAD_ENABLED=False`.
+  - 57 tests, including a static "single upload path" check. CI deploy: 463 passed.
+  - **Before you enable the timer (docs/backup.md checklist):**
+    1. One manual run with the objectCreator-only SA, then confirm the object from a read-capable identity, ideally with a file over 150 MiB.
+    2. `systemd-analyze calendar '*-*-* 02:30:00 Asia/Kolkata'` on the VM.
+    3. Keep the age private key offline, and compare the VM's public key with `age-keygen -y`.
+    4. A weekly freshness check, since lifecycle deletion plus silently stopped uploads would expire every good backup.
+- **Board:** all TM2 tasks are merged; there are no open PRs and no agents running. **The queue is empty.**
+- **Open follow-up from earlier (say if you want a task):** docs/paper-bot.md for EQUITY_DETAIL_DAYS, the thinning rule, the sparkline caveat, pagination, the 500-trade cap and now `EXECUTION=openalgo`.
