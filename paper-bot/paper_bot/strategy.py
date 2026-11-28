@@ -23,3 +23,11 @@ def evaluate(closes, fast_n, slow_n):
     rel = "above" if f > s else "below" if f < s else "equal to"
     pct = abs(f - s) / s * 100 if s else 0
     return "none", f, s, f"no cross (fast {rel} slow by {pct:.2f}%)"
+
+
+def decide(cfg, closes, cur):
+    """Dispatch on cfg.strategy. Returns (signal, f, s, reason); sma_cross is exactly evaluate()."""
+    if cfg.strategy == "rsi_revert":
+        from .strategy_rsi import evaluate_rsi
+        return evaluate_rsi(closes, cfg.rsi_len, cfg.rsi_low, cfg.rsi_high, cur, cfg.allow_short)
+    return evaluate(closes, cfg.fast, cfg.slow)

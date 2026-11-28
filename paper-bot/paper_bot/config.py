@@ -7,6 +7,23 @@ RES_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
 
 
 EXECUTIONS = ("sim", "openalgo")
+STRATEGIES = ("sma_cross", "rsi_revert")
+
+
+def _int_env(g, name, default):
+    raw = g(name, default)
+    try:
+        return int(str(raw).strip())
+    except ValueError:
+        raise ValueError(f"invalid config: {name}={raw!r} must be an integer") from None
+
+
+def _float_env(g, name, default):
+    raw = g(name, default)
+    try:
+        return float(str(raw).strip())
+    except ValueError:
+        raise ValueError(f"invalid config: {name}={raw!r} must be a number") from None
 
 
 def parse_contract_sizes(raw: str) -> tuple:
@@ -41,6 +58,10 @@ class Config:
     fast: int = 20
     slow: int = 50
     allow_short: bool = True
+    strategy: str = "sma_cross"  # TM2-81: sma_cross | rsi_revert
+    rsi_len: int = 14
+    rsi_low: float = 30.0
+    rsi_high: float = 70.0
     notional: float = 1000.0
     capital: float = 10000.0
     fee: float = 0.0005
@@ -72,6 +93,12 @@ class Config:
             bad.append(f"SLOW={self.slow} must be >= 2")
         if self.fast >= self.slow:
             bad.append(f"FAST={self.fast} must be < SLOW={self.slow}")
+        if self.strategy not in STRATEGIES:
+            bad.append(f"STRATEGY={self.strategy!r} must be one of {', '.join(STRATEGIES)}")
+        if not 2 <= self.rsi_len <= 100:
+            bad.append(f"RSI_LEN={self.rsi_len} must be an integer in [2, 100]")
+        if not 0 < self.rsi_low < 50 < self.rsi_high < 100:
+            bad.append(f"RSI_LOW={self.rsi_low:g} and RSI_HIGH={self.rsi_high:g} must satisfy 0 < RSI_LOW < 50 < RSI_HIGH < 100")
         if not self.notional > 0:
             bad.append(f"NOTIONAL_USD={self.notional} must be > 0")
         if not self.capital > 0:
@@ -111,6 +138,17 @@ class Config:
         return bad
 
     @property
+    def min_closed(self) -> int:
+        """Closed candles needed to evaluate the active strategy."""
+        return self.rsi_len + 1 if self.strategy == "rsi_revert" else self.slow + 1
+
+    @property
+    def fetch_count(self) -> int:
+        """Candles requested per tick. sma_cross: unchanged (SLOW+5). rsi_revert: 5*RSI_LEN history so Wilder smoothing
+        has warmed up (seed influence decays as ((n-1)/n)^k)."""
+        return self.rsi_len * 5 + 5 if self.strategy == "rsi_revert" else self.slow + 5
+
+    @property
     def period(self) -> int:
         return RES_SEC[self.resolution]
 
@@ -126,6 +164,9 @@ class Config:
             symbols=tuple(s.strip() for s in g("SYMBOLS", ",".join(d.symbols)).split(",") if s.strip()),
             resolution=g("RESOLUTION", d.resolution), interval_sec=int(g("INTERVAL_SEC", d.interval_sec)),
             fast=int(g("FAST", d.fast)), slow=int(g("SLOW", d.slow)),
+            strategy=g("STRATEGY", d.strategy).strip().lower() or d.strategy,
+            rsi_len=_int_env(g, "RSI_LEN", d.rsi_len), rsi_low=_float_env(g, "RSI_LOW", d.rsi_low),
+            rsi_high=_float_env(g, "RSI_HIGH", d.rsi_high),
             allow_short=_b(g("ALLOW_SHORT", "true")), notional=float(g("NOTIONAL_USD", d.notional)),
             capital=float(g("START_CAPITAL_USD", d.capital)), fee=float(g("TAKER_FEE", d.fee)),
             slippage=float(g("SLIPPAGE", d.slippage)),

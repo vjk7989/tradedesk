@@ -37,6 +37,13 @@ def _t(ts):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(ts)) + "Z" if ts else "-"
 
 
+def _strat(cfg):
+    """Header strategy text; sma_cross output is unchanged from before TM2-81."""
+    if cfg.strategy == "rsi_revert":
+        return f"rsi_revert RSI({cfg.rsi_len}) {cfg.rsi_low:g}/{cfg.rsi_high:g}"
+    return f"SMA {cfg.fast}/{cfg.slow}"
+
+
 def _n(v, d=2):
     return "-" if v is None else f"{v:,.{d}f}"
 
@@ -193,7 +200,7 @@ def render(conn, cfg, symbol="", action="", now=None, before="", limit=""):
     h = [f'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
          f'<meta http-equiv="refresh" content="30"><title>paper-bot</title><style>{CSS}</style></head><body>',
          f'<h1>{dot}paper-bot <span class="tag" style="background:#9e6a03">PAPER</span></h1>',
-         f'<div class="muted">{escape(", ".join(cfg.symbols))} | {escape(cfg.resolution)} SMA {cfg.fast}/{cfg.slow} | '
+         f'<div class="muted">{escape(", ".join(cfg.symbols))} | {escape(cfg.resolution)} {_strat(cfg)} | '
          f'notional ${cfg.notional:,.0f} | fee {cfg.fee:.2%} slip {cfg.slippage:.2%} | short {"on" if cfg.allow_short else "off"}<br>'
          f'last tick {_t(last)} | next ~{_t(nxt)} | {"healthy" if healthy else "STALE"}</div>',
          '<div class="cards">' + "".join(f'<div class="card"><span>{k}</span><b>{v}</b></div>' for k, v in cards) + "</div>",

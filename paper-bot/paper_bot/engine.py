@@ -5,7 +5,7 @@ import time
 
 from . import db as D
 from .data import DataError, fetch_candles
-from .strategy import closed_only, evaluate
+from .strategy import closed_only, decide
 
 log = logging.getLogger("paper_bot")
 
@@ -66,16 +66,16 @@ class Engine:
         last = candles[-1]
         ct, close = last["time"], last["close"]
         self.db.execute("UPDATE positions SET mark=? WHERE symbol=?", (close, sym))
-        sig, f, s, why = evaluate([c["close"] for c in candles], cfg.fast, cfg.slow)
+        pos = self.db.execute("SELECT side FROM positions WHERE symbol=?", (sym,)).fetchone()
+        cur = pos["side"] if pos else None
+        sig, f, s, why = decide(cfg, [c["close"] for c in candles], cur)
         key = f"last_candle:{sym}"
         if D.get_state(self.db, key) == str(ct):
             self._decision(now, sym, ct, close, f, s, "hold", "hold", f"candle {ct} already processed → hold")
             return
         D.set_state(self.db, key, ct)
         self._sent.discard(sym)
-        pos = self.db.execute("SELECT side FROM positions WHERE symbol=?", (sym,)).fetchone()
-        cur = pos["side"] if pos else None
-        want = {"up": "long", "down": "short" if cfg.allow_short else "flat"}.get(sig)
+        want = {"up": "long", "down": "short" if cfg.allow_short else "flat", "flat": "flat"}.get(sig)
         if want is None:
             self._decision(now, sym, ct, close, f, s, "hold", "hold", f"{why} → hold")
         elif want == cur or (want == "flat" and cur is None):
@@ -268,11 +268,11 @@ class Engine:
         for sym in cfg.symbols:  # network I/O stays on the event loop
             try:
                 raw = await fetch_candles(self.client, cfg.base_url, sym, cfg.resolution, cfg.period,
-                                          cfg.slow + 5, now)
+                                          cfg.fetch_count, now)
                 candles = closed_only(raw, now, cfg.period)
-                if len(candles) < cfg.slow + 1:
+                if len(candles) < cfg.min_closed:
                     raise DataError(f"only {len(candles)} closed candles")
-                if not all(math.isfinite(c[k]) and c[k] > 0 for c in candles[-(cfg.slow + 1):]
+                if not all(math.isfinite(c[k]) and c[k] > 0 for c in candles[-cfg.min_closed:]
                            for k in ("open", "high", "low", "close")):
                     raise DataError("non-finite price")
                 results[sym] = candles
