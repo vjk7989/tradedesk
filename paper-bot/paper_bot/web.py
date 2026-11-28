@@ -1,16 +1,19 @@
 import asyncio
+import csv
+import io
 import logging
 import time
 from contextlib import asynccontextmanager, contextmanager
 from html import escape
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from . import db as D
 from .engine import Engine
-from .stats import summary
+from .stats import per_symbol, summary
 
 log = logging.getLogger("paper_bot")
 ACTIONS = ("open", "reverse", "close", "hold", "skip")
@@ -56,6 +59,71 @@ def equity_svg(totals):
             f'<div class="muted">min {_n(lo)} / max {_n(hi)}</div>')
 
 
+def valid_filters(cfg, symbol="", action=""):
+    """The one whitelist for the HTML filter and the CSV exports: unknown values fall back to 'all'."""
+    return (symbol if symbol in cfg.symbols else "", action if action in ACTIONS else "")
+
+
+def _sanitize(v):
+    """Real numbers stay numbers (so negative P&L like -12.5 stays numeric in a spreadsheet); every string is
+    neutralised if it could be read as a formula."""
+    if v is None:
+        return ""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return v
+    s = str(v)
+    return "'" + s if s[:1] in ("=", "+", "-", "@", "\t", "\r", "\n") else s
+
+
+def to_csv(columns, rows):
+    buf = io.StringIO()
+    wr = csv.writer(buf, lineterminator="\r\n")
+    wr.writerow(columns)
+    for r in rows:
+        wr.writerow([_sanitize(r.get(c)) for c in columns])
+    return buf.getvalue()
+
+
+def csv_response(body, name):
+    return Response(body, media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+
+
+def _iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts)) if ts else ""
+
+
+def decisions_csv(conn, cfg, symbol="", action=""):
+    symbol, action = valid_filters(cfg, symbol, action)
+    conds, args = [], []
+    if symbol:
+        conds.append("symbol=?"); args.append(symbol)
+    if action:
+        conds.append("action=?"); args.append(action)
+    rows = D.rows(conn, "SELECT * FROM decisions" + (" WHERE " + " AND ".join(conds) if conds else "") +
+                  " ORDER BY id DESC", args)
+    for r in rows:
+        r["time_utc"], r["candle_utc"] = _iso(r["ts"]), _iso(r["candle_time"])
+    return to_csv(["id", "ts", "time_utc", "symbol", "candle_time", "candle_utc", "close", "fast", "slow",
+                   "signal", "action", "reason"], rows)
+
+
+def trades_csv(conn, cfg, symbol="", action=""):
+    """action filters trades to fills written by a decision with that action (same ts and symbol)."""
+    symbol, action = valid_filters(cfg, symbol, action)
+    conds, args = [], []
+    if symbol:
+        conds.append("symbol=?"); args.append(symbol)
+    if action:
+        conds.append("EXISTS(SELECT 1 FROM decisions d WHERE d.ts=trades.ts AND d.symbol=trades.symbol AND d.action=?)")
+        args.append(action)
+    rows = D.rows(conn, "SELECT * FROM trades" + (" WHERE " + " AND ".join(conds) if conds else "") +
+                  " ORDER BY id DESC", args)
+    for r in rows:
+        r["time_utc"] = _iso(r["ts"])
+    return to_csv(["id", "ts", "time_utc", "symbol", "side", "kind", "qty", "price", "fee", "pnl"], rows)
+
+
 def render(conn, cfg, symbol="", action="", now=None):
     now = now or time.time()
     s = summary(conn, cfg)
@@ -63,8 +131,7 @@ def render(conn, cfg, symbol="", action="", now=None):
     nxt = (last + next_delay(cfg, last)) if last else None
     healthy = bool(last) and now - last < cfg.interval_sec * 2 + 30
     dot = f'<span class="dot" style="background:{"#3fb950" if healthy else "#f85149"}"></span>'
-    sym_ok = symbol if symbol in cfg.symbols else ""
-    act_ok = action if action in ACTIONS else ""
+    sym_ok, act_ok = valid_filters(cfg, symbol, action)
     q, args = "SELECT * FROM decisions", []
     conds = []
     if sym_ok:
@@ -103,6 +170,19 @@ def render(conn, cfg, symbol="", action="", now=None):
     if not positions:
         h.append('<tr><td colspan=6 class="muted">flat</td></tr>')
     h += ["</table></div><h2>Equity curve</h2>", equity_svg(totals),
+          "<h2>Per symbol</h2><div class='cards'>"]
+    for ps in per_symbol(conn, cfg):
+        ld = ps["last_decision"]
+        wr = "-" if ps["win_rate"] is None else f'{ps["win_rate"]:.0f}%'
+        last_txt = (f'{escape(ld["action"])}: {escape(ld["reason"] or "")}' if ld else "no decision yet")
+        h.append(f'<div class="card"><span>{escape(ps["symbol"])} ({escape(ps["side"])})</span>'
+                 f'<b>{_pnl(ps["realised"])}</b><span>realised</span><br>'
+                 f'<span>unrealised {_pnl(ps["unrealised"])} | trades {ps["trades"]} | win rate {wr}</span><br>'
+                 f'<span>last: {last_txt}</span></div>')
+    qs = "?" + urlencode({k: v for k, v in (("symbol", sym_ok), ("action", act_ok)) if v})
+    qs = "" if qs == "?" else qs
+    h += ["</div>", f'<div class="muted">Download: <a href="/api/trades.csv{qs}">trades.csv</a> | '
+          f'<a href="/api/decisions.csv{qs}">decisions.csv</a></div>',
           f'<h2>Decisions (latest 200)</h2><form method="get"><select name="symbol"><option value="">all symbols</option>'
           f'{opts(cfg.symbols, sym_ok)}</select> <select name="action"><option value="">all actions</option>'
           f'{opts(ACTIONS, act_ok)}</select> <button>Filter</button></form>',
@@ -185,6 +265,16 @@ def create_app(cfg, conn=None, client=None, run_loop=True):
     def trades():
         with reader() as r:
             return D.rows(r, "SELECT * FROM trades ORDER BY id DESC")
+
+    @app.get("/api/trades.csv")
+    def trades_export(symbol: str = "", action: str = ""):
+        with reader() as r:
+            return csv_response(trades_csv(r, cfg, symbol, action), "trades.csv")
+
+    @app.get("/api/decisions.csv")
+    def decisions_export(symbol: str = "", action: str = ""):
+        with reader() as r:
+            return csv_response(decisions_csv(r, cfg, symbol, action), "decisions.csv")
 
     @app.get("/api/positions")
     def positions():
