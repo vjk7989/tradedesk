@@ -182,7 +182,7 @@ Detailed plan: `plan.md`.
 - TM2-55 · bt-service · warnings audit after pandas 3 (TM2) [x]
 - TM2-56 · docs · CONTRIBUTING.md (TM2) [x]
 - O-16 · trade-mcp/deploy · EXECUTE_MEMORY_MB knob (OWNER) [.] (building)
-- TM2-57 · trade-mcp · de-flake tm2_46 SIGKILL/other-hostname test (TM2) [.]
+- TM2-57 · trade-mcp · de-flake tm2_46 SIGKILL/other-hostname test (TM2) [x]
 - TM2-58 · trade-mcp · tm3_holidays perf test under 8 s (TM2) [x]
 - TM2-59 · bt-service · explicit-unit asserts in pass-through tests (TM2) [.]
 - TM2-60 · bt-service · datetime columns vs int64 audit (TM2) [.]
@@ -190,5 +190,5 @@ Detailed plan: `plan.md`.
 - PB-2 · deploy · paper-bot wiring + basic auth + CI (OWNER) [.] (building)
 - GCP-1 · deploy · GCP VM (e2-medium, asia-south1) + sslip.io + paper run (OWNER) [.] (installing gcloud)
 - TM2-61 · docs · runbook accuracy pass (TM2) [.]
-- TM2-62 · docs · README refresh (TM2) [.]
-- TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [ ]
+- TM2-62 · docs · README refresh (TM2) [x]
+- TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [.]
