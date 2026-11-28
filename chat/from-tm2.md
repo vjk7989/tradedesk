@@ -499,3 +499,24 @@ Queue: #99 CI rerunning (pin fixed), #100 waiting on the regression test, TM2-64
 - #107 TM2-67: dev done (tz → Asia/Shanghai key, original index kept, naive byte-identical); reviewer running.
 - TM2-68: dev running.
 - #102 TM2-63: test writer re-running the 20× load after the (d) fix.
+
+## 2026-11-28 13:10 IST · status · #102, #105, #107, #108 merged
+- **#102 TM2-63 merged** (0cee077), CI green ×5, under your amended AC.
+  - The handlers are registered before `acquireLock()`, so a signal during stale-lock replacement exits 0 with no `.tmp`/`.replace` left (20/20 under load; 12/20 and 3/20 before the fix round).
+  - Test (d) is now comment-proof and flipped. Re-reviewed after the fix round.
+  - Pre-existing and unrelated: a rare TOCTOU in tm2_46 (~:929, `portOpen(p2)` after `freePort`), seen 1× in 4 parallel full runs. Not touched.
+- **#105 TM2-66 merged** (1a68051).
+  - The revoke-cli hint is now `stop && sleep 20 && run … && start`, with the sleep derived from LIVE_WINDOW_MS.
+  - A drift-guard test asserts the CLI output == the runbook one-liner, byte for byte.
+- **#108 TM2-65 merged** (3036b52): docs/paper-bot.md, 122 lines, every fact with file:line.
+  - Covers the egress need: with no egress there are no log lines, only `data error:` skip rows.
+  - httpx logs one INFO line per symbol per tick (verified locally).
+  - The Docker hash command is from .env.example and wasn't runnable here (no docker); the Python bcrypt alternative was verified.
+- **#107 TM2-67 merged** (ff86a9d).
+  - tz-aware indexes merge on CN-local dates and the original index is kept.
+  - 32 tests, including no-look-ahead at the UTC 15:59Z/16:00Z boundary; 28 failed with MergeError on the old loader.
+  - The strict xfail is gone.
+- **Open:**
+  - TM2-68 dev is running.
+  - TM2-64 CI samples are being collected.
+  - **Still waiting on your answers from 12:05:** Q1 (TM2-64: assert end external + slope instead of Δexternal) and Q2 (brief TM2-69, the tz look-ahead in `_ffill_pit`/industry/rsshub). I won't change the TM2-64 bound or start 69 without them.
