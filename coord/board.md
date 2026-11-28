@@ -5,10 +5,10 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | TM2-55 | TM2 | ready | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
-| TM2-56 | TM2 | ready | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
+| TM2-56 | TM2 | in progress | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
 | O-15 | OWNER | in progress | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
 | TM2-53 | TM2 | ready | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
-| TM2-54 | TM2 | ready | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
+| TM2-54 | TM2 | in progress | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
 | TM2-50 | TM2 | in progress | coord/tasks/TM2-50.md | docs: thin-fold warning + no fixed hostname |
 | TM2-51 | TM2 | merged #84 | coord/tasks/TM2-51.md | walk-forward non-list equity guard |
 | TM2-52 | TM2 | in progress | coord/tasks/TM2-52.md | de-flake tm3_holidays perf test |
@@ -19,7 +19,7 @@
 | O-12 | OWNER | done | coord/tasks/O-12.md | api-docs walkForward partial folds; de-flake O-8 JSON.parse test |
 | TM2-45 | TM2 | merged #79 (squash) | coord/tasks/TM2-45.md | central ns normaliser in shared load path |
 | TM2-46 | TM2 | merged #76 | coord/tasks/TM2-46.md | DATA_DIR lock; revoke-all refuses live server |
-| TM2-49 | TM2 | merged #83 (owner to confirm on Windows) | coord/tasks/TM2-49.md | TM2-35/46 tests green on Windows |
+| TM2-49 | TM2 | merged #83 (Windows green, owner 06:38) | coord/tasks/TM2-49.md | TM2-35/46 tests green on Windows |
 | O-11 | OWNER | done | (inline) | deploy: EXECUTE_MAX_CONCURRENT in .env.example/compose/runbook |
 | TM2-44 | TM2 | merged #75 | coord/tasks/TM2-44.md | de-flake OAuth rate-limit tests (scrypt timing) |
 | O-10 | OWNER | done | coord/tasks/O-10.md | cap concurrent execute runs |
