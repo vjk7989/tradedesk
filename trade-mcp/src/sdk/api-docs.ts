@@ -20,6 +20,9 @@ export const API_HEADER = [
   "Risk violations are thrown as Error('risk denied: ...'); nothing is placed in that case.",
   "Optional risk cap maxShortOptionQtyPerOrder (off when unset) limits the quantity of NFO/BFO CE/PE SELL orders; a SELL that closes a long is capped too (conservative), and a breach is denied with 'short option qty <q> exceeds maxShortOptionQtyPerOrder <n>'.",
   "Kill switch: while it is on (the KILL file exists), new orders and modifications are refused with 'risk denied: kill switch active'; cancel and closePosition (the risk-reducing calls) are still allowed; risk.status().killSwitch shows the state.",
+  "Sandbox limits: memory 64 MB per run (exceeding it fails with 'memory limit exceeded'), so keep data small and aggregate inside bt-service. No ArrayBuffer, TypedArray, DataView, Atomics or WebAssembly; use plain arrays.",
+  "Binding calls: argument max 1 MB JSON ('binding argument too large'); result max min(4 MB, memory/4), else 'binding result too large (<n> chars, max <m>): narrow the query, e.g. fewer bars or a shorter date range'. Request fewer bars or a shorter range.",
+  "Executes: at most EXECUTE_MAX_CONCURRENT (default 4) run at once; on 'busy: too many concurrent executes, retry shortly' wait briefly and retry, and do not fire many executes in parallel. Timeout EXECUTE_TIMEOUT_MS (default 60000 ms), failing with 'timeout: execution exceeded <ms>ms'. Code max 100 KB ('code exceeds 100KB limit').",
 ].join("\n");
 
 const BACKTEST_NOTE = [
