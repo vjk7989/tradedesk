@@ -181,7 +181,7 @@ Detailed plan: `plan.md`.
 - O-15 · repo · CI asserts pandas 3 (OWNER, right after #85) [x]
 - TM2-55 · bt-service · warnings audit after pandas 3 (TM2) [x]
 - TM2-56 · docs · CONTRIBUTING.md (TM2) [x]
-- O-16 · trade-mcp/deploy · EXECUTE_MEMORY_MB knob (OWNER) [.] (building)
+- O-16 · trade-mcp/deploy · EXECUTE_MEMORY_MB knob (OWNER) [x]
 - TM2-57 · trade-mcp · de-flake tm2_46 SIGKILL/other-hostname test (TM2) [x]
 - TM2-58 · trade-mcp · tm3_holidays perf test under 8 s (TM2) [x]
 - TM2-59 · bt-service · explicit-unit asserts in pass-through tests (TM2) [.]
