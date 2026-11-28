@@ -35,6 +35,8 @@ A self-hosted AI trading desk: an MCP server that lets an AI client search, back
 - Scheduled jobs can use a read-only token.
 - Nothing running in the sandbox can change the mode.
 
+Security policy and threat model: [SECURITY.md](SECURITY.md).
+
 Design records: [ADR-2](architecture-record-document.md) (OpenAlgo unmodified), [ADR-3](architecture-record-document.md) (QuickJS sandbox), [ADR-7](architecture-record-document.md) (CLI or API keys to drive the AI).
 
 ## Quick start
