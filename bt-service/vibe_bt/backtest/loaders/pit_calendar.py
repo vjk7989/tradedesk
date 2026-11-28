@@ -57,5 +57,6 @@ def assert_clean_datetime_index(
             f"{where}: PIT join produced tz-aware index ({index.tz}); "
             "normalise to market-local naive before joining"
         )
-    if monotonic and not index.is_monotonic_increasing:
+    # NaT keys (accepted on main) are ignored for the ordering check.
+    if monotonic and not index[~index.isna()].is_monotonic_increasing:
         raise PitCalendarError(f"{where}: PIT join index is not monotonic increasing")

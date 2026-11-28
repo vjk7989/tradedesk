@@ -288,17 +288,27 @@ def _knowable_date(published: pd.Timestamp, cutoff_hour: int) -> pd.Timestamp:
     """Return the date an item becomes actionable (post-cutoff rolls to next day).
 
     Args:
-        published: Parsed publication timestamp (tz dropped to naive local).
+        published: Parsed publication timestamp; naive is CN-local, tz-aware uses
+            the later of its wall-clock and Asia/Shanghai readings.
         cutoff_hour: Hour at/after which publication rolls to the next day.
 
     Returns:
         Normalised (midnight) timestamp of the knowable date.
     """
-    stamp = published.tz_localize(None) if published.tzinfo is not None else published
-    base = stamp.normalize()
-    if stamp.hour >= cutoff_hour:
-        base = base + pd.Timedelta(1, "D")
-    return base
+    def _roll(stamp: pd.Timestamp) -> pd.Timestamp:
+        base = stamp.normalize()
+        if stamp.hour >= cutoff_hour:
+            base = base + pd.Timedelta(1, "D")
+        return base
+
+    if published.tzinfo is None:
+        return _roll(published)
+    # tz-aware: the later of the feed's stated wall-clock reading and the CN-local
+    # reading of the instant, so a GMT/-0500 item published after the CN cutoff
+    # can never become knowable early (delay-only, never look-ahead).
+    wall = _roll(published.tz_localize(None))
+    cn = _roll(published.tz_convert(_CN_MARKET_TZ).tz_localize(None))
+    return max(wall, cn)
 
 
 def _clean_summary(text: str | None) -> str:
@@ -590,6 +600,10 @@ def enrich_price_frames_with_events(
     for code, frame in enriched.items():
         rows = events[events["ts_code"] == code]
         # Daily bars carry calendar labels, just like the feed's knowable dates.
+        # NB: ``event_feeds`` is not market-gated, so UTC-aware (e.g. crypto) bars
+        # reach here; 16:00Z-23:59Z map to the next CN date. That is the CN date
+        # of the same instant (no look-ahead) but differs from the pre-TM2-70
+        # wall-clock reading for tz-aware input.
         # Knowable dates are CN-local calendar dates, so a tz-aware bar index is
         # keyed by its Asia/Shanghai date (not its own wall clock); a naive index
         # is taken as CN-local. The frame keeps the caller's exact index.
