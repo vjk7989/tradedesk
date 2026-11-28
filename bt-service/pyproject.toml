@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Standalone backtest service built on the Vibe-Trading engine (MIT)"
 requires-python = ">=3.11"
 dependencies = [
-    "pandas<3",
+    "pandas>=3,<4",
     "numpy",
     "scipy",
     "pydantic",

@@ -105,7 +105,7 @@ def test_pyproject_deps_exact():
         "ccxt", "fastapi", "uvicorn", "httpx", "pyyaml",
     }
     pandas = next(d for d in deps if _dep_name(d) == "pandas")
-    assert "<3" in pandas.replace(" ", "")
+    assert pandas.replace(" ", "") == "pandas>=3,<4"
 
 
 def test_pyproject_dev_group_is_pytest_only():

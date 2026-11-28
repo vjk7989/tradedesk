@@ -43,6 +43,10 @@ def test_resample_no_warning_and_values(interval):
         pd.testing.assert_frame_equal(out, df)
         return
 
+    # Owner policy (TM2-41/42/45): resampled output is normalised to datetime64[ns],
+    # even though pandas 3 builds the source fixture index in "us".
+    assert out.index.unit == "ns"
+
     # Hand-computed expectation: floor timestamps to the bin start and aggregate.
     if minutes in (3, 10):
         # session-anchored bins: offset from 09:15 of the anchor day
@@ -56,6 +60,7 @@ def test_resample_no_warning_and_values(interval):
         open=("open", "first"), high=("high", "max"), low=("low", "min"),
         close=("close", "last"), volume=("volume", "sum"),
     )
+    exp.index = exp.index.as_unit("ns")
     exp.index.name = df.index.name
     exp.index.freq = None
     out_cmp = out.copy()
