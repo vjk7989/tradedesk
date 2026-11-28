@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | TM2-75 | TM2 | ready | coord/tasks/TM2-75.md | backups include paper_bot_data + volume guard test |
 | TM2-76 | TM2 | ready | coord/tasks/TM2-76.md | paper-bot bounded storage + pagination |
-| TM2-74 | TM2 | ready | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
+| TM2-74 | TM2 | review (#118) | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
 | TM2-72 | TM2 | merged (#115) | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
 | TM2-73 | TM2 | merged (#116, squash) | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |
 | O-18 | OWNER | done | (inline) | docs/gcp-deploy.md from the real deploy |
@@ -20,7 +20,7 @@
 | TM2-66 | TM2 | merged (#105) | coord/tasks/TM2-66.md | revoke-cli prints the revoke sequence with the wait |
 | TM2-67 | TM2 | merged (#107) | coord/tasks/TM2-67.md | tz-aware price index in tushare fundamentals merge |
 | TM2-68 | TM2 | merged (#109) | coord/tasks/TM2-68.md | explicit filed parsing in _ffill_pit, warn on drops |
-| TM2-64 | TM2 | CI ×10 (#104) | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
+| TM2-64 | TM2 | merged (#104) | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
 | TM2-65 | TM2 | merged (#108) | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
 | TM2-61 | TM2 | merged (#99) | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
 | TM2-62 | TM2 | merged #98 | coord/tasks/TM2-62.md | README refresh |
