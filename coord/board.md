@@ -4,7 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| TM2-55 | TM2 | in progress | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
+| TM2-55 | TM2 | merged #92 (audit: 1 third-party warning) | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
 | TM2-56 | TM2 | merged #89 | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
 | O-15 | OWNER | done | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
 | TM2-53 | TM2 | in progress | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
