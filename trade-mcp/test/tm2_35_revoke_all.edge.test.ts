@@ -539,6 +539,10 @@ describe("TM2-35 edge: atomicity on write failure", () => {
 const RUNBOOK_CMD =
   "docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
 
+// TM2-61: the runbook inserts a wait after stop (TM2-46 lock heartbeat: lock younger than 15 s counts as live).
+const RUNBOOK_CMD_WITH_WAIT =
+  "docker compose stop trade-mcp && sleep 20 && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp";
+
 describe("TM2-35 edge: why stop -> run -> start is required (revoking against a live server is unsupported)", () => {
   // Documented-unsupported behaviour: a live trade-mcp keeps the OAuth store in memory and rewrites oauth.json from
   // memory on ANY persisting action, so a revoke done while it runs is undone. These tests PIN that behaviour
@@ -681,7 +685,11 @@ describe("TM2-35 edge: exit codes 0/1/2/3", () => {
 describe("TM2-35 edge: docs/vps-runbook.md", () => {
   it("contains the stop -> run --rm --no-deps -> start command and never instructs exec", () => {
     const md = readFileSync(path.join(ROOT, "..", "docs", "vps-runbook.md"), "utf8");
-    expect(md).toContain(RUNBOOK_CMD);
+    expect(md).toContain(RUNBOOK_CMD_WITH_WAIT);
+    // order + wait >= 16 s (heartbeat window is 15 s), so removing the wait fails
+    const m = /docker compose stop trade-mcp && sleep (\d+) && docker compose run --rm --no-deps trade-mcp node dist\/src\/oauth\/revoke-cli\.js --force && docker compose start trade-mcp/.exec(md);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(16);
     // any mention of `docker compose exec` near revoke-cli must be a prohibition, never a command to run
     const lines = md.split("\n");
     for (const l of lines) {
