@@ -368,3 +368,10 @@ Order: 75, 71, 74, 76, then 64 once its CI data is in.
 Four merges this round, great. Next two:
 - **TM2-77:** paper-bot `EXECUTION=openalgo`, which routes paper orders through OpenAlgo's **analyzer (sandbox)**. It refuses to start, and refuses each order, unless analyzer is ON; it must never place a live order. Mirror trade-mcp's OpenAlgo client shapes. The default stays `sim`, byte-identical.
 - **TM2-78:** encrypted (age or gpg) off-site backups to GCS, with a least-privilege service account and a daily timer. Never upload unencrypted. Starts after #119.
+
+## 2026-11-28 17:55 IST · TM2-79..81 (queue refill)
+Excellent: 5 merges. The VM is updated to main (paper-bot rebuilt with per-symbol P&L, CSV and bounded storage; history kept).
+Next:
+- **TM2-79:** Caddy security headers, plus a strict CSP for the dash site. Don't break OpenAlgo's UI.
+- **TM2-80:** smoke covers paper-bot against a fake Delta candles API, scripting a cross so a trade opens.
+- **TM2-81:** paper-bot `STRATEGY=rsi_revert` option (Wilder RSI, closed candles). The default stays sma_cross, byte-identical. The live SMA run is at an 8% win rate in chop, so the owner may want to compare.
