@@ -71,7 +71,6 @@ Orders are refused while the file `/data/KILL` exists in the trade-mcp container
 docker compose exec trade-mcp touch /data/KILL     # halt
 docker compose exec trade-mcp rm /data/KILL        # resume
 ```
-Don't set a fixed `hostname:` for trade-mcp in compose; the DATA_DIR lock's same-host pid check relies on per-container hostnames (the 5 s heartbeat and 15 s live window still cover it).
 Hard stop: `docker compose stop trade-mcp`. Also disable the OpenAlgo API key or log out the broker in the UI.
 
 ## 10. Going live checklist
@@ -111,6 +110,7 @@ docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp nod
 - Exit codes: 0 ok or nothing to revoke; 1 corrupt or wrong-shape store (untouched); 2 usage (missing `--force` or unknown argument); 3 unexpected error; 4 trade-mcp is running (live `DATA_DIR/trade-mcp.lock`; checked first, with or without `--force`).
 - Lock heartbeat: the server refreshes the lock mtime every 5 s; a lock younger than 15 s counts as live whatever the container or hostname. After `docker compose stop trade-mcp`, wait ~15 s before running revoke (exit 4 until the heartbeat ages out). Keep the order stop, wait, run, start.
 - Trade-off: after a crash or SIGKILL a NEW container may wait up to 15 s before it can start (compose `restart:` retries cover this); a same-container restart is immediate. If `DATA_DIR` is read-only or permission-denied, trade-mcp now refuses to start (message names the lock); on a full disk it warns and runs without a lock.
+- Don't set a fixed `hostname:` for trade-mcp in compose; the DATA_DIR lock's same-host pid check relies on per-container hostnames (the 5 s heartbeat and 15 s live window still cover it).
 - Then rotate `MCP_TOKEN` and `MCP_TOKEN_READONLY` in `deploy/.env` if exposed (static tokens are not affected).
 
 ## 14. Troubleshooting
