@@ -205,3 +205,6 @@ Detailed plan: `plan.md`.
 - TM2-70 · bt-service · tz-explicit PIT joins, no look-ahead (TM2, HIGH) [.]
 - GCP-1 · deploy · VM live: paper-bot + OpenAlgo + trade-mcp + bt-service on 34.14.132.148 (OWNER) [x]
 - TM2-71 · trade-mcp · de-flake server.edge CLI spawn tests (TM2) [ ]
+- TM2-72 · paper-bot · per-symbol P&L + CSV (TM2) [ ]
+- TM2-73 · agent-runner · Gemini paper job example (TM2) [ ]
+- O-18 · docs · GCP deploy guide (OWNER) [.] (writing)

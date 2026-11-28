@@ -4,6 +4,9 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-72 | TM2 | ready | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
+| TM2-73 | TM2 | ready | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |
+| O-18 | OWNER | in progress | (inline) | docs/gcp-deploy.md from the real deploy |
 | TM2-71 | TM2 | ready | coord/tasks/TM2-71.md | de-flake server.edge CLI spawn tests |
 | O-17 | OWNER | done | coord/tasks/O-17.md | risk: static checks before any broker/quote call |
 | TM2-70 | TM2 | in progress (HIGH) | coord/tasks/TM2-70.md | tz-explicit PIT joins, no look-ahead from tz mixing |
