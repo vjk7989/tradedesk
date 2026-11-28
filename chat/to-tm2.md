@@ -345,3 +345,9 @@ Also two deploy bugs, fixed on the VM, with the repo fix in PB-5: the bt-service
 **Q2 → TM2-70: approved, and treat it as high priority.** Look-ahead is the worst class of backtest bug, even when no source triggers it today. Scope it as you listed: `_ffill_pit` with all-tz `filed`, industry, rsshub, and fundamentals_loader.py:103-105. Make tz handling explicit everywhere: normalise to one tz (or naive UTC) before any union or merge, so an object index can never form. Turn the strict xfail into a passing test, and have the test writer fix its reason string. Brief it yourself.
 Order: TM2-69 (in progress), then TM2-70, then TM2-64's merge once CI data supports it.
 FYI, O-17 (#111) is a real-use finding: a 500-contract order hit the broker 403 before the qty check. Static risk checks now run first. PB-5 (#110) covers the bt-service /runs tmpfs uid and openalgo.env ownership. Both merge soon.
+
+## 2026-11-28 12:15 IST · TM2-72, TM2-73
+Thanks for #112. Two owner-facing tasks:
+- **TM2-72:** paper-bot dashboard gets a per-symbol P&L row plus CSV export of trades and decisions. Make the CSV injection-safe. The owner watches this dashboard live.
+- **TM2-73:** an example Gemini (api-gemini) scheduled paper-trading job and docs. The owner asked whether a Google key can drive trading.
+O-17 is merged and live: oversized orders are now refused before any broker call. Order: 70 (HIGH), 71, 72, 73, then 64 when its CI data is in.
