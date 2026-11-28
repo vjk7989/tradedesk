@@ -4,7 +4,12 @@
 
 - Volumes (as `<name>.tgz`): `openalgo_db`, `openalgo_log`, `openalgo_strategies`,
   `openalgo_keys`, `trade_mcp_data` (audit log, risk state, `oauth.json`).
-  Skipped (rebuildable): `openalgo_tmp`, `caddy_data`, `caddy_config`.
+- `paper_bot_data` as `paper_bot_data.db`: a consistent snapshot of `paper.db` (every
+  paper decision, trade and equity point), not a tarball. See "paper-bot database".
+- Skipped (rebuildable), listed with reasons in `EXCLUDED_VOLUMES` in `backup.sh`:
+  `openalgo_tmp` (scratch), `caddy_data` (TLS certs and ACME state; Caddy re-issues
+  them automatically), `caddy_config` (regenerated from the Caddyfile). Every named
+  volume in `docker-compose.yml` must be in `VOLUMES` or `EXCLUDED_VOLUMES`.
 - Files from `deploy/` if present: `.env` (saved as `env`), `openalgo.env`, `risk.json`.
 - `MANIFEST.txt` (sha256 of every file).
 
@@ -19,9 +24,27 @@ newest backups are kept, older timestamped dirs are deleted. A lock stops concur
 runs. `COMPOSE_PROJECT_NAME` (default `deploy`) sets the volume prefix.
 `TRADEDESK_DEPLOY_DIR` overrides where the env/risk files are read.
 
-Volumes are archived live, so SQLite may be mid-write. For a consistent copy run
-`docker compose stop` -> `backup.sh` -> `docker compose start`; 02:15 IST is outside
-market hours, so a short stop is fine.
+The other volumes are archived live, so SQLite files there may be mid-write. For a
+fully consistent copy run `docker compose stop` -> `backup.sh` -> `docker compose start`;
+02:15 IST is outside market hours, so a short stop is fine. `paper_bot_data` does not
+need the stop (below).
+
+## paper-bot database
+paper-bot opens `paper.db` in WAL mode (`journal_mode=WAL`, 5 s busy timeout), so
+copying `paper.db` alone can miss committed data sitting in `paper.db-wal`, and copying
+the three files separately can tear. `backup.sh` therefore uses the SQLite online backup
+API, run inside the paper-bot container with its own Python (stdlib `sqlite3`, no image
+change, no new tools): `docker compose exec -T paper-bot python -c ...` streams a
+`Connection.backup()` copy, checked with `PRAGMA integrity_check`, to
+`paper_bot_data.db`. The bot keeps running (WAL readers do not block its writer) and the
+snapshot is transactionally consistent. Chosen over stopping the bot (downtime, and a
+failed start would leave it down) and over copying db+wal+shm (not atomic).
+
+If the bot is not running, `backup.sh` runs the same snapshot in a one-off container
+from the same image (`compose run --rm --no-deps`); with no writer a snapshot is just as
+consistent, and it replays any WAL left by an unclean stop (a plain file copy would
+lose it). If the snapshot fails (image missing, db missing or corrupt) the script exits
+non-zero and removes the partial backup, the same as a failing volume archive.
 
 ## Cron (daily 02:15 IST)
 Host clock UTC (02:15 IST = 20:45 UTC the previous day):
@@ -47,7 +70,10 @@ The script first checks that every MANIFEST entry is a plain file name, exists a
 matches its hash, and that the folder has no unlisted files. Any problem aborts
 before anything changes. It refuses if any container exists (`ps -aq`, running or
 stopped) unless `--force`. Volumes are NOT cleared first: the archive is extracted
-over existing files, so stale files may remain. Existing `.env`, `openalgo.env`,
+over existing files, so stale files may remain. `paper_bot_data.db` is restored by stopping paper-bot if it is running (only possible
+with `--force`), deleting the old `paper.db`, `paper.db-wal` and `paper.db-shm`, copying
+the snapshot in as `paper.db` (mode 600, owner uid 10001, the image's `bot` user), and
+starting paper-bot again if it was running; otherwise `up -d` starts it. Existing `.env`, `openalgo.env`,
 `risk.json` are moved to `<file>.pre-restore` (or `.pre-restore.<UTC timestamp>` if
 that exists).
 

@@ -8,7 +8,8 @@ umask 077
 
 DEPLOY_DIR="${TRADEDESK_DEPLOY_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 PREFIX="${COMPOSE_PROJECT_NAME:-deploy}"
-VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_data)
+VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_data paper_bot_data)
+SNAPSHOT_VOL="paper_bot_data"
 FILES=("env:.env" "openalgo.env:openalgo.env" "risk.json:risk.json")
 
 FORCE=0
@@ -62,6 +63,19 @@ if [ "$FORCE" -ne 1 ]; then
 fi
 
 for vol in "${VOLUMES[@]}"; do
+  if [ "$vol" = "$SNAPSHOT_VOL" ]; then
+    # Snapshot db (see backup.sh): stop the bot, replace paper.db, drop stale -wal/-shm
+    # (they belong to the old db), then start the bot again if it was running.
+    if [ -f "$BDIR/$vol.db" ]; then
+      was_up="$(docker ps -q --filter "name=^${PREFIX}[-_]paper-bot[-_]")"
+      [ -z "$was_up" ] || docker stop $was_up
+      docker run --rm -v "${PREFIX}_${vol}:/dst" -v "$BDIR:/src:ro" alpine \
+        sh -c "rm -f /dst/paper.db /dst/paper.db-wal /dst/paper.db-shm && cp /src/${vol}.db /dst/paper.db && chown 10001:10001 /dst /dst/paper.db && chmod 600 /dst/paper.db"
+      [ -z "$was_up" ] || docker start $was_up
+      echo "restored volume ${PREFIX}_${vol}"
+    fi
+    continue
+  fi
   if [ -f "$BDIR/$vol.tgz" ]; then
     docker run --rm -v "${PREFIX}_${vol}:/dst" -v "$BDIR:/src:ro" alpine \
       sh -c "tar xzf /src/${vol}.tgz -C /dst"
