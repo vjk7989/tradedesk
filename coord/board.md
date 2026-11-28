@@ -4,11 +4,11 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| TM2-74 | TM2 | ready (after #116) | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
-| TM2-72 | TM2 | in progress | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
-| TM2-73 | TM2 | in progress | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |
+| TM2-74 | TM2 | ready | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
+| TM2-72 | TM2 | merged (#115) | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
+| TM2-73 | TM2 | merged (#116, squash) | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |
 | O-18 | OWNER | done | (inline) | docs/gcp-deploy.md from the real deploy |
-| TM2-71 | TM2 | in progress | coord/tasks/TM2-71.md | de-flake server.edge CLI spawn tests |
+| TM2-71 | TM2 | merged (#117) | coord/tasks/TM2-71.md | de-flake server.edge CLI spawn tests |
 | O-17 | OWNER | done | coord/tasks/O-17.md | risk: static checks before any broker/quote call |
 | TM2-70 | TM2 | merged (#113) | coord/tasks/TM2-70.md | tz-explicit PIT joins, no look-ahead from tz mixing |
 | TM2-69 | TM2 | merged (#112) | coord/tasks/TM2-69.md | bt-service avg holding time metric wrong |
