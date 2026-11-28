@@ -174,7 +174,7 @@ Detailed plan: `plan.md`.
 - TM2-49 · trade-mcp · TM2-35/46 tests green on Windows (TM2) [x]
 - O-14 · trade-mcp · api-docs sandbox limits (OWNER) [x]
 - TM2-50 · docs · thin-fold warning + hostname line (TM2) [ ]
-- TM2-51 · bt-service · walk-forward equity guard (TM2) [.]
+- TM2-51 · bt-service · walk-forward equity guard (TM2) [x]
 - TM2-52 · trade-mcp · de-flake tm3_holidays perf (TM2) [ ]
 - TM2-53 · e2e · smoke concurrency cap + memory recovery (TM2) [ ]
 - TM2-54 · docs · troubleshooting sandbox-limit errors (TM2) [ ]
