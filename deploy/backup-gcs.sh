@@ -7,7 +7,9 @@
 #      AGE_RECIPIENTS_FILE (required, file of age public recipients),
 #      BACKUP_PREFIX (default tradedesk), COMPOSE_PROJECT_NAME and
 #      TRADEDESK_DEPLOY_DIR (passed through to backup.sh),
-#      TRADEDESK_BACKUP_SH (override of backup.sh path; for tests).
+#      BACKUP_WORKDIR (default /var/lib/tradedesk-backup; root-only scratch dir, made 700).
+#      TRADEDESK_BACKUP_SH: TEST-ONLY override of the backup.sh path; not part of the
+#      supported interface and deliberately not documented in docs/backup.md.
 # Exit codes as backup.sh: 2 = bad configuration/usage, 1 = runtime failure.
 # The backup contains secrets. Never print file contents or key material.
 set -euo pipefail
@@ -29,9 +31,21 @@ command -v age >/dev/null 2>&1 || conf "age is not installed"
 command -v gcloud >/dev/null 2>&1 || conf "gcloud is not installed"
 [ -f "$AGE_RECIPIENTS_FILE" ] && [ -r "$AGE_RECIPIENTS_FILE" ] || conf "recipient file is not a readable file: $AGE_RECIPIENTS_FILE"
 [ -s "$AGE_RECIPIENTS_FILE" ] || conf "recipient file is empty: $AGE_RECIPIENTS_FILE"
+# Only plain age X25519 recipients (age1 + 58 bech32 chars) or comments: age would otherwise
+# run age-plugin-* binaries from PATH for plugin recipients.
+if grep -qvE '^(age1[02-9ac-hj-np-z]{58}|#.*|[[:space:]]*)$' "$AGE_RECIPIENTS_FILE"; then
+  conf "recipient file may contain only plain age1... recipients, comments and blank lines"
+fi
+grep -qE '^age1[02-9ac-hj-np-z]{58}$' "$AGE_RECIPIENTS_FILE" || conf "recipient file has no age1... recipient"
 [ -f "$BACKUP_SH" ] || conf "backup.sh not found: $BACKUP_SH"
 
-TMP="$(mktemp -d)"
+# Root-only work dir on disk (not RAM-backed /tmp) so a SIGKILL/OOM/power loss cannot leave
+# plaintext in memory-backed storage. Stale dirs from killed runs are swept after a day.
+WORKDIR="${BACKUP_WORKDIR:-/var/lib/tradedesk-backup}"
+mkdir -p "$WORKDIR" 2>/dev/null || conf "cannot create work dir $WORKDIR (run as root or set BACKUP_WORKDIR)"
+chmod 700 "$WORKDIR"
+find "$WORKDIR" -mindepth 1 -maxdepth 1 -type d -name 'tradedesk-gcs.*' -mtime +0 -exec rm -rf {} + 2>/dev/null || true
+TMP="$(mktemp -d "$WORKDIR/tradedesk-gcs.XXXXXX")"
 chmod 700 "$TMP"
 trap 'rm -rf -- "$TMP"' EXIT   # plaintext and ciphertext both live only here
 
@@ -43,6 +57,11 @@ upload_encrypted() {
   [ -f "$file" ] || die "encrypted file missing"
   magic="$(head -c "${#AGE_MAGIC}" "$file" 2>/dev/null || true)"
   [ "$magic" = "$AGE_MAGIC" ] || die "output is not age-encrypted (bad header); NOT uploading"
+  # objectCreator cannot get/delete, so parallel composite uploads (default on for files
+  # >= 150 MiB: they compose and delete temp parts) would fail. Force plain uploads.
+  # Source: Google Cloud docs, "Parallel composite uploads" (gcloud property
+  # storage/parallel_composite_upload_enabled; env CLOUDSDK_<SECTION>_<PROPERTY>).
+  export CLOUDSDK_STORAGE_PARALLEL_COMPOSITE_UPLOAD_ENABLED=False
   gcloud storage cp "$file" "$dest" >/dev/null
 }
 
