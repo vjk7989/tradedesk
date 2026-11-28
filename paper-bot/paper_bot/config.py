@@ -139,8 +139,9 @@ class Config:
 
     @property
     def min_closed(self) -> int:
-        """Closed candles needed to evaluate the active strategy."""
-        return self.rsi_len + 1 if self.strategy == "rsi_revert" else self.slow + 1
+        """Closed candles needed to evaluate the active strategy. rsi_revert: 4*RSI_LEN so the Wilder seed has
+        decayed (measured: mean error vs full history ~0.3 RSI points, max ~1.9); fetch_count (5n+5) always covers it."""
+        return 4 * self.rsi_len if self.strategy == "rsi_revert" else self.slow + 1
 
     @property
     def fetch_count(self) -> int:

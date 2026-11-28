@@ -272,7 +272,7 @@ class Engine:
                 candles = closed_only(raw, now, cfg.period)
                 if len(candles) < cfg.min_closed:
                     raise DataError(f"only {len(candles)} closed candles")
-                if not all(math.isfinite(c[k]) and c[k] > 0 for c in candles[-cfg.min_closed:]
+                if not all(math.isfinite(c[k]) and c[k] > 0 for c in (candles if cfg.strategy == "rsi_revert" else candles[-(cfg.slow + 1):])
                            for k in ("open", "high", "low", "close")):
                     raise DataError("non-finite price")
                 results[sym] = candles

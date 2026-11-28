@@ -1,4 +1,5 @@
 """TM2-81: Wilder RSI mean-reversion signal. Pure functions; engine/fill/fee/recovery code is shared with sma_cross."""
+import math
 
 
 def wilder_rsi(closes, n):
@@ -27,6 +28,8 @@ def evaluate_rsi(closes, n, low, high, cur, allow_short):
     if len(closes) < n + 1:
         return "none", None, None, f"RSI({n}): need {n + 1} closed candles, got {len(closes)} → hold"
     r = wilder_rsi(closes, n)
+    if not math.isfinite(r):
+        return "none", None, None, f"RSI({n}) not finite → hold"
     t = f"RSI({n})={r:.2f}"
     if r < low:
         return "up", r, None, f"{t} < {low:g} → long"
