@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| PB-3 | OWNER | done | (hotfix) | paper-bot egress network (#103) |
 | TM2-66 | TM2 | ready | coord/tasks/TM2-66.md | revoke-cli prints the revoke sequence with the wait |
 | TM2-67 | TM2 | ready | coord/tasks/TM2-67.md | tz-aware price index in tushare fundamentals merge |
 | TM2-68 | TM2 | ready | coord/tasks/TM2-68.md | explicit filed parsing in _ffill_pit, warn on drops |
