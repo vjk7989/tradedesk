@@ -52,6 +52,8 @@ const IS_ROOT = typeof process.getuid === "function" && process.getuid() === 0;
 // Windows (see TM2-49): no /proc, no POSIX mode bits, symlinks need admin/Developer Mode, and SIGTERM/SIGINT sent
 // via ChildProcess.kill() terminate the child outright (no handler runs). Tests that depend on those are skipped there.
 const IS_WIN = process.platform === "win32";
+// The same-host heartbeat rule (TM2-49 S2) applies on every platform without /proc start times (win32, darwin, ...).
+const IS_LINUX = process.platform === "linux";
 
 // Fake secrets: must never appear in any output.
 const FAKE_MCP_TOKEN = "fake-mcp-token-edge-" + "q".repeat(20);
@@ -588,9 +590,9 @@ describe("stale detection", () => {
     release();
   });
 
-  // POSIX-only: on Linux pid reuse is caught by the /proc start time, so the heartbeat is ignored for same-host locks.
-  // Windows has no start time, so there a live pid with an old heartbeat is stale (see the win32 variant below).
-  it.skipIf(IS_WIN)("same-host locks ignore the heartbeat: a dead pid with a fresh mtime is stale, a live pid with an old mtime is live", () => {
+  // Linux-only: pid reuse is caught by the /proc start time, so the heartbeat is ignored for same-host locks.
+  // Elsewhere (win32, darwin) there is no start time, so a live pid with an old heartbeat is stale (variant below).
+  it.skipIf(!IS_LINUX)("same-host locks ignore the heartbeat: a dead pid with a fresh mtime is stale, a live pid with an old mtime is live", () => {
     const d1 = tmp();
     writeLock(d1, { pid: deadPid(), startedAt: "x", hostname: HOST });
     expect(checkLock(d1)).toBe("stale");
@@ -600,8 +602,8 @@ describe("stale detection", () => {
     expect(checkLock(d2)).toBe("live");
   });
 
-  // win32-only (TM2-49 S2): no start time on Windows, so a live pid counts only while its heartbeat is fresh.
-  it.runIf(IS_WIN)("win32: same-host dead pid is stale; a live pid is live with a fresh heartbeat, stale (and replaced) once older than the window", () => {
+  // Non-Linux only (TM2-49 S2): no start time there, so a live pid counts only while its heartbeat is fresh.
+  it.runIf(!IS_LINUX)("non-linux (win32, darwin): same-host dead pid is stale; a live pid is live with a fresh heartbeat, stale (and replaced) once older than the window", () => {
     const d1 = tmp();
     writeLock(d1, { pid: deadPid(), startedAt: "x", hostname: HOST });
     expect(checkLock(d1)).toBe("stale");
@@ -875,7 +877,12 @@ describe("real trade-mcp process", () => {
     const l = readLock(dir) as unknown as Record<string, unknown>;
     expect(l.pid).toBe(a.p.pid);
     writeLock(dir, { ...l, hostname: "crashed-container-1" });
+    // A heartbeat 5 s short of the window is live: checked in-process, where only milliseconds pass.
     age(lockPath(dir), LIVE_WINDOW_MS - 5000);
+    expect(checkLock(dir)).toBe("live");
+    // The real-process checks below take seconds under load (tsx startup), so a 5 s margin could run out
+    // and turn the lock stale mid-check. Backdate deterministically to 1 s before each real process instead.
+    age(lockPath(dir), 1000);
     const b = startServer(dir, p2);
     const eb = await b.exited;
     expect(eb.code).toBe(1);
@@ -883,6 +890,7 @@ describe("real trade-mcp process", () => {
     expect(await portOpen(p2)).toBe(false);
     expect(readLock(dir)).toMatchObject({ hostname: "crashed-container-1" });
     // The CLI also refuses during the window.
+    age(lockPath(dir), 1000);
     const cli = spawnSync(process.execPath, ["--import", "tsx", CLI_TS, "--force"], {
       cwd: ROOT, encoding: "utf8", env: { ...process.env, ...cliEnv(dir) },
     });

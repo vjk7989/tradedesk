@@ -61,6 +61,11 @@ describe("S1: revoke-cli main guard runs from a path containing a space", () => 
   let cli = "";
   let root = "";
   beforeAll(() => {
+    for (const need of ["node_modules", path.join("node_modules", "tsx")]) {
+      if (!existsSync(path.join(ROOT, need))) {
+        throw new Error(`TM2-49 S1 setup: ${path.join(ROOT, need)} is missing; run \`npm ci\` in trade-mcp first`);
+      }
+    }
     // A copy of the package under a directory whose name has spaces (file URL pathname would hold %20).
     root = path.join(tmp("tm2 49 space "), "trade mcp");
     cpSync(path.join(ROOT, "src"), path.join(root, "src"), { recursive: true });
@@ -86,6 +91,22 @@ describe("S1: revoke-cli main guard runs from a path containing a space", () => 
     expect(after.access).toEqual({});
     expect(after.refresh).toEqual({});
     expect(Object.keys(after.clients)).toEqual(["cid"]);
+  });
+
+  // POSIX-only: creating a file symlink on Windows needs admin rights or Developer Mode (EPERM otherwise).
+  it.skipIf(process.platform === "win32")("run through a symlink to the entry: --force actually revokes (argv[1] is the link, import.meta.url the realpath)", () => {
+    const link = path.join(tmp("tm2 49 link "), "revoke all.ts");
+    symlinkSync(cli, link);
+    const dir = tmp();
+    seedStore(dir);
+    const r = spawnSync(process.execPath, ["--import", "tsx", link, "--force"], {
+      cwd: root, encoding: "utf8", timeout: 60_000,
+      env: { ...process.env, DATA_DIR: dir, OAUTH_PASSWORD_HASH: "" },
+    });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toMatch(/revoked 1 access, 1 refresh, 0 codes/);
+    expect(readStore(dir).access).toEqual({});
+    expect(readStore(dir).refresh).toEqual({});
   });
 
   it("without --force exits 2 and leaves the store byte-identical", () => {
@@ -178,10 +199,16 @@ describe("S2: win32 same-host liveness = pid alive AND heartbeat younger than LI
     }
   });
 
-  it("darwin: only win32 uses the heartbeat rule; a live pid with an old heartbeat stays live", () => {
+  it("darwin (every non-linux platform): same heartbeat rule as win32: old => stale, fresh => live, unknown => live", () => {
     const pid = liveOther();
+    const l = { pid, startedAt: "x", hostname: HOST };
     withPlatform("darwin", () => {
-      expect(classify({ pid, startedAt: "x", hostname: HOST, procStart: "1" }, undefined, 10 * LIVE_WINDOW_MS)).toBe("live");
+      expect(classify(l, undefined, 0)).toBe("live");
+      expect(classify(l, undefined, LIVE_WINDOW_MS - 1)).toBe("live");
+      expect(classify(l, undefined, LIVE_WINDOW_MS)).toBe("stale");
+      expect(classify(l, undefined, 10 * LIVE_WINDOW_MS)).toBe("stale");
+      expect(classify(l)).toBe("live"); // unknown age: fail closed
+      expect(classify({ ...l, procStart: "1" }, undefined, 0)).toBe("live"); // no /proc: start time not checked
     });
   });
 
