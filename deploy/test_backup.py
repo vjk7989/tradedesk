@@ -81,7 +81,8 @@ def test_layout_and_manifest(env):
     assert len(dirs) == 1
     b = dirs[0]
     names = {p.name for p in b.iterdir()}
-    assert names == {f"{v}.tgz" for v in VOLS} | {"env", "openalgo.env", "risk.json", "MANIFEST.txt"}
+    # TM2-75: paper_bot_data is saved as a SQLite snapshot (paper_bot_data.db), not a .tgz.
+    assert names == {f"{v}.tgz" for v in VOLS} | {"paper_bot_data.db", "env", "openalgo.env", "risk.json", "MANIFEST.txt"}
     lines = (b / "MANIFEST.txt").read_text().splitlines()
     assert len(lines) == len(names) - 1
     for ln in lines:
