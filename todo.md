@@ -176,3 +176,5 @@ Detailed plan: `plan.md`.
 - TM2-50 · docs · thin-fold warning + hostname line (TM2) [ ]
 - TM2-51 · bt-service · walk-forward equity guard (TM2) [.]
 - TM2-52 · trade-mcp · de-flake tm3_holidays perf (TM2) [ ]
+- TM2-53 · e2e · smoke concurrency cap + memory recovery (TM2) [ ]
+- TM2-54 · docs · troubleshooting sandbox-limit errors (TM2) [ ]

@@ -4,6 +4,8 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-53 | TM2 | ready | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
+| TM2-54 | TM2 | ready | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
 | TM2-50 | TM2 | ready | coord/tasks/TM2-50.md | docs: thin-fold warning + no fixed hostname |
 | TM2-51 | TM2 | in progress | coord/tasks/TM2-51.md | walk-forward non-list equity guard |
 | TM2-52 | TM2 | ready | coord/tasks/TM2-52.md | de-flake tm3_holidays perf test |
