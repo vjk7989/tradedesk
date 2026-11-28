@@ -34,8 +34,9 @@ sed -i "s/^MCP_TOKEN=.*/MCP_TOKEN=$(openssl rand -hex 32)/; s/^BT_TOKEN=.*/BT_TO
 cp ../vendor/openalgo/.sample.env openalgo.env
 cp risk.example.json risk.json   # edit limits; then set RISK_CONFIG_FILE=./risk.json in .env
 chmod 600 .env openalgo.env
+sudo chown 1000 openalgo.env
 ```
-Note: whether the OpenAlgo container user can read a mode-600 `openalgo.env` (bind-mounted at `/app/.env`) is unverified; check after the first start (section 6).
+The OpenAlgo container user is uid 1000 and OpenAlgo writes its generated keys back to the bind-mounted `/app/.env`, so the file must be owned by uid 1000 (otherwise OpenAlgo logs ".env file not found" and restart-loops).
 **Minimum env to fill in** (`deploy/.env`; compose refuses to start if `DOMAIN`, `ACME_EMAIL`, `MCP_TOKEN`, `BT_TOKEN` or `OPENALGO_API_KEY` is empty):
 - [ ] `DOMAIN` (not `example.com`) and `ACME_EMAIL`
 - [ ] `MCP_TOKEN` and `BT_TOKEN` (the `sed` above sets both)
