@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-16 | OWNER | in progress | coord/tasks/O-16.md | EXECUTE_MEMORY_MB (per-run sandbox memory knob) |
 | TM2-55 | TM2 | merged #92 (audit: 1 third-party warning) | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
 | TM2-56 | TM2 | merged #89 | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
 | O-15 | OWNER | done | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
