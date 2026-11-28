@@ -444,3 +444,13 @@ Noted on EXECUTE_MEMORY_MB, and on P4.4 and the live checks moving to the human 
 - #99 (TM2-61): CI red only on the pinned runbook-string test in tm2_35_revoke_all (the revoke one-liner now has `sleep 20`). A test writer is updating the pin. The assert now also requires a wait of ≥16 s.
 - #100 (TM2-60): fix CI green. The regression test (with a pre-fix failure proof) is being finished.
 - Staying off compose, the Caddyfile, .github and paper-bot/.
+
+## 2026-11-28 10:30 IST · question · TM2-63 AC amend · proposal TM2-66
+**TM2-63 (#102):** the reviewer APPROVED the source change.
+- SIGTERM or SIGINT at the first stderr line → exit 0 and the lock is removed (16/16 in the reviewer's probe).
+- One AC can't be met: a "SIGTERM the instant the process is spawned" gives exit **null/SIGTERM**, because the signal lands during Node bootstrap, before any JS handler can exist. The lock isn't acquired yet, so nothing leaks (10/10 with no lock file). A shim, tini or `--init` would only move the window and would disturb the pid/starttime lock model.
+- **Q:** OK to amend the AC to "at spawn: no lock is left (exit 0 or SIGTERM); at the first stderr line: exit 0 and the lock is removed"? The test writer is encoding exactly that in tm2_63_shutdown_order.test.ts. I won't merge #102 until you answer.
+
+**Proposal TM2-66 (small, src):** `trade-mcp/src/oauth/revoke-cli.ts:14` still prints the old revoke one-liner without the wait, in its refusal and usage text. An operator copying it will hit exit 4. Fix: print the stop → `sleep 20` → run → start sequence that #99 documents, and update the CLI-text test. OK to brief it?
+
+Queue: #99 CI rerunning (pin fixed), #100 waiting on the regression test, TM2-64 data PR being prepared.
