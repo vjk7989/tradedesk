@@ -18,15 +18,20 @@ def fill_price(price, side, slippage):
 class Engine:
     def __init__(self, cfg, conn, client):
         self.cfg, self.db, self.client = cfg, conn, client
+        self.ox, self._sent = None, set()
+        if cfg.execution == "openalgo":  # TM2-77; sim mode never imports the module
+            from .openalgo_exec import OpenAlgoExec
+            self.ox = OpenAlgoExec(cfg)
+            self.ox.require_analyzer_on()  # fail closed: refuse to start unless analyzer is ON
         if D.get_state(conn, "cash") is None:
             D.set_state(conn, "cash", cfg.capital)
             conn.commit()
 
     # --- trading primitives -------------------------------------------------
-    def _open(self, sym, side, price, ts):
+    def _open(self, sym, side, price, ts, qty=None):
         buy = side == "long"
         fp = fill_price(price, "buy" if buy else "sell", self.cfg.slippage)
-        qty = self.cfg.notional / fp
+        qty = self.cfg.notional / fp if qty is None else qty
         fee = qty * fp * self.cfg.fee
         self.db.execute("INSERT INTO positions VALUES(?,?,?,?,?,?)", (sym, side, qty, fp, fee, price))
         self.db.execute("INSERT INTO trades(ts,symbol,side,kind,qty,price,fee,pnl) VALUES(?,?,?,?,?,?,?,NULL)",
@@ -62,6 +67,7 @@ class Engine:
             self._decision(now, sym, ct, close, f, s, "hold", "hold", f"candle {ct} already processed → hold")
             return
         D.set_state(self.db, key, ct)
+        self._sent.discard(sym)
         pos = self.db.execute("SELECT side FROM positions WHERE symbol=?", (sym,)).fetchone()
         cur = pos["side"] if pos else None
         want = {"up": "long", "down": "short" if cfg.allow_short else "flat"}.get(sig)
@@ -70,6 +76,8 @@ class Engine:
         elif want == cur or (want == "flat" and cur is None):
             self._decision(now, sym, ct, close, f, s, want, "hold",
                            f"{why} → already {cur or 'flat'}, hold")
+        elif self.ox is not None:
+            self._act_ox(sym, want, cur, close, now, (ct, f, s, why))
         elif want == "flat":
             self._close(sym, close, now)
             self._decision(now, sym, ct, close, f, s, "flat", "close", f"{why} → close {cur}")
@@ -80,6 +88,65 @@ class Engine:
         else:
             self._open(sym, want, close, now)
             self._decision(now, sym, ct, close, f, s, want, "open", f"{why} → open {want}")
+
+    # --- OpenAlgo analyzer execution (TM2-77) -------------------------------
+    def _halt_key(self, sym):
+        return f"openalgo_unknown:{sym}"
+
+    def _ox_order(self, sym, side, contracts):
+        """Send one order (never retried). Records the order id in state. Unknown outcome halts the symbol."""
+        self._sent.add(sym)
+        r = self.ox.place(sym, side, contracts)
+        if r.status == "ok":
+            D.set_state(self.db, f"openalgo_order:{r.orderid}", f"{sym} {side} {contracts}")
+        elif r.status == "unknown":
+            D.set_state(self.db, self._halt_key(sym), r.reason)
+        return r
+
+    def _act_ox(self, sym, want, cur, close, now, info):
+        """Open/close/reverse via the analyzer. One decision row. Fills are MODELLED from the closed candle
+        (as sim does, incl. slippage and fee): the analyzer reply carries only an order id, no fill price."""
+        from .openalgo_exec import contracts_for
+        ct, f, s, why = info
+        size = self.ox.contract_size(sym)
+
+        def decide(sig, act, reason):
+            self._decision(now, sym, ct, close, f, s, sig, act, reason)
+        if D.get_state(self.db, self._halt_key(sym)) is not None:
+            decide(want, "skip", f"{why} → openalgo order outcome unknown earlier for {sym}; no orders until "
+                   f"reconciled (delete state key {self._halt_key(sym)})")
+            return
+        note = "fill modelled from candle close"
+        closed = None
+        if cur:
+            p = self.db.execute("SELECT qty FROM positions WHERE symbol=?", (sym,)).fetchone()
+            n = contracts_for(p["qty"], size)
+            r = self._ox_order(sym, "SELL" if cur == "long" else "BUY", n)
+            if r.status != "ok":
+                decide(want, "skip", f"{why} → close {cur} not executed: {r.reason}")
+                return
+            self._close(sym, close, now)
+            closed = r.orderid
+            if want == "flat":
+                decide("flat", "close", f"{why} → close {cur} [openalgo order {closed}; {note}]")
+                return
+        fp = fill_price(close, "buy" if want == "long" else "sell", self.cfg.slippage)
+        n = contracts_for(self.cfg.notional / fp, size)
+        pre = f"close {cur} [order {closed}], " if closed else ""
+        if n < 1:
+            decide(want, "close" if closed else "skip", f"{why} → {pre}open {want} not executed: notional "
+                   f"{self.cfg.notional:g} is below one contract (size {size:g}); order refused")
+            return
+        r = self._ox_order(sym, "BUY" if want == "long" else "SELL", n)
+        if r.status != "ok":
+            decide(want, "close" if closed else "skip", f"{why} → {pre}open {want} not executed: {r.reason}")
+            return
+        self._open(sym, want, close, now, n * size)
+        tag = f"[openalgo order {r.orderid}; {note}]"
+        if closed:
+            decide(want, "reverse", f"{why} → close {cur} [order {closed}], open {want} {tag}")
+        else:
+            decide(want, "open", f"{why} → open {want} {n} contracts {tag}")
 
     def snapshot(self, now):
         cash = D.get_cash(self.db, self.cfg.capital)
@@ -111,8 +178,12 @@ class Engine:
         except Exception as e:  # partial writes already rolled back; record skip so the candle retries
             log.exception("tick error %s", sym)
             try:
-                self._txn(lambda: self._decision(now, sym, None, None, None, None, "hold", "skip",
-                                                 f"internal error: {type(e).__name__}"))
+                def skip():
+                    self._decision(now, sym, None, None, None, None, "hold", "skip",
+                                   f"internal error: {type(e).__name__}")
+                    if self.ox is not None and sym in self._sent:  # an order may exist but its rows rolled back
+                        D.set_state(self.db, self._halt_key(sym), "internal error after order sent")
+                self._txn(skip)
             except Exception:
                 log.exception("could not record skip %s", sym)
 
