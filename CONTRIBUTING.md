@@ -11,6 +11,8 @@ Developer setup for TradeDesk. Read [SECURITY.md](SECURITY.md) first: this code 
 | uv | 0.9.26 for lockfiles | `bt-service/Dockerfile`, rule in `bt-service/README.md` |
 | Docker | any recent, with compose | `docker compose` config check in the deploy CI job |
 
+Install uv from https://docs.astral.sh/uv/.
+
 pandas 3 is current (`pandas>=3,<4`, see `bt-service/README.md`).
 
 ## Install and verify
@@ -25,7 +27,7 @@ cd trade-mcp && npm ci && npx vitest run && npx tsc --noEmit && npm run build
 cd agent-runner && npm ci && npx vitest run && npx tsc --noEmit && npm run build && node dist/main.js --help
 
 # bt-service (the full suite is slow, about 8 minutes)
-cd bt-service && uv sync && uv run pytest -q
+cd bt-service && uv sync && uv run python -c "import pandas; print(pandas.__version__); assert pandas.__version__.startswith('3')" && uv run pytest -q
 
 # deploy tests, from the repo root
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q
@@ -80,7 +82,7 @@ Never push to `main` directly (doc-only board updates by the maintainers excepte
 
 - `TZ=Asia/Kolkata` does not work in Git Bash (`hand-off.md`). The repo documents no cause. Compute IST in Python instead, for example `python -c "from zoneinfo import ZoneInfo; from datetime import datetime; print(datetime.now(ZoneInfo('Asia/Kolkata')))"`. Prefer pinned clocks in tests anyway.
 - CRLF warnings from git (`LF will be replaced by CRLF`) are harmless.
-- Under load Windows can fail with exit code 0xC0000142; re-run the failed tests (`--lf` in `coord/TM2_SOLO.md`).
+- Under load Windows can fail with exit code 0xC0000142; `--lf` re-runs only the failures for the pytest suites (bt-service, deploy); vitest has no `--lf`, so re-run the failing file with `npx vitest run <file>`.
 - Smoke cleanup uses `taskkill /T /F` on Windows automatically.
 
 ## Security
