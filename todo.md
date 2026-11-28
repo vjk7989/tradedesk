@@ -213,3 +213,6 @@ Detailed plan: `plan.md`.
 - TM2-76 · paper-bot · bounded storage (TM2) [x]
 - TM2-77 · paper-bot · OpenAlgo analyzer execution mode (TM2) [x]
 - TM2-78 · deploy · encrypted GCS backups (TM2, after #119) [x]
+- TM2-79 · deploy · Caddy security headers (TM2) [ ]
+- TM2-80 · e2e · smoke covers paper-bot (TM2) [ ]
+- TM2-81 · paper-bot · RSI strategy option (TM2) [ ]

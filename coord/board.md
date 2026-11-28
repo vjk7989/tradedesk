@@ -4,6 +4,9 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-79 | TM2 | ready | coord/tasks/TM2-79.md | Caddy security headers + dash CSP |
+| TM2-80 | TM2 | ready | coord/tasks/TM2-80.md | smoke covers paper-bot vs fake Delta |
+| TM2-81 | TM2 | ready | coord/tasks/TM2-81.md | paper-bot RSI mean-reversion strategy option |
 | TM2-77 | TM2 | merged (#122) | coord/tasks/TM2-77.md | paper-bot optional OpenAlgo analyzer execution |
 | TM2-78 | TM2 | merged (#121) | coord/tasks/TM2-78.md | encrypted off-site backups to GCS |
 | TM2-75 | TM2 | merged (#119) | coord/tasks/TM2-75.md | backups include paper_bot_data + volume guard test |
