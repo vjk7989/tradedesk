@@ -4,8 +4,8 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| TM2-61 | TM2 | ready | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
-| TM2-62 | TM2 | ready | coord/tasks/TM2-62.md | README refresh |
+| TM2-61 | TM2 | in progress | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
+| TM2-62 | TM2 | in progress | coord/tasks/TM2-62.md | README refresh |
 | TM2-63 | TM2 | ready (after #96) | coord/tasks/TM2-63.md | register SIGINT/SIGTERM before startup completes |
 | PB-1 | OWNER | in progress | coord/tasks/PB-1.md | paper-bot crypto paper trader + dashboard |
 | PB-2 | OWNER | in progress | coord/tasks/PB-2.md | deploy paper-bot behind Caddy basic auth + CI |
