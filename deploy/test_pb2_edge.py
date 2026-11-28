@@ -34,7 +34,13 @@ STRATEGY_DEFAULTS = {
 }
 
 # Fixed snapshot of the pre-PB-2 site blocks (main @ efe8a39). Must not drift.
+# TM2-79 (AC change): both blocks now import the security_headers snippet; mcp also sets X-Frame-Options DENY.
 MCP_SNAPSHOT = """mcp.{$DOMAIN} {
+	import security_headers
+	header {
+		defer
+		X-Frame-Options "DENY"
+	}
 	@allowed path /mcp /mcp/* /healthz /authorize /token /register /revoke /login /.well-known/*
 	handle @allowed {
 		reverse_proxy trade-mcp:8787 {
@@ -47,6 +53,8 @@ MCP_SNAPSHOT = """mcp.{$DOMAIN} {
 }"""
 
 OPENALGO_SNAPSHOT = """openalgo.{$DOMAIN} {
+	import security_headers
+	# No X-Frame-Options/CSP here: OpenAlgo's UI relies on inline scripts/styles and may use frames
 	# OpenAlgo WebSocket proxy (WEBSOCKET_URL=wss://openalgo.<domain>/ws; prefix stripped)
 	handle_path /ws* {
 		reverse_proxy openalgo:8765
@@ -272,7 +280,8 @@ def test_openalgo_site_unchanged():
 
 
 def test_site_set_exact():
-    assert set(caddy_blocks()) == {"", "mcp.{$DOMAIN}", "openalgo.{$DOMAIN}", "dash.{$DOMAIN}"}
+    # TM2-79: "(security_headers)" is a snippet, not a site; it is pinned here so the set stays exact.
+    assert set(caddy_blocks()) == {"", "(security_headers)", "mcp.{$DOMAIN}", "openalgo.{$DOMAIN}", "dash.{$DOMAIN}"}
 
 
 # --- default bcrypt hash (fail-closed) ---
