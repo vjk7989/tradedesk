@@ -201,7 +201,7 @@ Detailed plan: `plan.md`.
 - PB-4 · deploy · paper-bot defaults BTC+ETH, candle-aligned (OWNER) [x]
 - O-17 · trade-mcp · static risk checks before broker calls (OWNER) [x]
 - PB-5 · deploy · bt-service /runs + openalgo.env ownership (OWNER) [x]
-- TM2-69 · bt-service · avg holding time metric (TM2) [.]
+- TM2-69 · bt-service · avg holding time metric (TM2) [x]
 - TM2-70 · bt-service · tz-explicit PIT joins, no look-ahead (TM2, HIGH) [.]
 - GCP-1 · deploy · VM live: paper-bot + OpenAlgo + trade-mcp + bt-service on 34.14.132.148 (OWNER) [x]
 - TM2-71 · trade-mcp · de-flake server.edge CLI spawn tests (TM2) [ ]
