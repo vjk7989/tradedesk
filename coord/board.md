@@ -7,11 +7,11 @@
 | TM2-55 | TM2 | merged #92 (audit: 1 third-party warning) | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
 | TM2-56 | TM2 | merged #89 | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
 | O-15 | OWNER | done | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
-| TM2-53 | TM2 | in progress | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
+| TM2-53 | TM2 | merged #91 | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
 | TM2-54 | TM2 | merged #88 | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
 | TM2-50 | TM2 | merged #86 | coord/tasks/TM2-50.md | docs: thin-fold warning + no fixed hostname |
 | TM2-51 | TM2 | merged #84 | coord/tasks/TM2-51.md | walk-forward non-list equity guard |
-| TM2-52 | TM2 | in progress | coord/tasks/TM2-52.md | de-flake tm3_holidays perf test |
+| TM2-52 | TM2 | merged #90 | coord/tasks/TM2-52.md | de-flake tm3_holidays perf test |
 | O-14 | OWNER | done | coord/tasks/O-14.md | api-docs: sandbox limits for the AI |
 | TM2-47 | TM2 | merged #82 | coord/tasks/TM2-47.md | container mem/cpu limits (compose) |
 | TM2-48 | TM2 | merged #80 | coord/tasks/TM2-48.md | SECURITY.md threat model + reporting |
