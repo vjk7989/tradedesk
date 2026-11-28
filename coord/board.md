@@ -4,7 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| TM2-77 | TM2 | in progress | coord/tasks/TM2-77.md | paper-bot optional OpenAlgo analyzer execution |
+| TM2-77 | TM2 | merged (#122) | coord/tasks/TM2-77.md | paper-bot optional OpenAlgo analyzer execution |
 | TM2-78 | TM2 | in progress | coord/tasks/TM2-78.md | encrypted off-site backups to GCS |
 | TM2-75 | TM2 | merged (#119) | coord/tasks/TM2-75.md | backups include paper_bot_data + volume guard test |
 | TM2-76 | TM2 | merged (#120) | coord/tasks/TM2-76.md | paper-bot bounded storage + pagination |
