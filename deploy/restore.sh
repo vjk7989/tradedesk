@@ -8,7 +8,8 @@ umask 077
 
 DEPLOY_DIR="${TRADEDESK_DEPLOY_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 PREFIX="${COMPOSE_PROJECT_NAME:-deploy}"
-VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_data)
+VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_data paper_bot_data)
+SNAPSHOT_VOL="paper_bot_data"
 FILES=("env:.env" "openalgo.env:openalgo.env" "risk.json:risk.json")
 
 FORCE=0
@@ -61,7 +62,46 @@ if [ "$FORCE" -ne 1 ]; then
   fi
 fi
 
+# Verify the paper_bot_data snapshot before ANY volume is touched, so "nothing changed" is
+# true (MANIFEST only proves the hash). Runs in a one-off python:3.12-slim container
+# (stdlib sqlite3; the same base as the paper-bot image, so host python/sqlite3 are not
+# needed). immutable=1 because the mount is read-only and a WAL-flagged db would
+# otherwise need to create -shm.
+if [ -f "$BDIR/$SNAPSHOT_VOL.db" ]; then
+  if ! docker run --rm -v "$BDIR:/src:ro" python:3.12-slim python -c \
+    'import sqlite3,sys; c=sqlite3.connect("file:/src/paper_bot_data.db?mode=ro&immutable=1",uri=True); sys.exit(0 if c.execute("PRAGMA integrity_check").fetchone()[0]=="ok" else 1)'; then
+    echo "paper_bot_data.db failed integrity_check; nothing changed" >&2; exit 1
+  fi
+fi
+
 for vol in "${VOLUMES[@]}"; do
+  if [ "$vol" = "$SNAPSHOT_VOL" ]; then
+    # Snapshot db (see backup.sh; already verified above): stop the bot, swap paper.db in atomically,
+    # drop stale -wal/-shm (they belong to the old db), restart the bot if it was running.
+    if [ -f "$BDIR/$vol.db" ]; then
+      was_up="$(docker ps -q --filter "name=^${PREFIX}[-_]paper-bot[-_]")"
+      # Stop the bot; from here any failure removes the temp copy and restarts the bot
+      #    with the old db intact (the trap also fires under set -e).
+      swap_cleanup() {
+        trap - EXIT
+        docker run --rm -v "${PREFIX}_${vol}:/dst" alpine rm -f /dst/paper.db.new >/dev/null 2>&1 || true
+        # shellcheck disable=SC2086 # was_up is a list of container ids; splitting is intended
+        [ -z "$was_up" ] || docker start $was_up >/dev/null 2>&1 || true
+        echo "paper_bot_data restore failed; old paper.db kept" >&2
+      }
+      trap 'rc=$?; [ "$rc" -eq 0 ] || swap_cleanup; exit "$rc"' EXIT
+      # shellcheck disable=SC2086 # as above
+      [ -z "$was_up" ] || docker stop $was_up
+      # Copy to paper.db.new, atomic mv over paper.db, only then drop stale -wal/-shm.
+      docker run --rm -v "${PREFIX}_${vol}:/dst" -v "$BDIR:/src:ro" alpine \
+        sh -c "cp /src/${vol}.db /dst/paper.db.new && chown 10001:10001 /dst /dst/paper.db.new && chmod 600 /dst/paper.db.new && mv -f /dst/paper.db.new /dst/paper.db && rm -f /dst/paper.db-wal /dst/paper.db-shm"
+      trap - EXIT
+      # shellcheck disable=SC2086 # as above
+      [ -z "$was_up" ] || docker start $was_up
+      echo "restored volume ${PREFIX}_${vol}"
+    fi
+    continue
+  fi
   if [ -f "$BDIR/$vol.tgz" ]; then
     docker run --rm -v "${PREFIX}_${vol}:/dst" -v "$BDIR:/src:ro" alpine \
       sh -c "tar xzf /src/${vol}.tgz -C /dst"

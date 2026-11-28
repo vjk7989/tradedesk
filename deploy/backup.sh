@@ -10,7 +10,37 @@ DEPLOY_DIR="${TRADEDESK_DEPLOY_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 DEST="${1:-/var/backups/tradedesk}"
 KEEP="${KEEP:-14}"
 PREFIX="${COMPOSE_PROJECT_NAME:-deploy}"
-VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_data)
+VOLUMES=(openalgo_db openalgo_log openalgo_strategies openalgo_keys trade_mcp_data paper_bot_data)
+# paper_bot_data holds a live WAL-mode SQLite db, so it is not tar'd: it is saved as a
+# consistent snapshot (sqlite backup API run inside paper-bot) named paper_bot_data.db.
+SNAPSHOT_VOL="paper_bot_data"
+# Every named volume in docker-compose.yml must be in VOLUMES or here (name:reason).
+# shellcheck disable=SC2034 # read by the guard test, not by this script
+EXCLUDED_VOLUMES=(
+  "openalgo_tmp:scratch space, rebuilt by the app"
+  "caddy_data:TLS certs and ACME state, re-issued automatically"
+  "caddy_config:Caddy autosaved config, regenerated from the Caddyfile"
+)
+# Run inside the paper-bot container: online-consistent copy of paper.db to stdout.
+PYSNAP='import os,sqlite3,sys,tempfile
+p=os.path.join(os.environ.get("DATA_DIR","/data"),"paper.db")
+fd,tmp=tempfile.mkstemp(suffix=".db"); os.close(fd)
+try:
+    s=sqlite3.connect("file:"+p+"?mode=rw",uri=True,timeout=30)
+    t=sqlite3.connect(tmp)
+    s.backup(t)
+    ok=t.execute("PRAGMA integrity_check").fetchone()[0]
+    t.close(); s.close()
+    if ok!="ok": sys.exit("integrity_check failed")
+    with open(tmp,"rb") as f:
+        while True:
+            c=f.read(1<<20)
+            if not c: break
+            sys.stdout.buffer.write(c)
+    sys.stdout.buffer.flush()
+finally:
+    os.remove(tmp)'
+COMPOSE=(docker compose -p "$PREFIX" -f "$DEPLOY_DIR/docker-compose.yml")
 # source file (in deploy dir) : name inside the backup
 FILES=(".env:env" "openalgo.env:openalgo.env" "risk.json:risk.json")
 
@@ -53,6 +83,16 @@ mkdir "$BDIR"
 chmod 700 "$BDIR"
 
 for vol in "${VOLUMES[@]}"; do
+  if [ "$vol" = "$SNAPSHOT_VOL" ]; then
+    # Running bot: exec into it. Stopped bot: one-off container from the same image
+    # (no other writer, so the snapshot is consistent and replays any leftover WAL).
+    if [ -n "$("${COMPOSE[@]}" ps -q --status running paper-bot)" ]; then
+      "${COMPOSE[@]}" exec -T paper-bot python -c "$PYSNAP" > "$BDIR/${vol}.db"
+    else
+      "${COMPOSE[@]}" run --rm --no-deps -T paper-bot python -c "$PYSNAP" > "$BDIR/${vol}.db"
+    fi
+    continue
+  fi
   docker run --rm -v "${PREFIX}_${vol}:/src:ro" -v "$BDIR:/dst" alpine \
     sh -c "tar czf /dst/${vol}.tgz -C /src . && chown $(id -u):$(id -g) /dst/${vol}.tgz"
 done

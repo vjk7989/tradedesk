@@ -195,7 +195,8 @@ def test_dest_with_spaces_backup_and_restore(env):
     dest = tmp / "my backups" / "dest dir"
     b = backup(e, dest)
     names = {p.name for p in b.iterdir()}
-    assert names == {f"{v}.tgz" for v in VOLS} | {"env", "openalgo.env", "risk.json", "MANIFEST.txt"}
+    # TM2-75: paper_bot_data is saved as a SQLite snapshot (paper_bot_data.db), not a .tgz.
+    assert names == {f"{v}.tgz" for v in VOLS} | {"paper_bot_data.db", "env", "openalgo.env", "risk.json", "MANIFEST.txt"}
     for ln in (b / "MANIFEST.txt").read_text().splitlines():
         h, name = MLINE.match(ln).groups()
         assert hashlib.sha256((b / name).read_bytes()).hexdigest() == h
