@@ -391,3 +391,33 @@ Thanks for the Windows run. I've marked TM2-49 as confirmed on the board.
 - **TM2-53** (smoke: concurrency cap and memory recovery) and **TM2-55** (pandas-3 warnings audit): next. I'm holding them until TM2-52's loaded measurement finishes, so the timing data isn't skewed.
 
 **Possible follow-up (yours to decide):** the TM2-43 test writer listed tests that pass but rely on pass-through paths keeping the input unit, `us` under pandas 3: the anchor and interval "unchanged" paths, tm11 tushare and tm2_17 `_assert_same`. These aren't correctness risks, since engines normalise to ns. A small test-hardening ticket could pin explicit units there. Want it?
+
+## 2026-11-28 08:05 IST · queue empty · merges · proposals
+**Merged since my last post** (CI green on each):
+- **#86 TM2-50:** docs.
+  - The thin-fold warning, quoted exactly. test_days ≤ 11 always warns *for weekday-only markets*; for 7-day crypto it's ≤ 9.
+  - The runbook "no fixed hostname" line. The brief said "15 s heartbeat"; the code is a 5 s heartbeat with a 15 s live window, and the doc says so.
+- **#88 TM2-54:** sandbox-limit troubleshooting rows, every string verbatim.
+  - memoryBytes has **no env knob** (fixed 64 MB), so the doc says that instead of "ask the operator".
+- **#89 TM2-56:** CONTRIBUTING.md (93 lines). The reviewer ran 3 command sequences as written.
+  - It fixed a wrong `--lf` tip: that's pytest-only, and vitest has no `--lf`.
+  - It includes your O-15 pandas-3 CI step.
+- **#92 TM2-55:** warnings audit, report-only. Under pandas 3 there are **zero** warnings from vibe_bt or bt_service. The only warning is the third-party Starlette TestClient one; removing it needs a filter (not allowed) or a dependency change.
+- **#91 TM2-53:** smoke 16 → 18 steps.
+  - Step 17's concurrent executes now yield to the host (`await account.funds()` loops), so they truly overlap and the assert is exact: `ok === 2 && busy === 3`. The first version used a guest-only spin that blocked the host event loop, so the cap check was timing luck.
+  - Step 18 covers memory recovery.
+  - Merge test: smoke 18/18 twice in a row on a quiet machine.
+- **#90 TM2-52:** tm3_holidays perf de-flake.
+  - It uses a CPU-time ratio (`threadCpuUsage`, falling back to `cpuUsage`), with every sample ≥ 200 ms CPU, so the Windows ~15.6 ms tick can't zero a reading.
+  - Three ratios (parse, checks vs call count, checks vs list length), each bound at 30×; linear is about 14–20×.
+  - Each was proven to fail on an O(n²) variant (95–500×), and it passed 20/20 under load.
+  - **Cost: this one test now takes about 21 s** (up to about 86 s under heavy load). It adds about 20 s to the trade-mcp CI job. If that's too much, TM2-58 below trims it.
+
+hand-off.md is updated (TM2 sections).
+
+**Queue is empty, so here are proposed next tasks (please confirm or pick):**
+1. **TM2-57:** de-flake `tm2_46_datadir_lock.edge` "SIGKILLed server seen from another hostname". It failed 2 of 14 loaded runs, even after TM2-49 widened its margin. Use deterministic mtime backdating and in-process checks; keep what it proves.
+2. **TM2-58 (optional):** cut the TM2-52 test from about 21 s to under 8 s, e.g. 100 ms samples on Linux and 200 ms only on win32, or fewer reps. It must stay Windows-safe.
+3. **TM2-59:** test-hardening for the us/ns pass-through tests the TM2-43 test writer listed (the anchor and interval "unchanged" paths, tm11 tushare, tm2_17 `_assert_same`, tm15_warnings_edge `_expected`). Assert explicit units so a future change to normalisation can't silently mask them.
+4. **TM2-60:** a datetime-column audit. TM2-45 normalises the index only; confirm that no loader returns a datetime *column* consumed by int64 math (the TM2-45 review says none today), and pin it with a test.
+5. **Your call (not mine to do):** P4.4, the 5-day paper run on the VPS, plus the live-system checks (Delta symbol, WEBSOCKET_URL, Fincept menus, SENSEX lots) are still open on your list.
