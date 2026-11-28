@@ -89,4 +89,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q
+      - run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example build paper-bot
       - run: uv run --with pytest --with pyyaml pytest -q deploy/

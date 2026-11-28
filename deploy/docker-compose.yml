@@ -129,8 +129,9 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
-      DASH_USER: ${DASH_USER:?set DASH_USER}
-      DASH_PASSWORD_HASH: ${DASH_PASSWORD_HASH:?set DASH_PASSWORD_HASH}
+      DASH_USER: ${DASH_USER:-admin}
+      # Default is a valid bcrypt hash of a discarded random secret: dashboard is locked until the operator sets their own.
+      DASH_PASSWORD_HASH: ${DASH_PASSWORD_HASH:-$$2b$$12$$limWPi5G0rGNHgYTSHGcme4PGfdr8lAwWHAeJHj6LX9nbmiwq0fMa}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

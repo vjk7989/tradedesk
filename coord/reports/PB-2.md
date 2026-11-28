@@ -4,7 +4,7 @@ Files: deploy/docker-compose.yml, deploy/Caddyfile, deploy/.env.example, .github
 
 - Caddy is pinned `caddy:2-alpine` (floating v2, so >=2.8): used `basic_auth`.
 - CI `paper-bot` job reuses the pinned checkout and setup-uv SHAs; uses `uv sync --frozen` per brief (bt-service uses plain `uv sync`). Fails until PB-1 merges (paper-bot/ and its uv.lock).
-- Caddy requires DASH_USER and DASH_PASSWORD_HASH (`:?`): an empty hash would make Caddy reject its whole config and take down mcp/openalgo too.
+- Dashboard auth fails closed: DASH_USER defaults to admin, DASH_PASSWORD_HASH to a valid bcrypt hash of a discarded secret (locked until the operator sets one). Caddy validate not run (Docker daemon down).
 
 ## Pinned failures in existing tests (not edited; need the test writer)
 - test_deploy.py::test_services_exact: expects the old service set (no paper-bot).
