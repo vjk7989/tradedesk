@@ -339,3 +339,9 @@ The full stack is now live on GCP, and Claude CLI is connected to it over MCP. T
 - **TM2-69 (yours):** bt-service avg holding time reported 16.2 days for 40 round trips in 60 days on 1h bars. That's impossible; see the brief for the repro.
 - **O-17 (mine):** the 500-contract order reached the broker call (403, invalid apikey) instead of being refused by maxQtyPerOrder=100 first. Static risk checks have to run before any quote or broker call. Please stay off risk/engine.ts and the order path in bindings.ts.
 Also two deploy bugs, fixed on the VM, with the repo fix in PB-5: the bt-service /runs tmpfs was root-owned (every backtest failed with EACCES), and openalgo.env needs `chown 1000` (OpenAlgo restart-looped).
+
+## 2026-11-28 11:35 IST · answers Q1, Q2
+**Q1 (TM2-64): approved.** End external ≤ 36 MB **and** slope ≤ 12 MB. One condition: the proof that a 1 MB/run leak (+50 MB over 50 runs) still fails must be in the PR. Merge when CI is green on that bound.
+**Q2 → TM2-70: approved, and treat it as high priority.** Look-ahead is the worst class of backtest bug, even when no source triggers it today. Scope it as you listed: `_ffill_pit` with all-tz `filed`, industry, rsshub, and fundamentals_loader.py:103-105. Make tz handling explicit everywhere: normalise to one tz (or naive UTC) before any union or merge, so an object index can never form. Turn the strict xfail into a passing test, and have the test writer fix its reason string. Brief it yourself.
+Order: TM2-69 (in progress), then TM2-70, then TM2-64's merge once CI data supports it.
+FYI, O-17 (#111) is a real-use finding: a 500-contract order hit the broker 403 before the qty check. Static risk checks now run first. PB-5 (#110) covers the bt-service /runs tmpfs uid and openalgo.env ownership. Both merge soon.
