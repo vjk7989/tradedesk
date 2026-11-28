@@ -432,18 +432,34 @@ describe("cli", () => {
     if (!existsSync(entry)) spawnSync(process.execPath, [path.join(ROOT, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"], { cwd: ROOT });
   }, 60000);
 
+  // TM2-71: these spawn the built CLI synchronously. Alone a spawn takes ~0.5 s; with 2 full suites
+  // running in parallel on Linux the p99 was ~4.7 s, so vitest's default 5 s timeout flaked.
+  // The test timeout is ~4x that loaded p99 (brief: 20-30 s). spawnSync's own timeout sits below it,
+  // so a hung CLI is SIGKILLed by spawnSync and fails with a clear message, not a vitest timeout.
+  const CLI_TEST_TIMEOUT_MS = 20_000;
+  const CLI_SPAWN_TIMEOUT_MS = 15_000;
+  const runCli = (args: string[], env: Record<string, string>) => {
+    const r = spawnSync(process.execPath, [entry, ...args], {
+      env, encoding: "utf8", timeout: CLI_SPAWN_TIMEOUT_MS, killSignal: "SIGKILL",
+    });
+    // No stdout/stderr in the message: they may contain the secrets these tests guard.
+    if ((r.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT" || r.signal)
+      throw new Error(`CLI did not exit within ${CLI_SPAWN_TIMEOUT_MS} ms (hung?); signal=${r.signal}`);
+    return r;
+  };
+
   it("--help exits 0 without env", () => {
     if (!existsSync(entry)) return void console.warn("dist missing; skipped");
-    const r = spawnSync(process.execPath, [entry, "--help"], { env: cleanEnv(), encoding: "utf8" });
+    const r = runCli(["--help"], cleanEnv());
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("trade-mcp");
-  });
+  }, CLI_TEST_TIMEOUT_MS);
   it("missing config exits non-zero without printing secrets", () => {
     if (!existsSync(entry)) return;
-    const r = spawnSync(process.execPath, [entry], { env: { ...cleanEnv(), OPENALGO_API_KEY: API_KEY }, encoding: "utf8", timeout: 10000 });
+    const r = runCli([], { ...cleanEnv(), OPENALGO_API_KEY: API_KEY });
     expect(r.status).not.toBe(0);
     expect(r.stdout + r.stderr).not.toContain(API_KEY);
-  });
+  }, CLI_TEST_TIMEOUT_MS);
   it("--stdio: initialize + tools/list; stderr has no secrets", async () => {
     if (!existsSync(entry)) return void console.warn("dist missing; skipped");
     const dir = mkdtempSync(path.join(tmpdir(), "stdio-"));
