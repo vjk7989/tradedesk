@@ -97,6 +97,8 @@ Before enabling the schedule:
 - `node dist/main.js --jobs jobs.json --next 3`: next N run times per job (N 1-100, default 5); cannot be combined with `--check`.
 - `--dry-run <name>`: prints what that job would run (including the model); secret values are not printed; not combinable with `--once`, `--check` or `--next`.
 
+Example Gemini paper-trading job (needs the full `MCP_TOKEN`, paper mode only): see "Gemini paper-trading job" in `agent-runner/README.md`.
+
 Telegram: add `"notify": { "telegram": { "chatIdEnv": "TG_CHAT_ID" } }` to a job (`chatIdEnv` is an env var NAME). Set `TELEGRAM_BOT_TOKEN` and that variable in the runner's environment. Failures only log a warning; they never fail the job.
 
 ## Asking what the agent did, and limits
