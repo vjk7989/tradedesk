@@ -51,6 +51,7 @@ Security policy and threat model: [SECURITY.md](SECURITY.md).
 ## Quick start
 
 - VPS deployment: [docs/vps-runbook.md](docs/vps-runbook.md). Use your own `<DOMAIN>`.
+- GCP deployment (step by step): [docs/gcp-deploy.md](docs/gcp-deploy.md).
 - Connecting clients: [docs/connect-clients.md](docs/connect-clients.md).
 - Fincept cockpit: [docs/fincept-setup.md](docs/fincept-setup.md).
 - Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md).

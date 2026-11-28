@@ -3,6 +3,7 @@
 Stack: Caddy (80/443) -> trade-mcp, OpenAlgo; bt-service internal only. Files live in `deploy/`. A `paper-bot` section is coming (PB-2).
 
 ## 1. Server
+- GCP: step-by-step guide from a real deploy: [gcp-deploy.md](gcp-deploy.md).
 - Ubuntu 24.04, minimum 2 vCPU / 4 GB RAM / 40 GB disk. The compose file caps container memory so trade-mcp, bt-service and Caddy total at most 2176 MB by default, leaving the rest for OpenAlgo and the OS (see section 5, Memory limits). Do not go below 4 GB without lowering the limits.
 - A static public IP. Under the SEBI/broker static-IP rule, register this IP with your Indian broker (API app settings) and with Delta Exchange (API key IP whitelist). Orders from other IPs are rejected.
 - DNS: A records `mcp.<DOMAIN>` and `openalgo.<DOMAIN>` -> the VPS IP.
