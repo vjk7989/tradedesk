@@ -5,7 +5,7 @@
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
 | TM2-50 | TM2 | ready | coord/tasks/TM2-50.md | docs: thin-fold warning + no fixed hostname |
-| TM2-51 | TM2 | ready | coord/tasks/TM2-51.md | walk-forward non-list equity guard |
+| TM2-51 | TM2 | in progress | coord/tasks/TM2-51.md | walk-forward non-list equity guard |
 | TM2-52 | TM2 | ready | coord/tasks/TM2-52.md | de-flake tm3_holidays perf test |
 | O-14 | OWNER | in progress | coord/tasks/O-14.md | api-docs: sandbox limits for the AI |
 | TM2-47 | TM2 | in progress | coord/tasks/TM2-47.md | container mem/cpu limits (compose) |
