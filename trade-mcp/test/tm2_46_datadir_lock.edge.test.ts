@@ -49,6 +49,9 @@ const INDEX_TS = path.join(ROOT, "src/index.ts");
 const CLI_TS = path.join(ROOT, "src/oauth/revoke-cli.ts");
 const HOST = hostname();
 const IS_ROOT = typeof process.getuid === "function" && process.getuid() === 0;
+// Windows (see TM2-49): no /proc, no POSIX mode bits, symlinks need admin/Developer Mode, and SIGTERM/SIGINT sent
+// via ChildProcess.kill() terminate the child outright (no handler runs). Tests that depend on those are skipped there.
+const IS_WIN = process.platform === "win32";
 
 // Fake secrets: must never appear in any output.
 const FAKE_MCP_TOKEN = "fake-mcp-token-edge-" + "q".repeat(20);
@@ -85,15 +88,18 @@ function procStartOf(pid: number): string {
   const s = readFileSync(`/proc/${pid}/stat`, "utf8");
   return s.slice(s.lastIndexOf(")") + 2).split(" ")[19];
 }
-/** A live process on this host that is not us. */
+/** procStartOf on Linux; undefined on Windows (no /proc; the lock code records no procStart there either). */
+const procStartIfAny = (pid: number): string | undefined => (IS_WIN ? undefined : procStartOf(pid));
+/** A live process on this host that is not us. Uses this node binary, not `sleep` (no sleep.exe on Windows). */
 function liveOther(): number {
-  const p = spawn("sleep", ["120"], { stdio: "ignore" });
+  const p = spawn(process.execPath, ["-e", "setTimeout(() => {}, 120000)"], { stdio: "ignore" });
   procs.push(p);
   return p.pid!;
 }
 /** A pid that is very likely dead (a child that already exited). */
 function deadPid(): number {
-  const r = spawnSync("sh", ["-c", "echo $$"], { encoding: "utf8" });
+  // A node child prints its own pid and exits (no `sh` on Windows).
+  const r = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], { encoding: "utf8" });
   const pid = Number(r.stdout.trim());
   expect(() => process.kill(pid, 0)).toThrow();
   return pid;
@@ -106,7 +112,7 @@ const OLD_CORRUPT = YOUNG_CORRUPT_MS + 3000; // past the "mid-write" window
 const OLD_HEARTBEAT = LIVE_WINDOW_MS + 5000; // past the live window
 const ageMsOf = (file: string) => Date.now() - statSync(file).mtimeMs;
 const leftovers = (dir: string) => readdirSync(dir).filter((n) => n !== LOCK_NAME && n.startsWith(LOCK_NAME));
-const liveLock = (pid: number) => ({ pid, startedAt: "2026-01-01T00:00:00.000Z", hostname: HOST, procStart: procStartOf(pid) });
+const liveLock = (pid: number) => ({ pid, startedAt: "2026-01-01T00:00:00.000Z", hostname: HOST, procStart: procStartIfAny(pid) });
 
 function seedStore(dir: string): string {
   const far = Math.floor(Date.now() / 1000) + 86_400;
@@ -465,7 +471,8 @@ describe("hostile lock content", () => {
     noSecrets(r.out);
   });
 
-  it("symlink lock -> file holding a LIVE lock: startup refuses, CLI exits 4, target untouched", () => {
+  // POSIX-only: creating a symlink on Windows needs admin rights or Developer Mode (EPERM otherwise).
+  it.skipIf(IS_WIN)("symlink lock -> file holding a LIVE lock: startup refuses, CLI exits 4, target untouched", () => {
     const dir = tmp();
     const target = path.join(tmp(), "elsewhere.json");
     const live = JSON.stringify(liveLock(liveOther()));
@@ -479,7 +486,8 @@ describe("hostile lock content", () => {
     expect(readFileSync(target, "utf8")).toBe(live);
   });
 
-  it("symlink lock -> victim file with stale content: only the link is replaced, the victim is never written", () => {
+  // POSIX-only: creating a symlink on Windows needs admin rights or Developer Mode (EPERM otherwise).
+  it.skipIf(IS_WIN)("symlink lock -> victim file with stale content: only the link is replaced, the victim is never written", () => {
     const dir = tmp();
     const victim = path.join(tmp(), "victim.txt");
     const stale = JSON.stringify({ pid: deadPid(), startedAt: "x", hostname: HOST });
@@ -491,7 +499,8 @@ describe("hostile lock content", () => {
     release();
   });
 
-  it("dangling symlink lock: startup fails closed (no write-through to the target); CLI sees 'missing'", () => {
+  // POSIX-only: creating a symlink on Windows needs admin rights or Developer Mode (EPERM otherwise).
+  it.skipIf(IS_WIN)("dangling symlink lock: startup fails closed (no write-through to the target); CLI sees 'missing'", () => {
     const dir = tmp();
     const target = path.join(tmp(), "should-not-be-created");
     symlinkSync(target, lockPath(dir));
@@ -505,7 +514,8 @@ describe("hostile lock content", () => {
     expect(checkLock(dir)).toBe("missing");
   });
 
-  it.skipIf(IS_ROOT)("unreadable lock file (mode 000) is live (fail closed): startup refuses, CLI exits 4", () => {
+  // POSIX-only on Windows too: chmod 0o000 only sets the read-only attribute there; the file stays readable.
+  it.skipIf(IS_ROOT || IS_WIN)("unreadable lock file (mode 000) is live (fail closed): startup refuses, CLI exits 4", () => {
     const dir = tmp();
     writeLock(dir, { pid: deadPid(), startedAt: "x", hostname: HOST }); // even dead content: we cannot know
     chmodSync(lockPath(dir), 0o000);
@@ -522,7 +532,8 @@ describe("hostile lock content", () => {
 // ---------------------------------------------------------------- stale detection
 
 describe("stale detection", () => {
-  it("live pid with matching start time => live; with a different start time => stale (pid reuse)", () => {
+  // POSIX-only: process start time comes from /proc/<pid>/stat (Linux).
+  it.skipIf(IS_WIN)("live pid with matching start time => live; with a different start time => stale (pid reuse)", () => {
     const pid = liveOther();
     const ps = procStartOf(pid);
     expect(classify({ pid, startedAt: "x", hostname: HOST, procStart: ps })).toBe("live");
@@ -535,7 +546,7 @@ describe("stale detection", () => {
   });
 
   it("pid === own pid => stale (previous incarnation, e.g. pid 1 in a restarted container)", () => {
-    expect(classify({ pid: process.pid, startedAt: "x", hostname: HOST, procStart: procStartOf(process.pid) })).toBe("stale");
+    expect(classify({ pid: process.pid, startedAt: "x", hostname: HOST, procStart: procStartIfAny(process.pid) })).toBe("stale");
     expect(classify({ pid: 1, startedAt: "x", hostname: "c1" }, { pid: 1, hostname: "c1" })).toBe("stale");
     const dir = tmp();
     writeLock(dir, { pid: process.pid, startedAt: "x", hostname: HOST });
@@ -587,7 +598,8 @@ describe("stale detection", () => {
     expect(checkLock(d2)).toBe("live");
   });
 
-  it("written lock carries pid, ISO startedAt, hostname and this process's /proc start time", () => {
+  // POSIX-only: asserts the /proc start time (Linux).
+  it.skipIf(IS_WIN)("written lock carries pid, ISO startedAt, hostname and this process's /proc start time", () => {
     const dir = tmp();
     const release = acquireLock(dir);
     const l = readLock(dir) as unknown as Record<string, unknown>;
@@ -655,7 +667,8 @@ describe("revoke-cli vs the lock", () => {
     for (const l of [
       { pid: deadPid(), startedAt: "x", hostname: HOST },
       { pid: process.pid, startedAt: "x", hostname: HOST },
-      { pid: other, startedAt: "x", hostname: HOST, procStart: "1" },
+      // Reused pid (live pid, wrong start time) is detectable only via /proc start time: POSIX-only case.
+      ...(IS_WIN ? [] : [{ pid: other, startedAt: "x", hostname: HOST, procStart: "1" }]),
     ]) {
       const dir = tmp();
       seedStore(dir);
@@ -771,7 +784,8 @@ function startServer(dir: string, port: number) {
 }
 
 describe("real trade-mcp process", () => {
-  it("second instance refuses without binding; SIGTERM removes the lock; SIGKILL leaves it and the next start replaces it", async () => {
+  // POSIX-only: needs /proc start time and a graceful SIGTERM/SIGINT shutdown; on Windows kill() terminates outright.
+  it.skipIf(IS_WIN)("second instance refuses without binding; SIGTERM removes the lock; SIGKILL leaves it and the next start replaces it", async () => {
     const dir = tmp();
     const [pa, pb, pc, pd] = [await freePort(), await freePort(), await freePort(), await freePort()];
 
@@ -829,7 +843,8 @@ describe("real trade-mcp process", () => {
     noSecrets(a.out() + c.out() + d.out());
   });
 
-  it("SIGKILLed server seen from another hostname: LIVE (start refused) while its heartbeat is < 15 s, then replaced", async () => {
+  // POSIX-only: ends with a graceful SIGTERM shutdown (exit 0, lock removed); on Windows kill() terminates outright.
+  it.skipIf(IS_WIN)("SIGKILLed server seen from another hostname: LIVE (start refused) while its heartbeat is < 15 s, then replaced", async () => {
     const dir = tmp();
     const [p1, p2, p3] = [await freePort(), await freePort(), await freePort()];
     const a = startServer(dir, p1);
@@ -883,7 +898,8 @@ describe("real trade-mcp process", () => {
 
 // ---------------------------------------------------------------- DATA_DIR not writable
 
-describe.skipIf(IS_ROOT)("DATA_DIR not writable (behaviour change vs main)", () => {
+// POSIX-only on Windows too: chmod 0o555 does not make a directory read-only there.
+describe.skipIf(IS_ROOT || IS_WIN)("DATA_DIR not writable (behaviour change vs main)", () => {
   // On main (no lock) trade-mcp starts and binds with a read-only DATA_DIR (writes fail later, per request).
   // Now startup fails fast: LockUnwritableError => "fatal: cannot create <lock>: EACCES; ..." exit 1, port not bound.
   it("acquireLock throws EACCES (not LockHeldError) and writes nothing", () => {

@@ -9,8 +9,10 @@ import { run } from "../src/oauth/revoke-cli.js";
 const kids: ChildProcess[] = [];
 afterEach(() => { for (const k of kids.splice(0)) k.kill("SIGKILL"); });
 const dir = () => mkdtempSync(path.join(tmpdir(), "tm246-"));
+const IS_WIN = process.platform === "win32";
+/** A live child process. Uses this node binary, not `sleep` (no sleep.exe on Windows). */
 function sleeper(): ChildProcess {
-  const c = spawn("sleep", ["60"], { stdio: "ignore" });
+  const c = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore" });
   kids.push(c);
   return c;
 }
@@ -63,7 +65,8 @@ describe("TM2-46 DATA_DIR lock", () => {
     expect(checkLock(d)).toBe("stale");
   });
 
-  it("pid reuse (live pid, different process start time) is stale", () => {
+  // POSIX-only: the start time comes from /proc/<pid>/stat (Linux); on Windows procStart is never recorded or checked.
+  it.skipIf(IS_WIN)("pid reuse (live pid, different process start time) is stale", () => {
     const d = dir();
     const k = sleeper();
     writeLock(d, { pid: k.pid, procStart: "1" });
