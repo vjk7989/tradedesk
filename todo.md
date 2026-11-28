@@ -166,7 +166,7 @@ Detailed plan: `plan.md`.
 - O-11 · deploy · EXECUTE_MAX_CONCURRENT in deploy files + runbook (OWNER) [x]
 - TM2-44 · trade-mcp · de-flake OAuth rate-limit tests (TM2) [x]
 - O-12 · trade-mcp · api-docs walkForward partial folds + de-flake O-8 test (OWNER, after #70) [x]
-- TM2-45 · bt-service · central ns normaliser (TM2) [.]
+- TM2-45 · bt-service · central ns normaliser (TM2) [x]
 - TM2-46 · trade-mcp · DATA_DIR lock for revoke-all (TM2) [x]
 - O-13 · trade-mcp · in-run memory check misses JSON.parse loop (OWNER) [x]
 - TM2-47 · deploy · container memory/CPU limits (TM2) [.]
