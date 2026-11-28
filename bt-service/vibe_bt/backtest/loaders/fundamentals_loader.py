@@ -167,6 +167,17 @@ def _quarterly_flow_frames(df: pd.DataFrame, duration: pd.Series) -> pd.DataFram
     return quarters
 
 
+def _parse_naive_filed(value: Any) -> pd.Timestamp:
+    """Parse one ``filed`` value to a naive Timestamp, or NaT if not possible."""
+    try:
+        ts = pd.to_datetime(value, format="ISO8601", errors="coerce")
+    except (ValueError, TypeError):
+        return pd.NaT
+    if ts is pd.NaT or ts.tzinfo is not None:
+        return pd.NaT
+    return ts
+
+
 def _ffill_pit(series: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
     """Forward-fill sparse values onto ``index`` using ``filed`` as the anchor.
 
@@ -185,7 +196,17 @@ def _ffill_pit(series: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
     raw_filed = sparse["filed"]
     # Explicit ISO8601 (SEC emits YYYY-MM-DD) so date and date-time strings can
     # mix; inference from the first string would silently NaT the rest.
-    sparse["filed"] = pd.to_datetime(raw_filed, format="ISO8601", errors="coerce").dt.normalize()
+    try:
+        parsed = pd.to_datetime(raw_filed, format="ISO8601", errors="coerce")
+    except ValueError:
+        # Mixed tz-aware and naive strings make pandas raise even with
+        # errors="coerce". Keep naive values; anything that cannot become a
+        # naive datetime (tz-aware in a mixed series) becomes NaT and is
+        # counted in the warning below.
+        parsed = pd.Series(
+            [_parse_naive_filed(v) for v in raw_filed], index=raw_filed.index, dtype="datetime64[us]"
+        )
+    sparse["filed"] = parsed.dt.normalize()
     failed = raw_filed.notna() & sparse["filed"].isna()
     if failed.any():
         logger.warning(
