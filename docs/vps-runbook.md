@@ -3,7 +3,7 @@
 Stack: Caddy (80/443) -> trade-mcp, OpenAlgo; bt-service internal only. Files live in `deploy/`.
 
 ## 1. Server
-- Ubuntu 24.04, minimum 2 vCPU / 4 GB RAM / 40 GB disk.
+- Ubuntu 24.04, minimum 2 vCPU / 4 GB RAM / 40 GB disk. The compose file caps container memory so trade-mcp, bt-service and Caddy total at most 2176 MB by default, leaving the rest for OpenAlgo and the OS (see section 5, Memory limits). Do not go below 4 GB without lowering the limits.
 - A static public IP. Under the SEBI/broker static-IP rule, register this IP with your Indian broker (API app settings) and with Delta Exchange (API key IP whitelist). Orders from other IPs are rejected.
 - DNS: A records `mcp.<DOMAIN>` and `openalgo.<DOMAIN>` -> the VPS IP.
 
@@ -38,13 +38,15 @@ chmod 600 .env openalgo.env
 Lint `risk.json` with the linter in the trade-mcp image (the host needs only Docker; run from `deploy/`). Candidate file before deploying: `docker compose run --rm --no-deps -v "$PWD/risk.json:/tmp/risk.json:ro" trade-mcp node dist/src/risk/lint.js /tmp/risk.json [--strict]`. Deployed file (the running container's `/config/risk.json`): `docker compose exec trade-mcp node dist/src/risk/lint.js /config/risk.json [--strict]`. Exit 0 = OK or warnings only, 1 = invalid config, unreadable file or usage error, 2 = warnings under `--strict`. Re-run each January to confirm the new year's NSE/MCX `marketHolidays` are filled in. From a local checkout instead: `cd trade-mcp && npm ci && npm run build && npm run risk:lint -- <file>`.
 To fill `marketHolidays` from OpenAlgo, use `deploy/sync_holidays.py` (usage and env: [docs/holidays.md](holidays.md)); after a write, `docker compose restart trade-mcp`.
 `EXECUTE_TIMEOUT_MS` (default 60000) is the execute time limit in ms, clamped 5000-900000. Set it to 660000 or more if you use `backtest.walkForward`; MCP clients also have their own tool-call timeout.
-`EXECUTE_MAX_CONCURRENT` (default 4, range 1-32) caps simultaneous execute runs; each can use about 80 MB, so size it to the VPS RAM. If clients see "busy: too many concurrent executes, retry shortly", raise it and restart.
+`EXECUTE_MAX_CONCURRENT` (default 4, range 1-32) caps simultaneous execute runs; each can use up to about 160 MB (memoryBytes 64 MB + 32 MB WASM + up to 64 MB of pending binding arguments), so size it to the VPS RAM, see Memory limits below. If clients see "busy: too many concurrent executes, retry shortly", raise it and restart.
 Edit `openalgo.env`:
 - `APP_KEY`, `API_KEY_PEPPER`, `FERNET_SALT`: leave the placeholders; OpenAlgo replaces them on first run with `secrets.token_hex(32)` and writes them back (the file is bind-mounted read-write). To set them yourself: `python3 -c "import secrets;print(secrets.token_hex(32))"` for each. Never reuse or commit.
 - `HOST_SERVER='https://openalgo.<DOMAIN>'`
 - `FLASK_HOST_IP='0.0.0.0'`, `WEBSOCKET_HOST='0.0.0.0'` (container-internal; not published)
 - `WEBSOCKET_URL='wss://openalgo.<DOMAIN>/ws'` (Caddy strips `/ws`). Verify after first login that live-data pages connect; if not, check the browser console and adjust.
 - Broker `BROKER_API_KEY` / `BROKER_API_SECRET` / `REDIRECT_URL` (`https://openalgo.<DOMAIN>/<broker>/callback`) per OpenAlgo docs for your broker.
+
+**Memory limits.** trade-mcp, bt-service and Caddy have a Docker `mem_limit` (and an equal `memswap_limit`), so a runaway service is OOM-killed and restarted by `restart: unless-stopped` while the others keep running. Defaults, overridable in `.env`: `TRADE_MCP_MEM_LIMIT=1g`, `BT_MEM_LIMIT=1g` (with `BT_CPUS=1`), `CADDY_MEM_LIMIT=128m`; together 2176 MB, leaving the rest of a 4 GB VPS for OpenAlgo and the OS. trade-mcp worst case is base (about 100 MB measured) + `EXECUTE_MAX_CONCURRENT` x (64 MB memoryBytes + 32 MB WASM + 64 MB pending binding arguments) = 100 + 4 x 160 = 740 MB at the default of 4; add about 160 MB per extra run if you raise it. **OpenAlgo has no memory limit by default**: it holds the broker session and an OOM kill there is the failure we avoid. To cap it anyway, create `deploy/docker-compose.override.yml` with `services: {openalgo: {mem_limit: 1536m, memswap_limit: 1536m}}`; its 512 MB `shm_size` counts against the limit. Check with `docker stats --no-stream`; an OOM kill shows as exit code 137 or `docker inspect -f '{{.State.OOMKilled}}' <container>`.
 
 ## 6. Start
 ```
