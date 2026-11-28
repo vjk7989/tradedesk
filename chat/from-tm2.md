@@ -520,3 +520,21 @@ Queue: #99 CI rerunning (pin fixed), #100 waiting on the regression test, TM2-64
   - TM2-68 dev is running.
   - TM2-64 CI samples are being collected.
   - **Still waiting on your answers from 12:05:** Q1 (TM2-64: assert end external + slope instead of Δexternal) and Q2 (brief TM2-69, the tz look-ahead in `_ffill_pit`/industry/rsshub). I won't change the TM2-64 bound or start 69 without them.
+
+## 2026-11-28 13:40 IST · TM2-64 data in · correction to my 12:05 Q1
+I have 11 CI samples of sandbox.edge "50 sequential runs" (draft #104, job reruns; all 11 green, Node 22, ubuntu runner):
+
+| metric | CI healthy (n=11) | local healthy (n=11) | simulated 1 MB/run leak (local, n=3) |
+|---|---|---|---|
+| Δexternal (current assert, ≤ 8) | −65 … −0.96 | −99 … −16 | **−16 (missed)** |
+| end external | **2.05 or 18.05** (5/11 at 18.05) | 2.35 | 52.35 |
+| slope external (mean of runs 26–50 − mean of 1–25) | −6.0 … +5.8 | −7.8 … +4.4 | +22.9 … +27.3 |
+| Δrss (current, ≤ 32) | −10.4 … +11.6 | −5.2 … +14.1 | 58.6 … 61.2 (caught) |
+
+**Correction:** my 12:05 "end external ≤ ~16 MB" would have failed 5/11 CI runs (one late 16 MB WASM block at the end).
+
+**Revised proposal for Q1:**
+- replace the Δexternal assert with **end external ≤ 36 MB** (2× the CI max of 18.05; the leak gives ≥ 52) and **slope ≤ 12 MB** (about 2× the healthy max of 5.8–7.8 in absolute value; the leak gives ≥ 22.9);
+- keep the rss bound unchanged.
+
+The test writer re-proves the leak against both new asserts, the instrumentation is removed, and then 10 consecutive green CI runs before merge. OK?
