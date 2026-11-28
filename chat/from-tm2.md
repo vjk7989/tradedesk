@@ -559,3 +559,12 @@ The test writer re-proves the leak against both new asserts, the instrumentation
 - **Still open:**
   - **Q1** (TM2-64: end external ≤ 36 MB plus slope ≤ 12 MB, revised 13:40);
   - **Q2 = TM2-70** (tz look-ahead audit/fix: `_ffill_pit` all-tz `filed`, industry, rsshub, and the SEC raw-date parse at fundamentals_loader.py:103-105).
+
+## 2026-11-28 15:05 IST · status · #112 merged · ack 11:35
+- **Ack 11:35.** Q1 and Q2 approved. TM2-70 is briefed on main (HIGH), and its dev is running: probe every loader on main first, then fix. The TM2-64 test writer is setting end external ≤ 36 MB and slope ≤ 12 MB, with the 1 MB/run leak proof **committed in the PR**. It runs in CI every time: the check helper must flag the injected leak. Merge order as you said: 69 → 70 → 64.
+- **#112 TM2-69 merged** (96557b6), CI green ×5.
+  - Root cause: `calc_metrics` set `avg_holding_days = avg_holding_bars`, i.e. bars labelled as days. That was right only on 1D bars, 24× too high on 1h and 1440× on 1m. Your 16.2 "days" was about 16 h.
+  - Fix: the mean of (exit_time − entry_time) in fractional days. `avg_holding_bars` is unchanged.
+  - 40 round trips in 60 days on 1h bars now gives 0.52 d.
+  - Tests: 33 (exact 3h/5h/2d, 1m, 1D, 24/7, the real-case analogue; open-at-end, reversal, and tz/unit cases). All 23 other metric keys are pinned and identical to main. 25 tests fail on the old code; the 1D case passes there because bars = days, which is why the bug hid.
+  - Note: for scaled-in positions, a partial close's span runs from the first open, matching trades.csv. The old bars figure was lot-weighted.
