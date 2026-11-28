@@ -17,6 +17,8 @@ MIN_TRAIN_DAYS = 20
 MIN_TEST_DAYS = 5
 MAX_DAYS = 3650
 MAX_RUNS = 60
+# A train/test run with fewer equity points than this gets a "thin window" warning (warning only).
+MIN_FOLD_BARS = 10
 DEFAULT_BUDGET_S = 600
 MIN_BUDGET_S = 30
 MAX_BUDGET_S = 3600
@@ -37,6 +39,17 @@ def _score(result, metric: str) -> float | None:
     if not isinstance(metrics, dict):
         return None
     return _finite(metrics.get(metric))
+
+
+def _bars(result) -> int | None:
+    """Bar count of a run, from the equity points it already returns; None when not reported."""
+    equity = result.get("equity") if isinstance(result, dict) else None
+    return len(equity) if isinstance(equity, list) else None
+
+
+def _thin(i: int, kind: str, result) -> list[str]:
+    n = _bars(result)
+    return [f"fold {i}: thin {kind} window ({n} bars < {MIN_FOLD_BARS})"] if n is not None and n < MIN_FOLD_BARS else []
 
 
 def _budget_s() -> int:
@@ -116,11 +129,12 @@ def walk_forward(
     for i, (tr_s, tr_e, te_s, te_e) in enumerate(windows):
         best_idx: int | None = None
         best_score: float | None = None
+        best_res = None
         first_error = None
         for idx, candidate in enumerate(candidates):
             remaining = deadline - clock()
             if remaining <= 0:
-                return {"ok": False, "error": "time budget exceeded", "folds": folds}
+                return {"ok": False, "error": "time budget exceeded", "folds": folds, "warnings": warnings}
             res = run(
                 code=code,
                 symbols=symbols,
@@ -138,15 +152,16 @@ def walk_forward(
                 first_error = res.get("error")
             score = _score(res, metric)
             if score is not None and (best_score is None or score > best_score):
-                best_idx, best_score = idx, score
+                best_idx, best_score, best_res = idx, score, res
         if best_idx is None:
             detail = f": {first_error}" if first_error else ""
             return {"ok": False, "error": f"fold {i}: no candidate produced a finite {metric}{detail}", "folds": folds, "warnings": warnings}
 
+        warnings.extend(_thin(i, "train", best_res))
         chosen = candidates[best_idx]
         remaining = deadline - clock()
         if remaining <= 0:
-            return {"ok": False, "error": "time budget exceeded", "folds": folds}
+            return {"ok": False, "error": "time budget exceeded", "folds": folds, "warnings": warnings}
         test_res = run(
             code=code,
             symbols=symbols,
@@ -168,6 +183,7 @@ def walk_forward(
                 "warnings": warnings,
             }
 
+        warnings.extend(_thin(i, "test", test_res))
         test_metrics = test_res.get("metrics")
         if not isinstance(test_metrics, dict):
             test_metrics = {}

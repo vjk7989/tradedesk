@@ -63,6 +63,26 @@ def _perturb(src: pathlib.Path, dst: pathlib.Path, cutoff: str, factor: float) -
         w.writerows(rows)
 
 
+def _fixture_bars(lo: str, hi: str, files=tuple(FILES.values())) -> int:
+    """Distinct fixture dates in the half-open window [lo, hi) across `files` (one equity point per bar)."""
+    dates = set()
+    for name in files:
+        with (F / name).open(newline="", encoding="utf-8") as fh:
+            dates.update(r["date"] for r in csv.DictReader(fh) if lo <= r["date"] < hi)
+    return len(dates)
+
+
+def _thin_warnings(windows, first_fold=0) -> list[str]:
+    """TM2-39 thin-fold warnings expected for these (train, test) windows, from the fixture bar counts."""
+    out = []
+    for i, (train, test) in enumerate(windows, start=first_fold):
+        for kind, (lo, hi) in (("train", train), ("test", test)):
+            n = _fixture_bars(lo, hi)
+            if n < 10:
+                out.append(f"fold {i}: thin {kind} window ({n} bars < 10)")
+    return out
+
+
 def _wf(symbols, start=START, end=END, costs=COSTS, candidates=CANDS):
     return walk_forward(CODE, symbols, start, end, train_days=20, test_days=5, candidates=candidates,
                         metric="total_return", source="local", costs=costs)
@@ -115,8 +135,8 @@ def results(tmp_path_factory):
 def _check(res, expected):
     """expected: per fold (chosen, train_score, total_return, final_value, sharpe, trade_count, max_drawdown)."""
     assert res["ok"], res.get("error")
-    # Pins current behaviour: thin folds emit no warning (follow-up: walkforward thin-fold warning).
-    assert res["warnings"] == []
+    # TM2-39: the 4- and 3-bar test windows are thin; the train windows (15 and 14 bars) are not.
+    assert res["warnings"] == _thin_warnings(FOLD_WINDOWS)
     assert [(f["train"], f["test"]) for f in res["folds"]] == FOLD_WINDOWS
     assert len(res["folds"]) == len(expected)
     for f, (chosen, ts, tr, fv, sh, tc, dd) in zip(res["folds"], expected):
@@ -146,6 +166,7 @@ def test_selection_discriminates_between_folds(results):
          -0.0073351897696574565),
     ])
     assert res["summary"] == {"folds": 2, "mean_test_total_return": 0.008265, "positive_folds": 2, "scored_folds": 2}
+    assert res["warnings"] == ["fold 0: thin test window (4 bars < 10)", "fold 1: thin test window (3 bars < 10)"]
     assert res["oos_equity"][0] == {"date": "2025-11-17", "value": 1000000.0}
     # chained: fold 2's equity is rescaled to start where fold 1 ended
     assert res["oos_equity"][-1]["value"] == pytest.approx(1011082.14662255 * 1.005447064364884, rel=1e-6)
@@ -223,8 +244,9 @@ def test_train_window_mostly_before_option_data_still_runs(results):
     # Train [10-13, 11-02) holds 5 option bars, test [11-02, 11-07) holds 4: thin but valid, one fold.
     res = results["thin"]
     assert res["ok"], res.get("error")
-    # Pins current behaviour: no thin-data warning (follow-up: walkforward thin-fold warning).
-    assert res["warnings"] == []
+    # TM2-39: both windows are thin, so exactly one train and one test warning for fold 0.
+    assert res["warnings"] == _thin_warnings([(["2025-10-13", "2025-11-02"], ["2025-11-02", "2025-11-07"])])
+    assert res["warnings"] == ["fold 0: thin train window (5 bars < 10)", "fold 0: thin test window (4 bars < 10)"]
     assert len(res["folds"]) == 1
     f = res["folds"][0]
     assert f["chosen"] == SMALL
@@ -263,5 +285,7 @@ def test_fold_after_expiry_has_no_option_data_and_reports_which_fold(results):
     assert m["trade_count"] == 1.0
     assert m["max_drawdown"] == pytest.approx(-0.0073351897696574565, rel=1e-6)
     assert f == results["ce"]["folds"][1]
-    assert res["warnings"] == []
+    # TM2-39: fold 0's 3-bar test window warns; the failed fold 1 test run adds nothing (no thin
+    # warning is emitted for a test run that failed).
+    assert res["warnings"] == _thin_warnings([FOLD_WINDOWS[1]]) == ["fold 0: thin test window (3 bars < 10)"]
     assert "oos_equity" not in res and "summary" not in res
