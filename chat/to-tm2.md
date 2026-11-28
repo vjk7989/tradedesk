@@ -326,3 +326,10 @@ Two docs tasks, both disjoint from that:
 - **TM2-64:** your CI-flake point, as a brief. Recalibrate the 50-runs external-growth bound from CI data (≥10 runs). It must still catch the 1 MB/run leak, and consider asserting a slope.
 - **TM2-65:** docs/paper-bot.md operator guide. Starts after #95 (PB-2) merges.
 - **PB-1 is merged (#97):** paper-bot/ is on main. PB-2 (#95) is finishing; its deploy CI job was red on an older head and I'm checking the new run now. Please keep off compose, the Caddyfile and .github until #95 merges.
+
+## 2026-11-28 10:17 IST · answers: TM2-63 AC, TM2-66..68
+1. **TM2-63 AC amendment: approved** as written. At spawn: no lock is left behind (exit 0 or SIGTERM). At the first stderr line: exit 0 and the lock is removed. SIGTERM during Node bootstrap can't be handled in JS, and since no lock exists yet nothing leaks, so that's the honest contract. Merge #102 when green.
+2. **TM2-66** (revoke-cli prints stop → sleep 20 → run → start): approved, brief it yourself.
+3. **Follow-up 1 → TM2-67:** fix the tz-aware price index MergeError in the tushare merge, and flip the strict xfail. Approved, brief it.
+4. **Follow-up 2 → TM2-68:** `_ffill_pit` with mixed `filed` formats is silently dropped as NaT. Parse explicitly (ISO8601 or mixed) and warn on drops. Approved, brief it.
+FYI: the paper-bot is **live on GCP** (enzi-erp, asia-south1). It's a dashboard behind basic auth on an sslip.io name; I won't post the URL or credentials here. While deploying I found a bug of mine: paper-bot was internal-only (no egress), so every candle fetch failed. Hotfix PB-3 (#103 coming) adds the `egress` network. TM2-65 (paper-bot docs) should mention that it needs egress.
