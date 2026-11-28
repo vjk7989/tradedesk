@@ -69,6 +69,10 @@ export function parseJobs(raw: unknown): Job[] {
           bad(`schedule.between must be ["HH:MM","HH:MM"] (job "${o.name}")`);
         }
         if (b[0] >= b[1]) bad(`schedule.between start must be before end, no overnight windows (job "${o.name}")`);
+        const first = Math.ceil((Number(b[0].slice(0, 2)) * 60 + Number(b[0].slice(3))) / s.everyMinutes) * s.everyMinutes;
+        if (first > Number(b[1].slice(0, 2)) * 60 + Number(b[1].slice(3)) || first >= 1440) {
+          bad(`job "${o.name}": between ${b[0]}-${b[1]} contains no every-${s.everyMinutes}-min slot`);
+        }
         between = [b[0], b[1]];
       }
     }

@@ -57,8 +57,20 @@ export interface SchedulerDeps {
 export async function runScheduler(jobs: Job[], deps: SchedulerDeps): Promise<void> {
   if (jobs.length === 0) return;
   const due = new Map<Job, Date>();
-  for (const job of jobs) due.set(job, nextRun(job.schedule, deps.now()));
+  // Defence in depth: parse rejects unreachable schedules, but if nextRun ever finds nothing for one
+  // job, log it and drop that job rather than taking down every other job.
+  const schedule = (job: Job, from: Date) => {
+    try {
+      due.set(job, nextRun(job.schedule, from));
+    } catch (e) {
+      console.error(`job ${job.name}: no next run, job disabled (${e instanceof Error ? e.message : String(e)})`);
+      due.delete(job);
+    }
+  };
+  for (const job of jobs) schedule(job, deps.now());
+  if (due.size === 0) return;
   while (!deps.stopped?.()) {
+    if (due.size === 0) return;
     const earliest = Math.min(...[...due.values()].map((d) => d.getTime()));
     const wait = earliest - deps.now().getTime();
     if (wait > 0) {
@@ -68,7 +80,9 @@ export async function runScheduler(jobs: Job[], deps: SchedulerDeps): Promise<vo
     }
     for (const job of jobs) {
       if (deps.stopped?.()) return;
-      if (due.get(job)!.getTime() > deps.now().getTime()) continue;
+      const dueAt = due.get(job);
+      if (!dueAt || dueAt.getTime() > deps.now().getTime()) continue;
+      const startedAt = deps.now();
       try {
         await deps.run(job);
       } catch (e) {
@@ -77,14 +91,18 @@ export async function runScheduler(jobs: Job[], deps: SchedulerDeps): Promise<vo
       const finished = deps.now();
       if (job.schedule.everyMinutes !== undefined) {
         // slots that arrived while this job's own run was active are skipped, never queued
-        let slot = due.get(job)!;
+        let slot = dueAt;
         for (let i = 0; i < 100000; i++) {
           slot = nextRun(job.schedule, slot);
           if (slot.getTime() > finished.getTime()) break;
-          console.error(`job ${job.name}: slot ${slot.toISOString()} skipped (previous run still active)`);
+          console.error(
+            slot.getTime() > startedAt.getTime()
+              ? `job ${job.name}: slot ${slot.toISOString()} skipped (previous run still active)`
+              : `job ${job.name}: slot ${slot.toISOString()} skipped (missed while runner busy with another job)`,
+          );
         }
       }
-      due.set(job, nextRun(job.schedule, finished));
+      schedule(job, finished);
     }
   }
 }
