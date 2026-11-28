@@ -198,6 +198,9 @@ def test_non_anchored_intervals_identical_to_legacy(iv, symbol, start):
     df = _frame(_mins(start, 600))
     new = _run(df, iv, symbol)
     old = ll._resample_to_interval(df, iv, symbol)
+    # 1-minute source, coarser target: both sides resample and are pinned to ns.
+    assert new.index.unit == "ns"
+    assert old.index.unit == "ns"
     pd.testing.assert_frame_equal(new, old)
 
 
@@ -217,17 +220,28 @@ def test_legacy_anchor_none_uses_first_day_earliest():
 
 def test_empty_frame_with_anchor():
     empty = _frame(pd.DatetimeIndex([]))
-    assert _run(empty, "10m", "RELIANCE@NSE").empty
+    out = _run(empty, "10m", "RELIANCE@NSE")
+    assert out.empty
+    # empty frames are returned unchanged (pass-through), so the input unit is kept
+    assert out.index.unit == empty.index.unit
 
 
 def test_same_granularity_with_anchor_unchanged():
     df = _frame(pd.date_range("2025-04-01 09:16", periods=10, freq="10min"))
-    pd.testing.assert_frame_equal(_run(df, "10m", "RELIANCE@NSE"), df)
+    out = _run(df, "10m", "RELIANCE@NSE")
+    # same granularity is a documented pass-through: the source frame comes back
+    # untouched, so it keeps the input unit (not ns-normalised).
+    assert out.index.unit == df.index.unit
+    pd.testing.assert_frame_equal(out, df)
 
 
 def test_upsample_refused_with_anchor():
     df = _frame(pd.date_range("2025-04-01 09:15", periods=10, freq="15min"))
-    pd.testing.assert_frame_equal(_run(df, "10m", "RELIANCE@NSE"), df)
+    out = _run(df, "10m", "RELIANCE@NSE")
+    # upsample is refused and the source bars are returned unchanged, so the
+    # input unit is kept (not ns-normalised).
+    assert out.index.unit == df.index.unit
+    pd.testing.assert_frame_equal(out, df)
 
 
 # --- loader path: tz-aware input converted to IST wall clock -----------------

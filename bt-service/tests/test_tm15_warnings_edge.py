@@ -116,7 +116,11 @@ def _expected(df: pd.DataFrame, interval: str, anchor_naive: pd.Timestamp | None
         # pandas default origin="start_day": midnight of the first day (local wall clock)
         origin = df.index[0].normalize()
     k = (df.index - origin) // step
-    starts = pd.DatetimeIndex([origin + int(x) * step for x in k], name=df.index.name)
+    # _resample_to_interval pins resampled output to ns (TM2-41 policy), so the
+    # expectation is built in ns explicitly rather than inheriting a unit.
+    starts = pd.DatetimeIndex(
+        [origin + int(x) * step for x in k], name=df.index.name
+    ).as_unit("ns")
     exp = df.groupby(starts).agg(
         open=("open", "first"), high=("high", "max"), low=("low", "min"),
         close=("close", "last"), volume=("volume", "sum"),
@@ -140,8 +144,14 @@ def test_resample_irregular_gaps(interval, tz):
     if _rule_seconds(_RESAMPLE_RULES[interval]) == 60:
         # median diff is 1 minute despite the gaps -> pass-through, same object
         assert out is df
+        # pass-through returns the source frame untouched, so it keeps the input unit
+        # (us on pandas 3 for date_range from strings); it is not ns-normalised.
+        assert out.index.unit == df.index.unit
         return
     exp = _expected(df, interval, anchor)
+    # resampled path: output is pinned to ns
+    assert out.index.unit == "ns"
+    assert exp.index.unit == "ns"
     _cmp(out, exp)
     assert out.index.tz == df.index.tz
     assert out.index.name == "ts"
@@ -157,8 +167,10 @@ def test_resample_single_row(interval):
     idx = pd.DatetimeIndex([pd.Timestamp("2025-04-03 10:17:30")], name="ts")
     df = _ohlcv(idx)
     out = _resample_strict(df, interval)
-    # len < 2: no source granularity -> always resampled into one bin
+    # len < 2: no source granularity -> always resampled into one bin, pinned to ns
     exp = _expected(df, interval, None)
+    assert out.index.unit == "ns"
+    assert exp.index.unit == "ns"
     _cmp(out, exp)
     assert len(out) == 1
     assert out.iloc[0]["open"] == df.iloc[0]["open"]

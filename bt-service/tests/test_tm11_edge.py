@@ -639,6 +639,10 @@ def test_tushare_next_day_shift_matches_old(monkeypatch, ann):
         )
     got = out["600000.SH"]["balancesheet_revenue"].notna().tolist()
     assert got == _expected_visible(bars, ann)
+    # enrichment only adds columns: the price index passes through unchanged, so it
+    # keeps the input unit (us on pandas 3 for string-built bars), not ns.
+    assert frame.index.unit == bars.unit
+    assert out["600000.SH"].index.unit == bars.unit
     pd.testing.assert_index_equal(out["600000.SH"].index, bars)
 
 

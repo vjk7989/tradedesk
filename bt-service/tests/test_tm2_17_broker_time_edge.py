@@ -32,6 +32,7 @@ Findings on pandas 2.3.3 (see the individual tests for detail):
 
 from __future__ import annotations
 
+import re
 import warnings
 from typing import Optional
 
@@ -103,10 +104,28 @@ def _new(times: list):
             return type(exc)
 
 
-def _assert_same(old, new) -> None:
+_SUB_MICRO = re.compile(r"\.\d{7,}")
+
+
+def _parse_unit(times: list) -> str:
+    """Index unit both paths should yield on pandas 3 (the locked env).
+
+    ``_bars_to_frame`` (old and new) does not ns-normalise: the index keeps
+    whatever resolution ``pd.to_datetime`` infers. On pandas 3 that is ``us``
+    unless a value carries sub-microsecond digits, which forces ``ns``.
+    """
+    return "ns" if any(isinstance(t, str) and _SUB_MICRO.search(t) for t in times) else "us"
+
+
+def _assert_same(old, new, unit: str) -> None:
     if old is None or new is None or isinstance(old, type) or isinstance(new, type):
         assert old is new, f"old={old!r} new={new!r}"
         return
+    # Pass-through of the parse unit (no ns normalisation on this path): assert
+    # both sides explicitly so the comparison cannot pass merely because they share
+    # a unit, and so a future ns normalisation of either side is caught here.
+    assert old.index.unit == unit, (old.index.unit, unit)
+    assert new.index.unit == unit, (new.index.unit, unit)
     pd.testing.assert_frame_equal(new, old, check_exact=True)
     assert new.index.tz is None
     assert new.index.dtype == old.index.dtype
@@ -118,7 +137,7 @@ def _check(times: list, *, old_may_warn: bool = False):
         # Guard: if the old path had warned, its result might not be the baseline we think.
         assert not caught, [str(w.message) for w in caught]
     new = _new(times)
-    _assert_same(old, new)
+    _assert_same(old, new, _parse_unit(times))
     return new
 
 
