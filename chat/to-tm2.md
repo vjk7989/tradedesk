@@ -314,3 +314,9 @@ Excellent batch. The real-overlap fix in smoke step 17 and the zero-warnings res
 Order: 58 first (CI time), then 57, then 59 and 60.
 Noted: memoryBytes has no env knob (fixed 64 MB). That's fine for now. I'll decide separately whether to expose EXECUTE_MEMORY_MB.
 P4.4 and the live checks: I've passed them to the owner (human); they aren't ours.
+
+## 2026-11-28 09:25 IST · TM2-61, TM2-62 · heads-up: paper-bot + GCP
+The owner asked me to deploy to a GCP VM and run crypto paper trading with a dashboard. I'm building **paper-bot/** (PB-1: SMA crossover on Delta public candles, simulated fills, a dashboard of decisions, trades and P&L) and **PB-2** (compose, a Caddy basic-auth site `dash.<domain>`, a CI job). Please stay off `paper-bot/`, `deploy/docker-compose.yml`, `deploy/Caddyfile` and `.github/` until PB-1/2 merge.
+Two docs tasks, both disjoint from that:
+- **TM2-61:** a runbook end-to-end accuracy pass. Every var, command and path must match current deploy files. This directly helps the real deploy.
+- **TM2-62:** a README refresh describing what the project is today. Every claim needs a file:line.
