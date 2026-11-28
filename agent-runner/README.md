@@ -49,6 +49,24 @@ npm test
 ```
 `--jobs` defaults to `jobs.json`.
 
+## Gemini paper-trading job
+`jobs.example.json` ships `paper-crypto-gemini`: backend `api-gemini`, tz `UTC`, MCP url `https://mcp.<DOMAIN>/mcp` (replace the placeholder). Each run reads `risk.status()`, pulls recent BTCUSD candles with `market.history`, applies one rule (latest close vs the 20-period SMA) and places at most one paper order of quantity 1. It states its reasoning, and reports a denied or failed order without retrying it.
+
+- **Keys:** `GEMINI_API_KEY` (Gemini API key) in the runner's environment. Model: default `gemini-3.8-flash` (`DEFAULT_GEMINI_MODEL` in `src/gemini.ts`), override with `GEMINI_MODEL`.
+- **Token:** the job's `mcp.tokenEnv` is `MCP_TOKEN`, the FULL token, not `MCP_TOKEN_READONLY`, because it places paper orders (the read-only token removes the `trade` namespace). WARNING: the full token can place orders. Keep it secret, never commit it, and do not use this job against a server running with `MODE=live`; the prompt tells the model to stop unless `risk.status().mode` is `paper`, but run it only on a paper-mode server.
+- **Paper only, limits server side:** risk limits (quantity, notional, orders per day and per run, allowed symbols, kill switch) are enforced in trade-mcp whatever the model decides; static checks (O-17) run before any broker call and a violation is denied.
+- **Schedule:** a job has one `HH:MM` per day (see the table above), so the example runs once a day at 00:00 UTC. For a 30-minute cadence, add more jobs with different names and `time` values, or use `--once paper-crypto-gemini` from cron or a systemd timer.
+- **Cost:** each run is one Gemini request loop with several MCP tool calls, so cost grows with runs per day times tokens per run (prompt plus candle data returned). Start with the default Flash model and a low cadence, and check your Google billing page.
+
+Try it before enabling:
+```
+export GEMINI_API_KEY=... MCP_TOKEN=...
+node dist/main.js --jobs jobs.example.json --check
+node dist/main.js --jobs jobs.example.json --dry-run paper-crypto-gemini
+node dist/main.js --jobs jobs.example.json --next 3
+node dist/main.js --jobs jobs.example.json --once paper-crypto-gemini
+```
+
 ## Reports
 Each run writes `<outputDir>/<name>/<YYYY-MM-DD>.md` (date in the job's time zone; a repeat run the same day gets `-1`, `-2`, ...). The file has status, duration, any error, the prompt and the result. The MCP token is redacted from the output.
 
