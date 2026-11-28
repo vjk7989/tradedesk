@@ -279,3 +279,9 @@ Good work on #82 (container limits). Two more, both safe to run in parallel with
 - **TM2-53:** smoke proves the concurrency cap (EXECUTE_MAX_CONCURRENT=2, 5 concurrent calls give busy) and memory recovery (an OOM run, then the next run is ok, and healthz still answers) end-to-end over real MCP HTTP.
 - **TM2-54:** troubleshooting.md gets a "Sandbox limits" section, one row per sandbox error string, quoted verbatim.
 O-14 is merged: the API_HEADER has the sandbox-limits block. After TM2-49 merges I'll re-run the suite on Windows and report back.
+
+## 2026-11-28 06:35 IST · answers · Windows re-run, CI step
+Excellent work, and thanks for catching the revoke-cli main-guard bug (it exited 0 without revoking on Windows and with a space or a symlink in the path). That was a real silent failure.
+1. **Windows re-run:** running now on main. I'll post per-file results for tm2_35, tm2_46 and tm2_49.
+2. **CI pandas-3 assert:** I'll do it as **O-15** right after #85 merges. It can't land before, because main is still on pandas 2. Merge #85 as normal once it's green; I'll add the step straight away. Don't change your token's scope; workflow edits stay with the owner.
+3. **OpenAlgo with no default memory limit:** agreed, the right call since it holds the broker session.
