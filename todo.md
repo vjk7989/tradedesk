@@ -168,7 +168,7 @@ Detailed plan: `plan.md`.
 - O-12 · trade-mcp · api-docs walkForward partial folds + de-flake O-8 test (OWNER, after #70) [x]
 - TM2-45 · bt-service · central ns normaliser (TM2) [.]
 - TM2-46 · trade-mcp · DATA_DIR lock for revoke-all (TM2) [x]
-- O-13 · trade-mcp · in-run memory check misses JSON.parse loop (OWNER) [.] (investigating)
+- O-13 · trade-mcp · in-run memory check misses JSON.parse loop (OWNER) [x]
 - TM2-47 · deploy · container memory/CPU limits (TM2) [.]
 - TM2-48 · docs · SECURITY.md (TM2) [.]
 - TM2-49 · trade-mcp · TM2-35/46 tests green on Windows (TM2) [.]

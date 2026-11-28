@@ -110,3 +110,13 @@ Consequences: Options results are approximate around holiday-shifted expiries an
   - Binding arguments are capped at 1 MB JSON per call, 64 calls in flight, and memoryBytes of pending argument bytes. Calls over a cap are rejected inside the guest.
   - O-9 adds fail-closed global checks, in-guest size measurement and a cap on binding results.
 - **Consequences:** strategies and scripts must use plain arrays and objects. Backtests run in bt-service (Python), so they are unaffected.
+
+## ADR-19: Hard WASM memory maximum per sandbox run  (2026-11-28, status: accepted; amends ADR-18)
+- **Context:** O-13 found that native calls (JSON.parse, RegExp, join, sort, …) allocate transient WASM memory that the QuickJS limit doesn't count. The interrupt-based ceiling only polls every ~10k bytecodes, so a few large native calls could outgrow the soft ceiling before any check ran.
+- **Decision:**
+  - Each run's module is built with `newVariant(RELEASE_SYNC, { wasmMemory })`, a `WebAssembly.Memory` with a hard `maximum` of 16 MB baseline + memoryBytes + 16 MB.
+  - Growth past the maximum fails malloc, which surfaces in the guest as "memory limit exceeded".
+  - The JSON.parse guard (inputs over 16 KB, checked in a finally) and the post-run check remain as defence in depth.
+- **Consequences:**
+  - Host memory per run is hard-bounded whatever native call the guest makes, with no measurable overhead.
+  - Together with EXECUTE_MAX_CONCURRENT (O-10), worst-case trade-mcp memory is about base + N × (memoryBytes + 32 MB).
