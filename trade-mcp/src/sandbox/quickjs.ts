@@ -166,7 +166,7 @@ export async function runCode(code: string, bindings: Bindings, opts: RunOpts = 
     try {
       const install = vm.unwrapResult(
         vm.evalCode(
-          `(guard) => { const P = JSON.parse, Str = String; Object.defineProperty(JSON, "parse", { value: function parse(text, reviver) { const s = Str(text); const v = P(s, reviver); if (s.length > ${GUARD_MIN_CHARS} && guard()) throw new Error(${JSON.stringify(MEMORY_ERROR)}); return v; }, writable: true, configurable: true }); }`,
+          `(guard) => { const P = JSON.parse, Str = String; Object.defineProperty(JSON, "parse", { value: function parse(text, reviver) { const s = Str(text); if (s.length <= ${GUARD_MIN_CHARS}) return P(s, reviver); try { return P(s, reviver); } finally { if (guard()) throw new Error(${JSON.stringify(MEMORY_ERROR)}); } }, writable: true, configurable: true }); }`,
         ),
       );
       try {
