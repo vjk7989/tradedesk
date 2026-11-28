@@ -588,7 +588,9 @@ describe("stale detection", () => {
     release();
   });
 
-  it("same-host locks ignore the heartbeat: a dead pid with a fresh mtime is stale, a live pid with an old mtime is live", () => {
+  // POSIX-only: on Linux pid reuse is caught by the /proc start time, so the heartbeat is ignored for same-host locks.
+  // Windows has no start time, so there a live pid with an old heartbeat is stale (see the win32 variant below).
+  it.skipIf(IS_WIN)("same-host locks ignore the heartbeat: a dead pid with a fresh mtime is stale, a live pid with an old mtime is live", () => {
     const d1 = tmp();
     writeLock(d1, { pid: deadPid(), startedAt: "x", hostname: HOST });
     expect(checkLock(d1)).toBe("stale");
@@ -596,6 +598,24 @@ describe("stale detection", () => {
     writeLock(d2, liveLock(liveOther()));
     age(lockPath(d2), 10 * LIVE_WINDOW_MS);
     expect(checkLock(d2)).toBe("live");
+  });
+
+  // win32-only (TM2-49 S2): no start time on Windows, so a live pid counts only while its heartbeat is fresh.
+  it.runIf(IS_WIN)("win32: same-host dead pid is stale; a live pid is live with a fresh heartbeat, stale (and replaced) once older than the window", () => {
+    const d1 = tmp();
+    writeLock(d1, { pid: deadPid(), startedAt: "x", hostname: HOST });
+    expect(checkLock(d1)).toBe("stale");
+    const d2 = tmp();
+    writeLock(d2, liveLock(liveOther()));
+    expect(checkLock(d2)).toBe("live");
+    expect(() => acquireLock(d2)).toThrow(LockHeldError);
+    age(lockPath(d2), LIVE_WINDOW_MS + 1000);
+    expect(checkLock(d2)).toBe("stale");
+    const logs: string[] = [];
+    const release = acquireLock(d2, (m) => logs.push(m));
+    expect(logs.join()).toMatch(/replacing stale/);
+    expect(readLock(d2)).toMatchObject({ pid: process.pid });
+    release();
   });
 
   // POSIX-only: asserts the /proc start time (Linux).
