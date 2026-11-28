@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | TM2-55 | TM2 | ready | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
 | TM2-56 | TM2 | in progress | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
-| O-15 | OWNER | in progress | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
+| O-15 | OWNER | done | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
 | TM2-53 | TM2 | ready | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
 | TM2-54 | TM2 | in progress | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
 | TM2-50 | TM2 | merged #86 | coord/tasks/TM2-50.md | docs: thin-fold warning + no fixed hostname |
