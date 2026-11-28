@@ -3,7 +3,8 @@
 // child pid is the pid written into the lock).
 import { describe, it, expect, afterEach, afterAll, vi } from "vitest";
 import {
-  chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync,
+  chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync,
+  utimesSync, writeFileSync,
 } from "node:fs";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createServer, connect } from "node:net";
@@ -13,27 +14,33 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 vi.setConfig({ testTimeout: 90_000 });
 
-// Deterministic interleaving hooks: run "another process" exactly before this process's unlink/write.
+// Deterministic interleaving hooks: run "another process" exactly around this process's rename/link of the lock.
 const hook = vi.hoisted(() => ({
-  beforeUnlink: null as null | ((p: string) => void),
-  beforeWrite: null as null | (() => void),
+  beforeRename: null as null | ((src: string) => void),
+  afterRename: null as null | ((src: string) => void),
+  beforeLink: null as null | ((src: string, dst: string) => void),
 }));
 vi.mock("node:fs", async (orig) => {
   const real = await orig<typeof import("node:fs")>();
-  const unlinkSync = (p: import("node:fs").PathLike) => {
-    const h = hook.beforeUnlink;
-    if (h) { hook.beforeUnlink = null; h(String(p)); }
-    return real.unlinkSync(p);
+  const renameSync = (a: import("node:fs").PathLike, b: import("node:fs").PathLike) => {
+    const h = hook.beforeRename;
+    if (h) { hook.beforeRename = null; h(String(a)); }
+    real.renameSync(a, b);
+    const h2 = hook.afterRename;
+    if (h2) { hook.afterRename = null; h2(String(a)); }
   };
-  const writeSync = ((...a: unknown[]) => {
-    const h = hook.beforeWrite;
-    if (h) { hook.beforeWrite = null; h(); }
-    return (real.writeSync as (...x: unknown[]) => number)(...a);
-  }) as typeof real.writeSync;
-  return { ...real, default: { ...real, unlinkSync, writeSync }, unlinkSync, writeSync };
+  const linkSync = (a: import("node:fs").PathLike, b: import("node:fs").PathLike) => {
+    const h = hook.beforeLink;
+    if (h) { hook.beforeLink = null; h(String(a), String(b)); }
+    return real.linkSync(a, b);
+  };
+  return { ...real, default: { ...real, renameSync, linkSync }, renameSync, linkSync };
 });
 
-import { acquireLock, checkLock, classify, readLock, lockPath, LockHeldError, LOCK_NAME } from "../src/datadir-lock.js";
+import {
+  acquireLock, checkLock, classify, readLock, lockPath, startHeartbeat, LockHeldError, LockUnwritableError, LOCK_NAME,
+  HEARTBEAT_MS, LIVE_WINDOW_MS, YOUNG_CORRUPT_MS,
+} from "../src/datadir-lock.js";
 import { run } from "../src/oauth/revoke-cli.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,8 +69,10 @@ const tmp = () => {
 };
 
 afterEach(() => {
-  hook.beforeUnlink = null;
-  hook.beforeWrite = null;
+  hook.beforeRename = null;
+  hook.afterRename = null;
+  hook.beforeLink = null;
+  vi.useRealTimers();
   vi.restoreAllMocks();
   for (const d of roDirs.splice(0)) { try { chmodSync(d, 0o700); } catch { /* gone */ } }
   for (const p of procs.splice(0)) if (p.exitCode === null && p.signalCode === null) p.kill("SIGKILL");
@@ -91,6 +100,12 @@ function deadPid(): number {
 }
 const writeLock = (dir: string, v: unknown) =>
   writeFileSync(lockPath(dir), typeof v === "string" ? v : JSON.stringify(v));
+/** Backdate the lock heartbeat (mtime) by ms. */
+const age = (file: string, ms: number) => { const t = new Date(Date.now() - ms); utimesSync(file, t, t); };
+const OLD_CORRUPT = YOUNG_CORRUPT_MS + 3000; // past the "mid-write" window
+const OLD_HEARTBEAT = LIVE_WINDOW_MS + 5000; // past the live window
+const ageMsOf = (file: string) => Date.now() - statSync(file).mtimeMs;
+const leftovers = (dir: string) => readdirSync(dir).filter((n) => n !== LOCK_NAME && n.startsWith(LOCK_NAME));
 const liveLock = (pid: number) => ({ pid, startedAt: "2026-01-01T00:00:00.000Z", hostname: HOST, procStart: procStartOf(pid) });
 
 function seedStore(dir: string): string {
@@ -186,45 +201,118 @@ describe("concurrent starts", () => {
     }
   });
 
-  // BUG (TOCTOU): acquireLock classifies the stale lock, then unlinks the path without re-checking.
-  // If another process replaced the stale lock in between, its fresh live lock is deleted and both start.
-  it("deterministic: a stale lock replaced by a rival between our read and our unlink must not let both win", () => {
+  // Formerly failing (round 0): the stale-lock unlink could delete a rival's fresh lock. Now replacement is
+  // rename-aside + verify. A rival that swaps in a live lock just before our rename must win.
+  it("deterministic: a rival's live lock swapped in just before our rename-aside is restored and we refuse", () => {
     const dir = tmp();
     writeLock(dir, { pid: deadPid(), startedAt: "2020-01-01T00:00:00.000Z", hostname: HOST });
     const rival = liveLock(liveOther());
-    hook.beforeUnlink = (p) => {
-      // The rival saw the same stale lock, was faster: unlinked it and created its own.
-      unlinkSync(p);
-      writeFileSync(p, JSON.stringify(rival), { flag: "wx" });
+    hook.beforeRename = (src) => {
+      expect(src).toBe(lockPath(dir));
+      unlinkSync(src);
+      writeFileSync(src, JSON.stringify(rival), { flag: "wx" });
     };
     let release: (() => void) | undefined;
     let err: unknown;
     try { release = acquireLock(dir); } catch (e) { err = e; }
-    const onDisk = readLock(dir);
-    // Exactly one may hold it: either we refused, or the rival's lock is gone because the rival never existed.
     expect(err, "both processes believe they hold the lock").toBeInstanceOf(LockHeldError);
-    expect(onDisk).toMatchObject({ pid: rival.pid });
+    expect(readLock(dir)).toEqual(rival);
+    expect(leftovers(dir)).toEqual([]); // no aside/tmp/guard files left behind
     release?.();
   });
 
-  // BUG (half-written lock): the winner creates the file with O_EXCL and writes JSON afterwards. A rival
-  // that reads in between sees an empty file, classifies it "corrupt", deletes it and creates its own.
-  it("deterministic: a rival that sees our lock while it is still empty must not delete it", () => {
+  it("deterministic: a rival that links its lock into the gap right after our rename-aside wins; we refuse", () => {
     const dir = tmp();
+    writeLock(dir, { pid: deadPid(), startedAt: "2020-01-01T00:00:00.000Z", hostname: HOST });
     const rival = liveLock(liveOther());
-    hook.beforeWrite = () => {
-      // Rival: EEXIST on create, reads the (still empty) file, classifies it, replaces it.
-      const st = checkLock(dir);
-      if (st !== "live" && st !== "missing") {
-        unlinkSync(lockPath(dir));
-        writeFileSync(lockPath(dir), JSON.stringify(rival), { flag: "wx" });
-      }
+    hook.afterRename = (src) => {
+      expect(existsSync(src)).toBe(false);
+      writeFileSync(src, JSON.stringify(rival), { flag: "wx" });
     };
-    let release: (() => void) | undefined;
-    try { release = acquireLock(dir); } catch { /* refusing would also be fine */ }
-    // If acquireLock returned, the lock on disk must be ours; otherwise two servers run.
-    if (release) expect(readLock(dir), "both processes believe they hold the lock").toMatchObject({ pid: process.pid });
-    release?.();
+    let err: unknown;
+    try { acquireLock(dir)(); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(LockHeldError);
+    expect(readLock(dir)).toEqual(rival);
+    expect(leftovers(dir)).toEqual([]);
+  });
+
+  it("deterministic: a fresh replace guard held by another replacer blocks a concurrent replace", () => {
+    const dir = tmp();
+    const stale = { pid: deadPid(), startedAt: "2020-01-01T00:00:00.000Z", hostname: HOST };
+    writeLock(dir, stale);
+    let rivalErr: unknown;
+    let rivalSawGuard = false;
+    hook.beforeRename = () => {
+      // We hold the guard and are about to rename. A concurrent replacer must not get past the guard.
+      rivalSawGuard = existsSync(lockPath(dir) + ".replace");
+      try { acquireLock(dir)(); } catch (e) { rivalErr = e; }
+      expect(readLock(dir)).toEqual(stale); // the rival did not touch the stale lock
+    };
+    const release = acquireLock(dir);
+    expect(rivalSawGuard).toBe(true);
+    expect(rivalErr).toBeInstanceOf(Error);
+    expect(rivalErr).not.toBeInstanceOf(LockHeldError);
+    expect(String((rivalErr as Error).message)).toMatch(/could not acquire/);
+    expect(readLock(dir)).toMatchObject({ pid: process.pid });
+    expect(leftovers(dir)).toEqual([]); // guard removed after the replace
+    release();
+  });
+
+  it("a fresh guard file (crashed/slow replacer < 10 s ago) blocks stale replacement; startup fails, lock untouched", () => {
+    const dir = tmp();
+    const stale = JSON.stringify({ pid: deadPid(), startedAt: "x", hostname: HOST });
+    writeLock(dir, stale);
+    writeFileSync(lockPath(dir) + ".replace", "");
+    let err: unknown;
+    try { acquireLock(dir); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(LockHeldError);
+    expect(String((err as Error).message)).toMatch(/could not acquire/);
+    expect(readFileSync(lockPath(dir), "utf8")).toBe(stale);
+    expect(existsSync(lockPath(dir) + ".replace")).toBe(true);
+  });
+
+  it("an abandoned guard file older than 10 s is ignored and cleaned up", () => {
+    const dir = tmp();
+    writeLock(dir, { pid: deadPid(), startedAt: "x", hostname: HOST });
+    writeFileSync(lockPath(dir) + ".replace", "");
+    age(lockPath(dir) + ".replace", 11_000);
+    const logs: string[] = [];
+    const release = acquireLock(dir, (m) => logs.push(m));
+    expect(readLock(dir)).toMatchObject({ pid: process.pid });
+    expect(logs.join()).toMatch(/replacing stale/);
+    expect(existsSync(lockPath(dir) + ".replace")).toBe(false);
+    release();
+  });
+
+  // Formerly failing (round 0): the lock was created empty and written afterwards. Now a full temp file is
+  // link()ed into place, so the lock path never exists half-written.
+  it("the lock path never exists half-written: at link time the source already holds our full JSON", () => {
+    const dir = tmp();
+    let seen: unknown;
+    hook.beforeLink = (src, dst) => {
+      expect(dst).toBe(lockPath(dir));
+      expect(existsSync(dst)).toBe(false);
+      seen = JSON.parse(readFileSync(src, "utf8"));
+    };
+    const release = acquireLock(dir);
+    expect(seen).toMatchObject({ pid: process.pid, hostname: HOST });
+    expect(readLock(dir)).toEqual(seen);
+    expect(leftovers(dir)).toEqual([]);
+    release();
+  });
+
+  it("an empty lock younger than YOUNG_CORRUPT_MS is treated as a rival mid-write (live); older is replaced", () => {
+    const dir = tmp();
+    writeLock(dir, "");
+    expect(checkLock(dir)).toBe("live");
+    expect(() => acquireLock(dir)).toThrow(LockHeldError);
+    expect(readFileSync(lockPath(dir), "utf8")).toBe("");
+    age(lockPath(dir), OLD_CORRUPT);
+    expect(checkLock(dir)).toBe("corrupt");
+    const release = acquireLock(dir);
+    expect(readLock(dir)).toMatchObject({ pid: process.pid });
+    release();
   });
 });
 
@@ -308,9 +396,13 @@ describe("hostile lock content", () => {
     ["__proto__ pollution", '{"__proto__":{"pid":123,"hostname":"x"},"pid":"no"}'],
   ];
   for (const [name, content] of junk) {
-    it(`${name}: never live; startup replaces it; CLI proceeds; nothing throws`, () => {
+    it(`${name}: live while young (fail closed); once older than ${YOUNG_CORRUPT_MS} ms replaced on start, CLI proceeds`, () => {
       const dir = tmp();
       writeLock(dir, content);
+      expect(checkLock(dir)).toBe("live");
+      expect(() => acquireLock(dir)).toThrow(LockHeldError);
+      expect(readFileSync(lockPath(dir), "utf8")).toBe(content);
+      age(lockPath(dir), OLD_CORRUPT);
       expect(checkLock(dir)).toBe("corrupt");
       const logs: string[] = [];
       const release = acquireLock(dir, (m) => logs.push(m));
@@ -318,6 +410,7 @@ describe("hostile lock content", () => {
       expect(logs.join("\n")).toMatch(/replacing stale/);
       release();
       writeLock(dir, content);
+      age(lockPath(dir), OLD_CORRUPT);
       seedStore(dir);
       const r = runCli(["--force"], cliEnv(dir));
       expect(r.code).toBe(0);
@@ -342,6 +435,8 @@ describe("hostile lock content", () => {
   it("huge (20 MB) garbage lock: corrupt, replaced, CLI proceeds", () => {
     const dir = tmp();
     writeLock(dir, "{" + " ".repeat(20 * 1024 * 1024));
+    expect(checkLock(dir)).toBe("live"); // young
+    age(lockPath(dir), OLD_CORRUPT);
     expect(checkLock(dir)).toBe("corrupt");
     const release = acquireLock(dir);
     expect(readLock(dir)).toMatchObject({ pid: process.pid });
@@ -355,20 +450,18 @@ describe("hostile lock content", () => {
     expect(() => acquireLock(dir)).toThrow(LockHeldError);
   });
 
-  it("lock path is a directory: startup fails closed with a plain Error (no hang, dir untouched); CLI treats it as corrupt", () => {
+  it("lock path is a directory: unreadable => live (fail closed): startup refuses, CLI exits 4, dir untouched", () => {
     const dir = tmp();
     mkdirSync(lockPath(dir));
     writeFileSync(path.join(lockPath(dir), "keep"), "x");
-    expect(checkLock(dir)).toBe("corrupt");
-    let err: unknown;
-    try { acquireLock(dir); } catch (e) { err = e; }
-    expect(err).toBeInstanceOf(Error);
-    expect(err).not.toBeInstanceOf(LockHeldError);
-    expect(String((err as Error).message)).toMatch(/could not acquire/);
+    age(lockPath(dir), OLD_HEARTBEAT);
+    expect(checkLock(dir)).toBe("live");
+    expect(() => acquireLock(dir)).toThrow(LockHeldError);
     expect(readFileSync(path.join(lockPath(dir), "keep"), "utf8")).toBe("x");
-    seedStore(dir);
+    const store = seedStore(dir);
     const r = runCli(["--force"], cliEnv(dir));
-    expect(r.code).toBe(0);
+    expect(r.code).toBe(4);
+    expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
     noSecrets(r.out);
   });
 
@@ -404,24 +497,25 @@ describe("hostile lock content", () => {
     symlinkSync(target, lockPath(dir));
     let err: unknown;
     try { acquireLock(dir); } catch (e) { err = e; }
-    // Current behaviour: classify says "missing" (existsSync follows the link) but O_EXCL gets EEXIST,
-    // so after 5 attempts it throws "could not acquire". Safe, but the operator message is unhelpful.
+    // Current behaviour: readLock says "missing" (existsSync follows the link) but link() gets EEXIST,
+    // so after the retries it throws "could not acquire". Safe, but the operator message is unhelpful.
     expect(err).toBeInstanceOf(Error);
     expect(String((err as Error).message)).toMatch(/could not acquire/);
     expect(existsSync(target)).toBe(false);
     expect(checkLock(dir)).toBe("missing");
   });
 
-  it.skipIf(IS_ROOT)("unreadable lock file (mode 000) is classified corrupt: fails OPEN (documented, low risk)", () => {
+  it.skipIf(IS_ROOT)("unreadable lock file (mode 000) is live (fail closed): startup refuses, CLI exits 4", () => {
     const dir = tmp();
-    writeLock(dir, liveLock(liveOther()));
+    writeLock(dir, { pid: deadPid(), startedAt: "x", hostname: HOST }); // even dead content: we cannot know
     chmodSync(lockPath(dir), 0o000);
-    // Current behaviour: EACCES on read => "corrupt" => startup deletes it and the CLI proceeds,
-    // even though the holder may be live. Only reachable if server and CLI run as different users.
-    expect(checkLock(dir)).toBe("corrupt");
-    const release = acquireLock(dir);
-    expect(readLock(dir)).toMatchObject({ pid: process.pid });
-    release();
+    age(lockPath(dir), OLD_HEARTBEAT);
+    expect(checkLock(dir)).toBe("live");
+    expect(() => acquireLock(dir)).toThrow(LockHeldError);
+    expect(existsSync(lockPath(dir))).toBe(true);
+    const store = seedStore(dir);
+    expect(runCli(["--force"], cliEnv(dir)).code).toBe(4);
+    expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
   });
 });
 
@@ -462,15 +556,35 @@ describe("stale detection", () => {
     release();
   });
 
-  it("foreign hostname => replaced on start (logged with the hostname) even if the pid is alive here", () => {
+  it("foreign hostname with a fresh heartbeat => LIVE: startup refuses even if the pid means nothing here", () => {
     const dir = tmp();
-    writeLock(dir, { pid: liveOther(), startedAt: "x", hostname: "other-container-abc" });
-    expect(checkLock(dir)).toBe("foreign");
+    writeLock(dir, { pid: deadPid(), startedAt: "x", hostname: "other-container-abc" });
+    expect(checkLock(dir)).toBe("live");
+    expect(() => acquireLock(dir)).toThrow(/already running.*other-container-abc.*heartbeat \d+s ago/);
+    age(lockPath(dir), LIVE_WINDOW_MS - 3000);
+    expect(checkLock(dir)).toBe("live");
+  });
+
+  it("foreign hostname with a heartbeat older than LIVE_WINDOW_MS => stale: replaced on start, logged with the host", () => {
+    const dir = tmp();
+    writeLock(dir, { pid: liveOther(), startedAt: "x", hostname: "other-container-abc" }); // pid alive here: irrelevant
+    age(lockPath(dir), OLD_HEARTBEAT);
+    expect(checkLock(dir)).toBe("stale");
     const logs: string[] = [];
     const release = acquireLock(dir, (m) => logs.push(m));
-    expect(logs.join()).toMatch(/other-container-abc/);
+    expect(logs.join()).toMatch(/replacing stale.*other-container-abc/);
     expect(readLock(dir)).toMatchObject({ pid: process.pid, hostname: HOST });
     release();
+  });
+
+  it("same-host locks ignore the heartbeat: a dead pid with a fresh mtime is stale, a live pid with an old mtime is live", () => {
+    const d1 = tmp();
+    writeLock(d1, { pid: deadPid(), startedAt: "x", hostname: HOST });
+    expect(checkLock(d1)).toBe("stale");
+    const d2 = tmp();
+    writeLock(d2, liveLock(liveOther()));
+    age(lockPath(d2), 10 * LIVE_WINDOW_MS);
+    expect(checkLock(d2)).toBe("live");
   });
 
   it("written lock carries pid, ISO startedAt, hostname and this process's /proc start time", () => {
@@ -497,22 +611,28 @@ describe("revoke-cli vs the lock", () => {
     writeLock(dir, lock);
     const r = runCli(["--force"], cliEnv(dir));
     expect(r.code).toBe(4);
-    expect(r.out).toMatch(/trade-mcp is running; stop it first/);
+    expect(r.out).toMatch(/trade-mcp is running \(lock heartbeat \d+s ago\); stop it first, then wait 15 s/);
     expect(r.out).toMatch(/--force does not override/);
     expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
     expect(readFileSync(lockPath(dir), "utf8")).toBe(lock);
     noSecrets(r.out);
   });
 
-  it("live lock without --force => refused (usage exit 2, before the lock check), store byte-identical", () => {
-    // Note: this is exit 2, not 4: the no---force refusal precedes the lock check. Either way nothing changes.
+  it("live lock without --force, or with unknown args => exit 4 (lock checked first), store byte-identical", () => {
     const dir = tmp();
     const store = seedStore(dir);
     writeLock(dir, liveLock(liveOther()));
-    const r = runCli([], cliEnv(dir));
-    expect(r.code).toBe(2);
+    for (const argv of [[], ["--bogus"], ["--force", "--bogus"]]) {
+      const r = runCli(argv, cliEnv(dir));
+      expect(r.code, JSON.stringify(argv)).toBe(4);
+      expect(r.out).toMatch(/trade-mcp is running \(lock heartbeat/);
+      noSecrets(r.out);
+    }
     expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
-    noSecrets(r.out);
+  });
+
+  it("no lock: without --force still exit 2", () => {
+    expect(runCli([], cliEnv(tmp())).code).toBe(2);
   });
 
   it("live lock + --force + store missing => still exit 4 (lock checked first)", () => {
@@ -548,15 +668,30 @@ describe("revoke-cli vs the lock", () => {
     }
   });
 
-  it("foreign lock => proceeds with a warning naming the host", () => {
+  it("foreign lock: fresh heartbeat => exit 4; heartbeat older than the window => proceeds with a stale note", () => {
+    const dir = tmp();
+    const store = seedStore(dir);
+    writeLock(dir, { pid: liveOther(), startedAt: "x", hostname: "other-container-abc" });
+    const r1 = runCli(["--force"], cliEnv(dir));
+    expect(r1.code).toBe(4);
+    expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
+    age(lockPath(dir), OLD_HEARTBEAT);
+    const r2 = runCli(["--force"], cliEnv(dir));
+    expect(r2.code).toBe(0);
+    expect(r2.out).toMatch(/Note: ignoring stale/);
+    expect(r2.out).toMatch(/revoked 1 access, 1 refresh/);
+    noSecrets(r1.out + r2.out);
+  });
+
+  it("corrupt lock: young => exit 4; old => proceeds with a corrupt note", () => {
     const dir = tmp();
     seedStore(dir);
-    writeLock(dir, { pid: liveOther(), startedAt: "x", hostname: "other-container-abc" });
+    writeLock(dir, "{x");
+    expect(runCli(["--force"], cliEnv(dir)).code).toBe(4);
+    age(lockPath(dir), OLD_CORRUPT);
     const r = runCli(["--force"], cliEnv(dir));
     expect(r.code).toBe(0);
-    expect(r.out).toMatch(/Warning: .*another container \(other-container-abc\)/);
-    expect(r.out).toMatch(/revoked 1 access, 1 refresh/);
-    noSecrets(r.out);
+    expect(r.out).toMatch(/Note: ignoring corrupt/);
   });
 
   it("missing lock => proceeds silently about the lock", () => {
@@ -588,7 +723,7 @@ describe("revoke-cli vs the lock", () => {
       cwd: ROOT, encoding: "utf8", env: { ...process.env, ...cliEnv(dir) },
     });
     expect(r.status).toBe(4);
-    expect(r.stderr).toMatch(/trade-mcp is running; stop it first/);
+    expect(r.stderr).toMatch(/trade-mcp is running \(lock heartbeat \d+s ago\); stop it first/);
     expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
     noSecrets(r.stdout + r.stderr);
   });
@@ -645,6 +780,13 @@ describe("real trade-mcp process", () => {
     expect(readLock(dir)).toMatchObject({ pid: a.p.pid, hostname: HOST, procStart: procStartOf(a.p.pid!) });
     const lockA = readFileSync(lockPath(dir), "utf8");
 
+    // Heartbeat: backdate the mtime; the running server refreshes it within HEARTBEAT_MS.
+    age(lockPath(dir), 60_000);
+    const hbDeadline = Date.now() + HEARTBEAT_MS + 4000;
+    while (ageMsOf(lockPath(dir)) > 10_000 && Date.now() < hbDeadline) await new Promise((r) => setTimeout(r, 100));
+    expect(ageMsOf(lockPath(dir))).toBeLessThan(HEARTBEAT_MS + 1000);
+    expect(readFileSync(lockPath(dir), "utf8")).toBe(lockA); // heartbeat touches mtime only
+
     // CLI against the live server, as a real process
     seedStore(dir);
     const storeBefore = readFileSync(path.join(dir, "oauth.json"), "utf8");
@@ -668,6 +810,7 @@ describe("real trade-mcp process", () => {
     expect((await a.exited).code).toBe(0);
     expect(existsSync(lockPath(dir))).toBe(false);
 
+    // Same host: a SIGKILLed server's pid is dead, so its lock is stale immediately (no 15 s wait).
     const c = startServer(dir, pc);
     expect(await c.started, c.out()).toBe(true);
     c.p.kill("SIGKILL");
@@ -684,6 +827,42 @@ describe("real trade-mcp process", () => {
     expect((await d.exited).code).toBe(0);
     expect(existsSync(lockPath(dir))).toBe(false);
     noSecrets(a.out() + c.out() + d.out());
+  });
+
+  it("SIGKILLed server seen from another hostname: LIVE (start refused) while its heartbeat is < 15 s, then replaced", async () => {
+    const dir = tmp();
+    const [p1, p2, p3] = [await freePort(), await freePort(), await freePort()];
+    const a = startServer(dir, p1);
+    expect(await a.started, a.out()).toBe(true);
+    a.p.kill("SIGKILL");
+    await a.exited;
+    // Simulate the view from a different container: same lock, other hostname, fresh heartbeat.
+    const l = readLock(dir) as unknown as Record<string, unknown>;
+    expect(l.pid).toBe(a.p.pid);
+    writeLock(dir, { ...l, hostname: "crashed-container-1" });
+    age(lockPath(dir), LIVE_WINDOW_MS - 5000);
+    const b = startServer(dir, p2);
+    const eb = await b.exited;
+    expect(eb.code).toBe(1);
+    expect(b.out()).toMatch(/already running on this DATA_DIR.*crashed-container-1.*After a crash, wait up to 15s/);
+    expect(await portOpen(p2)).toBe(false);
+    expect(readLock(dir)).toMatchObject({ hostname: "crashed-container-1" });
+    // The CLI also refuses during the window.
+    const cli = spawnSync(process.execPath, ["--import", "tsx", CLI_TS, "--force"], {
+      cwd: ROOT, encoding: "utf8", env: { ...process.env, ...cliEnv(dir) },
+    });
+    expect(cli.status).toBe(4);
+    // Past the window: replaced.
+    age(lockPath(dir), OLD_HEARTBEAT);
+    const c = startServer(dir, p3);
+    expect(await c.started, c.out()).toBe(true);
+    expect(c.out()).toMatch(/replacing stale trade-mcp\.lock.*crashed-container-1/);
+    expect(readLock(dir)).toMatchObject({ pid: c.p.pid, hostname: HOST });
+    c.p.kill("SIGTERM");
+    expect((await c.exited).code).toBe(0);
+    expect(existsSync(lockPath(dir))).toBe(false);
+    expect(leftovers(dir)).toEqual([]);
+    noSecrets(a.out() + b.out() + c.out() + cli.stdout + cli.stderr);
   });
 
   it("listen failure (port already in use) after the lock is taken does not leave the lock behind", async () => {
@@ -706,14 +885,16 @@ describe("real trade-mcp process", () => {
 
 describe.skipIf(IS_ROOT)("DATA_DIR not writable (behaviour change vs main)", () => {
   // On main (no lock) trade-mcp starts and binds with a read-only DATA_DIR (writes fail later, per request).
-  // Now startup fails fast: acquireLock's O_EXCL create throws EACCES => "fatal: EACCES ..." exit 1, port not bound.
+  // Now startup fails fast: LockUnwritableError => "fatal: cannot create <lock>: EACCES; ..." exit 1, port not bound.
   it("acquireLock throws EACCES (not LockHeldError) and writes nothing", () => {
     const dir = tmp();
     chmodSync(dir, 0o555);
     roDirs.push(dir);
     let err: unknown;
     try { acquireLock(dir); } catch (e) { err = e; }
-    expect((err as NodeJS.ErrnoException).code).toBe("EACCES");
+    expect(err).toBeInstanceOf(LockUnwritableError);
+    expect((err as LockUnwritableError).code).toBe("EACCES");
+    expect((err as Error).message).toMatch(/^cannot create .*trade-mcp\.lock: EACCES; audit and risk-state need a writable DATA_DIR/);
     expect(err).not.toBeInstanceOf(LockHeldError);
     expect(existsSync(lockPath(dir))).toBe(false);
   });
@@ -722,7 +903,8 @@ describe.skipIf(IS_ROOT)("DATA_DIR not writable (behaviour change vs main)", () 
     const parent = tmp();
     chmodSync(parent, 0o555);
     roDirs.push(parent);
-    expect(() => acquireLock(path.join(parent, "data"))).toThrow(/EACCES/);
+    expect(() => acquireLock(path.join(parent, "data"))).toThrow(LockUnwritableError);
+    expect(() => acquireLock(path.join(parent, "data"))).toThrow(/cannot create .*: EACCES/);
   });
 
   it("real process: exits 1 with a fatal EACCES message and does not bind the port", async () => {
@@ -733,7 +915,7 @@ describe.skipIf(IS_ROOT)("DATA_DIR not writable (behaviour change vs main)", () 
     const s = startServer(dir, port);
     const e = await s.exited;
     expect(e.code).toBe(1);
-    expect(s.out()).toMatch(/fatal: EACCES/);
+    expect(s.out()).toMatch(/fatal: cannot create .*trade-mcp\.lock: EACCES; audit and risk-state need a writable DATA_DIR/);
     expect(s.out()).not.toMatch(/trade-mcp started/);
     expect(await portOpen(port)).toBe(false);
     noSecrets(s.out());
@@ -746,5 +928,76 @@ describe.skipIf(IS_ROOT)("DATA_DIR not writable (behaviour change vs main)", () 
     chmodSync(dir, 0o555);
     roDirs.push(dir);
     expect(runCli(["--force"], cliEnv(dir)).code).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------- heartbeat (unit)
+
+describe("heartbeat", () => {
+  it("refreshes our lock's mtime every HEARTBEAT_MS; stops refreshing after stop()", () => {
+    const dir = tmp();
+    const release = acquireLock(dir);
+    age(lockPath(dir), 60_000);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const stop = startHeartbeat(dir);
+    vi.advanceTimersByTime(HEARTBEAT_MS - 1);
+    expect(ageMsOf(lockPath(dir))).toBeGreaterThan(50_000); // not yet
+    vi.advanceTimersByTime(1);
+    expect(ageMsOf(lockPath(dir))).toBeLessThan(2000);
+    age(lockPath(dir), 60_000);
+    vi.advanceTimersByTime(HEARTBEAT_MS);
+    expect(ageMsOf(lockPath(dir))).toBeLessThan(2000);
+    stop();
+    age(lockPath(dir), 60_000);
+    vi.advanceTimersByTime(5 * HEARTBEAT_MS);
+    expect(ageMsOf(lockPath(dir))).toBeGreaterThan(50_000);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+    release();
+  });
+
+  it("the interval timer is unref()'d (does not keep the process alive)", () => {
+    const dir = tmp();
+    const release = acquireLock(dir);
+    const spy = vi.spyOn(globalThis, "setInterval");
+    const stop = startHeartbeat(dir);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][1]).toBe(HEARTBEAT_MS);
+    const t = spy.mock.results[0].value as NodeJS.Timeout;
+    expect(t.hasRef()).toBe(false);
+    stop();
+    release();
+  });
+
+  it("never touches a lock another process now owns, never recreates a deleted lock, never throws", () => {
+    const dir = tmp();
+    const release = acquireLock(dir);
+    const logs: string[] = [];
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const stop = startHeartbeat(dir, (m) => logs.push(m));
+    const other = liveLock(liveOther());
+    writeLock(dir, other);
+    age(lockPath(dir), 60_000);
+    vi.advanceTimersByTime(HEARTBEAT_MS);
+    expect(ageMsOf(lockPath(dir))).toBeGreaterThan(50_000);
+    expect(readLock(dir)).toEqual(other);
+    unlinkSync(lockPath(dir));
+    expect(() => vi.advanceTimersByTime(HEARTBEAT_MS)).not.toThrow();
+    expect(existsSync(lockPath(dir))).toBe(false);
+    stop();
+    vi.useRealTimers();
+    release();
+  });
+
+  it("a crashed foreign server stops heartbeating: its lock goes live -> stale exactly at LIVE_WINDOW_MS", () => {
+    const dir = tmp();
+    writeLock(dir, { pid: 4242, startedAt: "x", hostname: "gone-container" });
+    age(lockPath(dir), LIVE_WINDOW_MS - 1000);
+    expect(checkLock(dir)).toBe("live");
+    age(lockPath(dir), LIVE_WINDOW_MS + 1000);
+    expect(checkLock(dir)).toBe("stale");
+    expect(classify({ pid: 4242, startedAt: "x", hostname: "gone-container" }, undefined, LIVE_WINDOW_MS - 1)).toBe("live");
+    expect(classify({ pid: 4242, startedAt: "x", hostname: "gone-container" }, undefined, LIVE_WINDOW_MS)).toBe("stale");
+    expect(classify({ pid: 4242, startedAt: "x", hostname: "gone-container" })).toBe("stale"); // unknown age = old
   });
 });

@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, utimesSync } from "node:fs";
 import { spawn, type ChildProcess } from "node:child_process";
 import { hostname, tmpdir } from "node:os";
 import path from "node:path";
-import { acquireLock, checkLock, lockPath, LockHeldError } from "../src/datadir-lock.js";
+import { acquireLock, checkLock, lockPath, LockHeldError, LIVE_WINDOW_MS } from "../src/datadir-lock.js";
 import { run } from "../src/oauth/revoke-cli.js";
 
 const kids: ChildProcess[] = [];
@@ -18,6 +18,8 @@ const writeLock = (d: string, o: object) => writeFileSync(lockPath(d), JSON.stri
 const quiet = () => { const w = process.stderr.write.bind(process.stderr); const o = process.stdout.write.bind(process.stdout);
   process.stderr.write = (() => true) as never; process.stdout.write = (() => true) as never;
   return () => { process.stderr.write = w; process.stdout.write = o; }; };
+/** Backdate the lock heartbeat (mtime) past the live window. */
+const age = (d: string, ms = LIVE_WINDOW_MS + 5000) => { const t = new Date(Date.now() - ms); utimesSync(lockPath(d), t, t); };
 function cli(d: string, args: string[]) { const r = quiet(); try { return run(args, { DATA_DIR: d } as NodeJS.ProcessEnv); } finally { r(); } }
 
 describe("TM2-46 DATA_DIR lock", () => {
@@ -68,13 +70,16 @@ describe("TM2-46 DATA_DIR lock", () => {
     expect(checkLock(d)).toBe("stale");
   });
 
-  it("a lock from another hostname is foreign and replaced on start", () => {
+  it("a lock from another hostname is live while its heartbeat is fresh, stale and replaced once older than the window", () => {
     const d = dir();
     writeLock(d, { pid: 1, hostname: "some-other-container" });
-    expect(checkLock(d)).toBe("foreign");
+    expect(checkLock(d)).toBe("live");
+    expect(() => acquireLock(d)).toThrow(LockHeldError);
+    age(d);
+    expect(checkLock(d)).toBe("stale");
     const logs: string[] = [];
     acquireLock(d, (m) => logs.push(m))();
-    expect(logs.join()).toMatch(/another host/);
+    expect(logs.join()).toMatch(/replacing stale.*some-other-container/);
   });
 
   it("release does not remove a lock someone else now owns", () => {
@@ -109,9 +114,11 @@ describe("TM2-46 DATA_DIR lock", () => {
       expect(cli(d, ["--force"])).toBe(0);
     });
 
-    it("proceeds over a foreign-hostname lock (new container, documented limit)", () => {
+    it("foreign-hostname lock: refuses (4) while the heartbeat is fresh, proceeds once it is older than the window", () => {
       const d = dir();
       writeLock(d, { pid: 1, hostname: "old-container" });
+      expect(cli(d, ["--force"])).toBe(4);
+      age(d);
       expect(cli(d, ["--force"])).toBe(0);
     });
 
