@@ -1,4 +1,5 @@
 // End-to-end smoke: fake OpenAlgo -> trade-mcp (paper) -> bt-service; MCP client calls search/execute.
+// Also: fake Delta (scripted SMA cross) -> paper-bot (sim execution) -> API/CSV/dashboard (steps 19-23).
 // Usage: node e2e/smoke.mjs
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
@@ -343,6 +344,105 @@ class SignalEngine:
     assert(h.ok, `/healthz status ${h.status}`);
   });
   await full.close();
+
+  // ---- paper-bot against a fake Delta API (steps 19-23) ----
+  const hasUv = spawnSync("uv", ["--version"], { stdio: "ignore" }).status === 0;
+  if (!hasUv) {
+    console.log("SKIP: uv not found, paper-bot steps 19-23 not run");
+    return;
+  }
+  const [dtPort, pbPort] = [await freePort(), await freePort()];
+  const CAPITAL = 10000, NOTIONAL = 1000, FEE = 0.0005, SLIP = 0.0002; // paper-bot defaults for fee/slippage, pinned below
+  const delta = start("fake-delta", process.execPath, [path.join(ROOT, "e2e", "fake_delta.mjs"), String(dtPort), "60"], {});
+  const pbData = mkdtempSync(path.join(tmp, "pb-"));
+  const pyMain =
+    "import logging, uvicorn; from paper_bot.config import Config; from paper_bot.web import create_app; " +
+    "logging.basicConfig(level=logging.INFO); " +
+    `uvicorn.run(create_app(Config.from_env()), host='127.0.0.1', port=${pbPort})`;
+  const pb = start("paper-bot", "uv", ["run", "--directory", "paper-bot", "python", "-c", pyMain], {
+    DELTA_BASE_URL: `http://127.0.0.1:${dtPort}`,
+    DATA_DIR: pbData,
+    INTERVAL_SEC: "2",
+    RESOLUTION: "1m",
+    SYMBOLS: "BTCUSD",
+    FAST: "2",
+    SLOW: "5",
+    EXECUTION: "sim",
+    START_CAPITAL_USD: String(CAPITAL),
+    NOTIONAL_USD: String(NOTIONAL),
+    TAKER_FEE: String(FEE),
+    SLIPPAGE: String(SLIP),
+    ALLOW_SHORT: "true",
+  });
+  await waitHealth(`http://127.0.0.1:${dtPort}/healthz`, delta);
+  await waitHealth(`http://127.0.0.1:${pbPort}/healthz`, pb);
+  console.log(`up: fake-delta=${dtPort} paper-bot=${pbPort}`);
+  const pbUrl = `http://127.0.0.1:${pbPort}`;
+  const getJson = async (p) => (await fetch(pbUrl + p)).json();
+  const until = async (what, fn, ms = 60_000) => {
+    const end = Date.now() + ms;
+    let last;
+    while (Date.now() < end) {
+      if (pb.exitCode !== null) throw new Error(`paper-bot exited:\n${pb.log.slice(-1500)}`);
+      try {
+        last = await fn();
+        if (last) return last;
+      } catch (e) {
+        last = e;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    throw new Error(`timeout waiting for ${what}; last=${JSON.stringify(last)?.slice(0, 300)}\n${pb.log.slice(-800)}`);
+  };
+
+  await step("19 paper-bot decision rows appear: tick 1 'no cross' hold, then >= 2 rows", async () => {
+    const ds = await until("2 decisions", async () => {
+      const d = await getJson("/api/decisions");
+      return d.length >= 2 && d;
+    });
+    const first = ds[ds.length - 1];
+    assert(first.action === "hold" && /no cross/.test(first.reason), `first decision: ${JSON.stringify(first)}`);
+    assert(first.close === 90, `tick 1 used close ${first.close}, expected 90 (forming candle close 1000 must be ignored)`);
+  });
+  await step("20 paper-bot opens a long on the scripted cross (one open trade, decision 'open')", async () => {
+    const tr = await until("open trade", async () => {
+      const t = await getJson("/api/trades");
+      return t.length >= 1 && t;
+    });
+    assert(tr.length === 1, `expected exactly 1 trade, got ${tr.length}: ${JSON.stringify(tr)}`);
+    assert(tr[0].kind === "open" && tr[0].side === "buy" && tr[0].symbol === "BTCUSD", JSON.stringify(tr[0]));
+    const ds = await getJson("/api/decisions");
+    const op = ds.filter((d) => d.action === "open");
+    assert(op.length === 1 && /crossed above/.test(op[0].reason) && op[0].close === 120, `open decisions: ${JSON.stringify(op)}`);
+    const pos = await getJson("/api/positions");
+    assert(pos.length === 1 && pos[0].side === "long", `positions: ${JSON.stringify(pos)}`);
+  });
+  await step("21 /api/summary equity reflects fee + slippage (capital - 0.5 fee - 0.2 slip)", async () => {
+    const s = await until("summary equity", async () => {
+      const x = await getJson("/api/summary");
+      return x.trades === 1 && x;
+    });
+    const fee = NOTIONAL * FEE; // qty * fill * fee == notional * fee, independent of the fill price
+    const expected = CAPITAL - fee - NOTIONAL * SLIP;
+    assert(s.equity < CAPITAL - fee + 1e-9, `equity ${s.equity} not below capital - fee (${CAPITAL - fee})`);
+    assert(Math.abs(s.equity - expected) < 0.01, `equity ${s.equity}, expected ${expected} (capital ${CAPITAL} - fee ${fee} - slippage ${NOTIONAL * SLIP})`);
+  });
+  await step("22 GET /api/trades.csv -> 200, text/csv, header row + the open trade", async () => {
+    const r = await fetch(`${pbUrl}/api/trades.csv`);
+    assert(r.status === 200, `status ${r.status}`);
+    const ct = r.headers.get("content-type") ?? "";
+    assert(ct.startsWith("text/csv"), `content-type ${ct}`);
+    const lines = (await r.text()).trim().split(/\r?\n/);
+    assert(lines[0].split(",").includes("symbol") && lines[0].split(",").includes("fee"), `header row: ${lines[0]}`);
+    assert(lines.length === 2 && lines[1].includes("BTCUSD"), `csv lines: ${JSON.stringify(lines)}`);
+  });
+  await step("23 dashboard GET / -> 200, HTML with paper-bot title, PAPER tag, BTCUSD", async () => {
+    const r = await fetch(`${pbUrl}/`);
+    assert(r.status === 200, `status ${r.status}`);
+    assert((r.headers.get("content-type") ?? "").includes("text/html"), `content-type ${r.headers.get("content-type")}`);
+    const h = await r.text();
+    assert(h.includes("<title>paper-bot</title>") && h.includes("PAPER") && h.includes("BTCUSD"), `html head: ${h.slice(0, 300)}`);
+  });
 }
 
 try {
