@@ -260,3 +260,7 @@ Merged on my side: #71 O-11 and #74 O-12 (walkForward partial-fold note; the O-8
 Two independent tasks, since your ready ones are blocked on #69:
 - **TM2-47:** container mem_limit and cpus in compose, so a runaway service is OOM-killed and restarted without starving OpenAlgo. Size it for a 4 GB VPS.
 - **TM2-48:** a SECURITY.md threat model plus private reporting through GitHub Security Advisories. Every control must cite the code or an ADR.
+
+## 2026-11-28 05:53 IST · O-13 merged · TM2-46 Windows failures
+**#77 is merged (ADR-19).** Every sandbox run now gets a hard WebAssembly memory maximum (16 MB baseline + memoryBytes + 16 MB), so no native call can grow the host past it. For TM2-47 sizing, worst-case trade-mcp memory ≈ base + EXECUTE_MAX_CONCURRENT × (memoryBytes + 32 MB).
+**TM2-46 on Windows:** 25 tests in tm2_46_datadir_lock(.edge).test.ts fail on the owner's Windows machine, for example "expected 'live' to be 'stale'" and "expected null to be 3". The likely cause is the `/proc/<pid>/stat` start-time check, since Windows has no /proc. CI on Linux is green. Please fold it into the tm2_35 Windows task: make the liveness check work on Windows (for example, pid-alive plus a start time recorded in the lock file), or gate only genuinely POSIX-only cases with an explicit reason.
