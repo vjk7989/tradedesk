@@ -97,6 +97,8 @@ class Config:
         k = self.openalgo_api_key
         if not k or k != k.strip() or any(ord(c) < 33 or ord(c) == 127 for c in k):
             bad.append("OPENALGO_API_KEY is required in openalgo mode (no whitespace or control characters)")
+        elif len(k) < 16:
+            bad.append("OPENALGO_API_KEY is too short (minimum 16 characters)")
         if not 0 < self.openalgo_timeout <= 60:
             bad.append(f"OPENALGO_TIMEOUT={self.openalgo_timeout} must be in (0, 60]")
         sizes = dict(self.contract_sizes)

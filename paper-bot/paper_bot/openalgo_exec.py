@@ -49,9 +49,11 @@ class OpenAlgoExec:
         return "OpenAlgoExec()"
 
     def redact(self, s):
-        """Remove the key and any >= 8-char prefix or suffix of it (longest first). Applied BEFORE any truncation."""
+        """Remove the full key, then any >= 8-char prefix or suffix of it (longest first). Applied BEFORE any truncation."""
         s, k = str(s), self._key
-        for n in range(len(k), 7, -1):
+        if k:
+            s = s.replace(k, "[REDACTED]")  # the full key first, at any length
+        for n in range(len(k) - 1, 7, -1):
             for frag in {k[:n], k[-n:]}:
                 s = s.replace(frag, "[REDACTED]")
         return s

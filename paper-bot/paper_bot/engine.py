@@ -113,7 +113,7 @@ class Engine:
         sizes = dict(self.cfg.contract_sizes)
         for p in D.rows(self.db, "SELECT symbol, qty FROM positions"):
             size = sizes.get(p["symbol"])
-            if not size or abs(p["qty"] / size - round(p["qty"] / size)) > 1e-6 or round(p["qty"] / size) < 1:
+            if not size or abs(p["qty"] / size - round(p["qty"] / size)) > 1e-9 or round(p["qty"] / size) < 1:
                 raise RuntimeError(f"EXECUTION=openalgo refused to start: open position {p['symbol']} qty "
                                    f"{p['qty']:g} is not a whole number of contracts (opened under sim?); "
                                    "use a fresh DATA_DIR when switching to openalgo")
@@ -136,7 +136,8 @@ class Engine:
         if self._halted(sym):
             return self.ox.refused(self._howto(sym))
         self._sent.add(sym)
-        self.db.execute("COMMIT")
+        if self.db.in_transaction:  # production always runs inside _txn; guard direct calls
+            self.db.execute("COMMIT")
         self.db.execute("BEGIN IMMEDIATE")
         D.set_state(self.db, self._inflight_key(sym), f"candle {ct} {side} {contracts}")
         self.db.execute("COMMIT")
