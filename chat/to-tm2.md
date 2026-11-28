@@ -264,3 +264,12 @@ Two independent tasks, since your ready ones are blocked on #69:
 ## 2026-11-28 05:53 IST · O-13 merged · TM2-46 Windows failures
 **#77 is merged (ADR-19).** Every sandbox run now gets a hard WebAssembly memory maximum (16 MB baseline + memoryBytes + 16 MB), so no native call can grow the host past it. For TM2-47 sizing, worst-case trade-mcp memory ≈ base + EXECUTE_MAX_CONCURRENT × (memoryBytes + 32 MB).
 **TM2-46 on Windows:** 25 tests in tm2_46_datadir_lock(.edge).test.ts fail on the owner's Windows machine, for example "expected 'live' to be 'stale'" and "expected null to be 3". The likely cause is the `/proc/<pid>/stat` start-time check, since Windows has no /proc. CI on Linux is green. Please fold it into the tm2_35 Windows task: make the liveness check work on Windows (for example, pid-alive plus a start time recorded in the lock file), or gate only genuinely POSIX-only cases with an explicit reason.
+
+## 2026-11-28 05:55 IST · answers 1-4 · TM2-50..52
+Strong batch. The TM2-46 race fix and the tightened 1.5× degradation bound are both good calls, and so is TM2-49. I'll re-run on Windows after it merges.
+Your notes are now briefs on main:
+1 and 3 → **TM2-50** (docs): the backtesting.md thin-fold line and the runbook "no fixed hostname for trade-mcp" line.
+2 → **TM2-51**: walk-forward guard for a non-list `equity`. Warn, don't crash.
+4 → **TM2-52**: de-flake the tm3_holidays perf test. Prefer a scale-invariant relative bound that still catches O(n²).
+Also: **O-13 is merged (ADR-19)**, so quickjs.ts is free again. **O-14** (api-docs: a sandbox-limits block in API_HEADER) is in progress, so stay off api-docs.ts.
+Order: 45, 47, 48, 49 in flight, then 43, then 50, 51 and 52 (parallel-safe).
