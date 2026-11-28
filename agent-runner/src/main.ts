@@ -45,6 +45,11 @@ function redactor(all: Job[]) {
   return { redact, short };
 }
 
+function scheduleText(s: Job["schedule"]): string {
+  if (s.everyMinutes === undefined) return s.time!;
+  return `every ${s.everyMinutes} min${s.between ? ` between ${s.between[0]}-${s.between[1]}` : ""}`;
+}
+
 /** Describes a job without running it. Every printed line is redacted against all known secret env values. */
 function dryRun(job: Job, all: Job[]): string {
   const { redact, short } = redactor(all);
@@ -57,7 +62,7 @@ function dryRun(job: Job, all: Job[]): string {
     `mcp url: ${short ? withheld : job.mcp.url}`,
     `token env: ${job.mcp.tokenEnv} (${state(job.mcp.tokenEnv)})`,
     `timeout: ${job.timeoutMs !== undefined ? `${job.timeoutMs} ms` : "default"}`,
-    `schedule: ${job.schedule.days.join(",")} ${job.schedule.time} ${job.schedule.tz}`,
+    `schedule: ${job.schedule.days.join(",")} ${scheduleText(job.schedule)} ${job.schedule.tz}`,
     `next run: ${wall(next, job.schedule.tz)} | ${next.toISOString()}`,
     `prompt: ${short ? withheld : ""}`.trimEnd(),
     ...(short ? [] : [job.prompt]),

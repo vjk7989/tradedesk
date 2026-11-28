@@ -9,7 +9,9 @@ export type Day = (typeof DAYS)[number];
 
 export interface Schedule {
   days: Day[];
-  time: string; // HH:MM
+  time?: string; // HH:MM; exactly one of time / everyMinutes
+  everyMinutes?: number; // integer 5..1440, slots at local minute 0 then every N minutes
+  between?: [string, string]; // HH:MM..HH:MM local, both ends inclusive; only with everyMinutes
   tz: "Asia/Kolkata" | "UTC";
 }
 
@@ -48,7 +50,28 @@ export function parseJobs(raw: unknown): Job[] {
     if (!Array.isArray(s.days) || s.days.length === 0 || !s.days.every((d: unknown) => DAYS.includes(d as Day))) {
       bad("schedule.days must be a non-empty list of Mon..Sun");
     }
-    if (typeof s.time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time)) bad("schedule.time must be HH:MM");
+    const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const hasTime = s.time !== undefined;
+    const hasEvery = s.everyMinutes !== undefined;
+    if (hasTime && hasEvery) bad(`schedule must have exactly one of time or everyMinutes, not both (job "${o.name}")`);
+    if (!hasTime && !hasEvery) bad(`schedule must have exactly one of time or everyMinutes (job "${o.name}")`);
+    let between: [string, string] | undefined;
+    if (hasTime) {
+      if (typeof s.time !== "string" || !HHMM.test(s.time)) bad("schedule.time must be HH:MM");
+      if (s.between !== undefined) bad(`schedule.between is only allowed with everyMinutes (job "${o.name}")`);
+    } else {
+      if (!Number.isInteger(s.everyMinutes) || s.everyMinutes < 5 || s.everyMinutes > 1440) {
+        bad(`schedule.everyMinutes must be an integer from 5 to 1440 (job "${o.name}")`);
+      }
+      if (s.between !== undefined) {
+        const b = s.between;
+        if (!Array.isArray(b) || b.length !== 2 || !b.every((x: unknown) => typeof x === "string" && HHMM.test(x))) {
+          bad(`schedule.between must be ["HH:MM","HH:MM"] (job "${o.name}")`);
+        }
+        if (b[0] >= b[1]) bad(`schedule.between start must be before end, no overnight windows (job "${o.name}")`);
+        between = [b[0], b[1]];
+      }
+    }
     if (s.tz !== "Asia/Kolkata" && s.tz !== "UTC") bad('schedule.tz must be "Asia/Kolkata" or "UTC"');
     if (!BACKENDS.includes(o.backend)) bad("backend must be claude|codex|gemini|api|api-openai|api-gemini");
     if (typeof o.prompt !== "string" || !o.prompt.trim()) bad("prompt must be a non-empty string");
@@ -75,7 +98,9 @@ export function parseJobs(raw: unknown): Job[] {
     if (typeof o.outputDir !== "string" || !o.outputDir) bad("outputDir must be a non-empty string");
     return {
       name: o.name,
-      schedule: { days: s.days, time: s.time, tz: s.tz },
+      schedule: hasTime
+        ? { days: s.days, time: s.time, tz: s.tz }
+        : { days: s.days, everyMinutes: s.everyMinutes, ...(between ? { between } : {}), tz: s.tz },
       backend: o.backend,
       prompt: o.prompt,
       mcp: { name: o.mcp.name, url: o.mcp.url, tokenEnv: o.mcp.tokenEnv },
