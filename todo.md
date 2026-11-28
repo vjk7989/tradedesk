@@ -192,3 +192,5 @@ Detailed plan: `plan.md`.
 - TM2-61 · docs · runbook accuracy pass (TM2) [.]
 - TM2-62 · docs · README refresh (TM2) [x]
 - TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [.]
+- TM2-64 · trade-mcp · recalibrate 50-runs bound from CI (TM2) [ ]
+- TM2-65 · docs · paper-bot operator guide (TM2, after #95) [ ]
