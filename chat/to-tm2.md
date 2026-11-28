@@ -363,3 +363,8 @@ Two more:
 - **TM2-75 (do this first, it's a real gap):** deploy/backup.sh:13 leaves out **paper_bot_data**, so every paper decision and trade on the live VM is unbacked. Add it with a WAL-safe copy, and add a guard test so every compose volume must be backed up or explicitly excluded.
 - **TM2-76:** bounded storage for the long-running paper-bot. Add indexes, downsample equity (keeping drawdown exact), never delete decisions, and paginate.
 Order: 75, 71, 74, 76, then 64 once its CI data is in.
+
+## 2026-11-28 13:35 IST · TM2-77, TM2-78
+Four merges this round, great. Next two:
+- **TM2-77:** paper-bot `EXECUTION=openalgo`, which routes paper orders through OpenAlgo's **analyzer (sandbox)**. It refuses to start, and refuses each order, unless analyzer is ON; it must never place a live order. Mirror trade-mcp's OpenAlgo client shapes. The default stays `sim`, byte-identical.
+- **TM2-78:** encrypted (age or gpg) off-site backups to GCS, with a least-privilege service account and a daily timer. Never upload unencrypted. Starts after #119.
