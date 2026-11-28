@@ -71,6 +71,7 @@ Orders are refused while the file `/data/KILL` exists in the trade-mcp container
 docker compose exec trade-mcp touch /data/KILL     # halt
 docker compose exec trade-mcp rm /data/KILL        # resume
 ```
+Don't set a fixed `hostname:` for trade-mcp in compose; the DATA_DIR lock's same-host pid check relies on per-container hostnames (the 5 s heartbeat and 15 s live window still cover it).
 Hard stop: `docker compose stop trade-mcp`. Also disable the OpenAlgo API key or log out the broker in the UI.
 
 ## 10. Going live checklist
