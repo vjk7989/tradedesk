@@ -197,7 +197,10 @@ def walk_forward(
             }
         )
 
-        equity = test_res.get("equity") or []
+        equity = test_res.get("equity")
+        if not isinstance(equity, list) or not all(isinstance(pt, dict) for pt in equity):
+            warnings.append(f"fold {i}: unexpected equity shape ({type(equity).__name__})")
+            equity = []
         scale = 1.0
         if prev_last is not None:
             first = _finite(equity[0].get("value")) if equity else None
