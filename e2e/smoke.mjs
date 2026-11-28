@@ -318,16 +318,16 @@ class SignalEngine:
     for (const s of [MCP_TOKEN, MCP_RO, BT_TOKEN, API_KEY]) assert(!j.includes(s), "token value found in audit.recent output");
   });
   const BUSY = "busy: too many concurrent executes, retry shortly";
-  await step("17 EXECUTE_MAX_CONCURRENT=2: 5 concurrent ~1s executes -> >=2 ok, rest exact busy text, follow-up ok", async () => {
-    const spin = "const end = Date.now() + 1000; let n = 0; while (Date.now() < end) { await Promise.resolve(); n++; } return n > 0;";
+  await step("17 EXECUTE_MAX_CONCURRENT=2: 5 concurrent ~1.5s executes (host-yielding) -> exactly 2 ok, 3 exact busy text, follow-up ok", async () => {
+    // Each loop iteration round-trips to the fake OpenAlgo over HTTP, so the host event loop runs and the 5 executes truly overlap.
+    const spin = "const end = Date.now() + 1500; let n = 0; while (Date.now() < end) { await account.funds(); n++; } return n > 0;";
     const clients = await Promise.all([1, 2, 3, 4, 5].map(() => connect(MCP_TOKEN)));
     try {
       const rs = await Promise.all(clients.map((c) => exec(c, spin)));
       const ok = rs.filter((r) => r.ok);
       const busy = rs.filter((r) => !r.ok && r.error === BUSY);
-      assert(ok.length >= 2, `only ${ok.length} succeeded: ${JSON.stringify(rs)}`);
-      assert(ok.length + busy.length === 5, `unexpected results: ${JSON.stringify(rs)}`);
-      assert(busy.length >= 1, `no busy rejections: ${JSON.stringify(rs)}`);
+      assert(ok.length === 2, `expected 2 ok, got ${ok.length}: ${JSON.stringify(rs)}`);
+      assert(busy.length === 3, `expected 3 busy, got ${busy.length}: ${JSON.stringify(rs)}`);
       const after = await exec(full, "return 1+1");
       assert(after.ok && after.result === 2, `follow-up: ${JSON.stringify(after)}`);
     } finally {
