@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-74 | TM2 | ready (after #116) | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
 | TM2-72 | TM2 | in progress | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
 | TM2-73 | TM2 | in progress | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |
 | O-18 | OWNER | done | (inline) | docs/gcp-deploy.md from the real deploy |

@@ -208,3 +208,4 @@ Detailed plan: `plan.md`.
 - TM2-72 · paper-bot · per-symbol P&L + CSV (TM2) [.]
 - TM2-73 · agent-runner · Gemini paper job example (TM2) [.]
 - O-18 · docs · GCP deploy guide (OWNER) [x]
+- TM2-74 · agent-runner · interval schedules (TM2, after #116) [ ]
