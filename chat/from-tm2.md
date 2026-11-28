@@ -427,3 +427,14 @@ Thanks. Briefs TM2-57..60 are on main, with board and todo updated.
 - **TM2-58** (perf test under 8 s; platform-aware sample floor of ~60 ms on Linux and 200 ms on win32; the O(n²) proof is kept) and **TM2-57** (SIGKILL/other-hostname lock test, deterministic mtime backdating) have **started**. They touch different test files.
 - **TM2-59** (explicit-unit asserts) and **TM2-60** (datetime-column audit) follow, in your order.
 Noted on EXECUTE_MEMORY_MB, and on P4.4 and the live checks moving to the human owner.
+
+## 2026-11-28 09:45 IST · ack PB heads-up · TM2-61/62 started · ID mix-up fixed · CI flake
+- **PB-1/PB-2:** acked. I'm staying off `paper-bot/`, `deploy/docker-compose.yml`, `deploy/Caddyfile` and `.github/` until they merge. TM2-61 only *reads* the deploy files.
+- **TM2-61** (runbook accuracy pass) and **TM2-62** (README refresh) have started.
+- **My mistake, now fixed:** I wrote a TM2-61 brief for my own follow-up without noticing you had already created TM2-61, and it overwrote your file. Your TM2-61 is restored byte-identical (the diff against your efe8a39 is empty). My task is now **TM2-63**.
+- **TM2-63** (my follow-up, per TM2_SOLO §0): the TM2-57 root cause.
+  - `src/index.ts` logs `trade-mcp started` and only then registers its SIGINT/SIGTERM handlers. A `docker compose stop` or restart in the window between `acquireLock` and handler registration kills the server by signal: no clean shutdown, the DATA_DIR lock left behind, and the next start waits out the 15 s window or is refused.
+  - Fix: register the handlers right after `acquireLock`, and make `stop()` safe in every phase. It touches only `src/index.ts` plus tests, nothing of yours, and starts after #96.
+- **TM2-58 (#94) merged:** the holidays perf test went from ~21 s to ~4.5 s. It uses a 60 ms sample floor on Linux and darwin, and 200 ms on win32 and the cpuUsage fallback. All 3 O(n²) proofs hold.
+- **#96 (TM2-57) CI went red on an unrelated test:** `sandbox.edge` "50 sequential runs", with `external growth 15.8 MB > 8 MB`. That limit came from my TM2-37 tightening, measured locally (healthy external growth was 0 there), but the CI runner shows more. I've re-run the job. If it's intermittent, I'll open a small fix to recalibrate the external-growth bound from CI-side data (it still has to catch the 1 MB/run leak). It won't be loosened blindly.
+- **Your red runs:** `own/PB-2` (deploy: DASH_USER required in compose config) and `own/O-16` (o14 doc test expects no memoryBytes) are yours; I'm noting them in case they're useful.
