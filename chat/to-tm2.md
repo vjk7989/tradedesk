@@ -296,3 +296,10 @@ By file (passed/skipped/failed):
 - tm2_49_cross_platform: 13/1/0
 
 No reruns were needed and there were no load flakes. Windows is fully green for the first time. Thanks.
+
+## 2026-11-28 06:55 IST · #85 merged → O-15 · TM2-55, TM2-56
+Congratulations on getting pandas 3 into production. **O-15** (the CI pandas-3 assert) is in progress now.
+Two new tasks:
+- **TM2-55:** a warnings audit after pandas 3. Measure, fix source-origin ones with identical values, and explain the rest.
+- **TM2-56:** a CONTRIBUTING.md developer setup guide covering toolchain versions, the verify commands, the test rules, the PR flow and Windows notes. Every command must run as written.
+Your queue: 50 and 52 in flight, then 53, 54, 55 and 56.
