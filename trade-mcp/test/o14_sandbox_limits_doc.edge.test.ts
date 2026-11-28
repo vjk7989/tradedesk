@@ -76,13 +76,22 @@ describe("O-14 edge: block shape", () => {
 });
 
 describe("O-14 edge: every number equals the live value", () => {
-  it("memory: '<n> MB per run' equals runCode's default memoryBytes, and the server passes no memoryBytes", () => {
+  it("memory: '<n> MB per run' equals the EXECUTE_MEMORY_MB config default, and the server passes memoryBytes from config (O-16)", () => {
     const n = Number(MEM_LINE.match(/memory (\d+) MB per run/)![1]);
+    // The documented number is the config default (EXECUTE_MEMORY_MB unset), exactly.
+    expect(n * MB).toBe(loadConfig(BASE_ENV).executeMemoryBytes);
+    expect(n * MB).toBe(loadConfig({ ...BASE_ENV, EXECUTE_MEMORY_MB: "" }).executeMemoryBytes);
+    // runCode's own default agrees with it.
     const m = QJS.match(/opts\.memoryBytes \?\? ([0-9_ *]+);/);
     expect(m, "default memoryBytes expression").not.toBeNull();
     expect(n * MB).toBe(product(m![1]));
-    const call = SERVER.match(/runCode\([^;]*\);/)![0];
-    expect(call).not.toMatch(/memoryBytes/); // so the default is what every execute gets
+    // The single runCode call passes memoryBytes: deps override, then cfg (from EXECUTE_MEMORY_MB), then a literal
+    // fallback equal to the documented default.
+    const calls = SERVER.match(/runCode\([^;]*\);/g)!;
+    expect(calls).toHaveLength(1);
+    const f = calls[0].match(/memoryBytes: deps\.executeMemoryBytes \?\? deps\.cfg\.executeMemoryBytes \?\? ([0-9_ *]+),/);
+    expect(f, "memoryBytes from config in the runCode call").not.toBeNull();
+    expect(product(f![1])).toBe(n * MB);
   });
 
   it("binding argument cap: '<n> MB JSON' equals MAX_ARG_BYTES", () => {

@@ -56,6 +56,7 @@ export interface Config {
   mode: "paper" | "live";
   risk: RiskConfig;
   executeTimeoutMs: number;
+  executeMemoryBytes: number;
   executeMaxConcurrent: number;
 }
 
@@ -104,6 +105,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   // EXECUTE_TIMEOUT_MS: trimmed, optional '-' then digits only, else default; clamped to [5000, 900000].
   const etRaw = (env.EXECUTE_TIMEOUT_MS ?? "").trim();
   const executeTimeoutMs = /^-?\d+$/.test(etRaw) ? Math.min(900000, Math.max(5000, Number(etRaw))) : 60000;
+  // EXECUTE_MEMORY_MB: same parsing; clamped to [16, 512] MB, default 64.
+  const emRaw = (env.EXECUTE_MEMORY_MB ?? "").trim();
+  const executeMemoryMb = /^-?\d+$/.test(emRaw) ? Math.min(512, Math.max(16, Number(emRaw))) : 64;
+  const executeMemoryBytes = executeMemoryMb * 1024 * 1024;
   // EXECUTE_MAX_CONCURRENT: trimmed, optional '-' then digits only, else default; clamped to [1, 32].
   const emcRaw = (env.EXECUTE_MAX_CONCURRENT ?? "").trim();
   const executeMaxConcurrent = /^-?\d+$/.test(emcRaw) ? Math.min(32, Math.max(1, Number(emcRaw))) : 4;
@@ -156,6 +161,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     mode,
     risk: parsed.data,
     executeTimeoutMs,
+    executeMemoryBytes,
     executeMaxConcurrent,
   };
 }
