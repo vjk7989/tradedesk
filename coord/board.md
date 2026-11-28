@@ -4,6 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| O-14 | OWNER | in progress | coord/tasks/O-14.md | api-docs: sandbox limits for the AI |
 | TM2-47 | TM2 | in progress | coord/tasks/TM2-47.md | container mem/cpu limits (compose) |
 | TM2-48 | TM2 | in progress | coord/tasks/TM2-48.md | SECURITY.md threat model + reporting |
 | O-13 | OWNER | done | coord/tasks/O-13.md | in-run memory check misses JSON.parse loop |
