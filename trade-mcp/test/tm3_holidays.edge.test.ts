@@ -222,42 +222,49 @@ describe("large list performance", () => {
   // each "large" workload is 20x its "small" one, so linear cost gives a ~20x ratio and O(n^2) ~400x.
   // - Cost is CPU time, not wall time: other processes delay a run but add no CPU time to it.
   //   threadCpuUsage (Node >=22.19) counts only this thread; older Node falls back to process-wide cpuUsage.
-  // - Windows CPU clocks tick at ~15.6 ms, so every sample repeats its workload k times so that it costs
-  //   >= MIN_SAMPLE_MS of CPU (quantisation < ~8%), and the per-run cost is sample / k. A sample under
-  //   MIN_SAMPLE_MS (in particular one of <= 2 ticks) is never divided by a floor: it is retaken with 2k.
+  // - Every sample repeats its workload k times so that it costs >= the floor of CPU, and the per-run cost
+  //   is sample / k. A sample under the floor (in particular one of <= 2 ticks) is never divided by a
+  //   floor: it is retaken with a larger k.
+  // - TM2-58: the floor is platform-aware. Windows CPU clocks tick at ~15.6 ms, so on win32 (and with the
+  //   cpuUsage fallback, whose resolution is not guaranteed) every sample costs >= 200 ms (quantisation
+  //   < ~8%). threadCpuUsage on Linux/darwin has µs resolution, so 60 ms is plenty there.
   // - Each workload's cost is the median of REPS samples, interleaved small/large, after a warm-up.
   // MAX_RATIO is 1.5x linear and far below O(n^2).
   const MAX_RATIO = 30;
-  const REPS = 9;
-  const TICK_MS = 15.6;
-  const MIN_SAMPLE_MS = 200;
-  const cpuMs: () => number =
-    typeof process.threadCpuUsage === "function"
-      ? () => {
-          const u = process.threadCpuUsage();
-          return (u.user + u.system) / 1000;
-        }
-      : () => {
-          const u = process.cpuUsage();
-          return (u.user + u.system) / 1000;
-        };
+  const REPS = 7;
+  const hasThreadCpu = typeof process.threadCpuUsage === "function";
+  /** Per-sample CPU floor (ms): 200 on win32 or without threadCpuUsage, else 60. */
+  const minSampleMsFor = (platform: string, threadCpu: boolean) => (platform !== "win32" && threadCpu ? 60 : 200);
+  const MIN_SAMPLE_MS = minSampleMsFor(process.platform, hasThreadCpu);
+  // clock granularity assumed when growing k: ~15.6 ms ticks unless on the µs-resolution 60 ms path
+  const tickMsFor = (minMs: number) => (minMs >= 200 ? 15.6 : 1);
+  const cpuMs: () => number = hasThreadCpu
+    ? () => {
+        const u = process.threadCpuUsage();
+        return (u.user + u.system) / 1000;
+      }
+    : () => {
+        const u = process.cpuUsage();
+        return (u.user + u.system) / 1000;
+      };
   const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1];
   const runK = (fn: () => void, k: number) => {
     const t0 = cpuMs();
     for (let j = 0; j < k; j++) fn();
     return cpuMs() - t0;
   };
-  /** One adaptive workload: k grows until a sample costs >= MIN_SAMPLE_MS of CPU; samples are kept per run. */
-  function workload(fn: () => void) {
+  /** One adaptive workload: k grows until a sample costs >= minMs of CPU; samples are kept per run. */
+  function workload(fn: () => void, minMs: number) {
     let k = 1;
+    const tick = tickMsFor(minMs);
     const perRun: number[] = [];
     const sampleMs: number[] = [];
     const take = (): number => {
       for (;;) {
         const ms = runK(fn, k);
-        if (ms >= MIN_SAMPLE_MS) return ms;
+        if (ms >= minMs) return ms;
         // a reading of <= 2 ticks says little about the real cost: grow k geometrically, else estimate
-        k = ms <= 2 * TICK_MS ? k * 4 : Math.max(2 * k, Math.ceil((k * MIN_SAMPLE_MS * 1.3) / ms));
+        k = ms <= 2 * tick ? k * 4 : Math.max(2 * k, Math.ceil((k * minMs * 1.2) / ms));
         if (k > 1e7) throw new Error("workload costs no measurable CPU");
       }
     };
@@ -271,12 +278,12 @@ describe("large list performance", () => {
       result: () => ({ perRun: median(perRun), sampleMs, k }),
     };
   }
-  type Ratio = { small: number; large: number; ratio: number; sampleMs: { small: number[]; large: number[] }; k: { small: number; large: number } };
-  function costRatio(small: () => void, large: () => void): Ratio {
+  type Ratio = { small: number; large: number; ratio: number; sampleMs: { small: number[]; large: number[] }; k: { small: number; large: number }; minMs: number };
+  function costRatio(small: () => void, large: () => void, minMs = MIN_SAMPLE_MS): Ratio {
     small();
     large(); // warm-up: JIT and caches, not measured
-    const s = workload(small);
-    const l = workload(large);
+    const s = workload(small, minMs);
+    const l = workload(large, minMs);
     s.calibrate();
     l.calibrate();
     for (let r = 0; r < REPS; r++) {
@@ -290,39 +297,59 @@ describe("large list performance", () => {
       ratio: rl.perRun / rs.perRun,
       sampleMs: { small: rs.sampleMs, large: rl.sampleMs },
       k: { small: rs.k, large: rl.k },
+      minMs,
     };
   }
+  // set TM3_PERF_LOG=1 to print each ratio's per-run costs, k and sample CPU ms (one JSON line per ratio)
+  const log = (what: string, m: Ratio, t0: number) => {
+    if (process.env.TM3_PERF_LOG)
+      console.log("TM3_PERF " + JSON.stringify({ what, ratio: m.ratio, small: m.small, large: m.large, k: m.k, sampleMs: m.sampleMs, wallMs: Math.round(performance.now() - t0), floor: m.minMs }));
+  };
   const why = (what: string, m: Ratio) =>
     `${what}: large ${m.large.toFixed(3)} / small ${m.small.toFixed(3)} CPU ms per run = ${m.ratio.toFixed(1)}x ` +
-    `(k ${m.k.large}/${m.k.small}; linear ~20x, O(n^2) ~400x)`;
+    `(k ${m.k.large}/${m.k.small}, floor ${m.minMs} ms; linear ~20x, O(n^2) ~400x)`;
 
   it("5000 dates parse and 10k checks stay fast", () => {
+    // the per-sample CPU floor stays >= 200 ms on win32 and with the cpuUsage fallback
+    expect(minSampleMsFor("win32", true)).toBe(200);
+    expect(minSampleMsFor("win32", false)).toBe(200);
+    expect(minSampleMsFor("linux", false)).toBe(200);
+    expect(minSampleMsFor("linux", true)).toBe(60);
+    expect(minSampleMsFor("darwin", true)).toBe(60);
+
     const r = load({ marketHolidays: { NSE: many, MCX: many } }).risk;
     expect(r.marketHolidays?.NSE).toHaveLength(5000);
     // the last date (2013-09-08) is not 2026-01-26, so NSE stays open
     expect(isMarketOpen("NSE", MON_26_10, r.marketHolidays)).toBe(true);
     expect(isMarketOpen("NSE", MON_26_10, { NSE: [...many, "2026-01-26"] })).toBe(false);
-
-    // parse: 5000 dates per group vs 250 (20x list length)
-    const few = many.slice(0, 250);
-    const parse = costRatio(
-      () => load({ marketHolidays: { NSE: few, MCX: few } }),
-      () => load({ marketHolidays: { NSE: many, MCX: many } }),
-    );
-    expect(parse.ratio, why("parse", parse)).toBeLessThanOrEqual(MAX_RATIO);
-
-    // checks vs call count: 10k vs 500 checks (20x) against the full 5000-date list
     const hol = r.marketHolidays;
     const checks = (n: number, h: typeof hol) => () => {
       for (let i = 0; i < n; i++) isMarketOpen("NSE", MON_26_10, h);
     };
-    const calls = costRatio(checks(500, hol), checks(10_000, hol));
+
+    // parse: 5000 dates per group vs 250 (20x list length)
+    const few = many.slice(0, 250);
+    let t0 = performance.now();
+    const parse = costRatio(
+      () => load({ marketHolidays: { NSE: few, MCX: few } }),
+      () => load({ marketHolidays: { NSE: many, MCX: many } }),
+    );
+    log("parse", parse, t0);
+    expect(parse.ratio, why("parse", parse)).toBeLessThanOrEqual(MAX_RATIO);
+
+    // checks vs call count: 10k vs 500 checks (20x). TM2-58: against the 250-date list, so a per-call cost
+    // that grows with the call count is not diluted by the 5000-date scan (list length is the next ratio).
+    const fewHol = { NSE: few, MCX: few };
+    expect(isMarketOpen("NSE", MON_26_10, fewHol)).toBe(true);
+    t0 = performance.now();
+    const calls = costRatio(checks(500, fewHol), checks(10_000, fewHol));
+    log("calls", calls, t0);
     expect(calls.ratio, why("checks vs call count", calls)).toBeLessThanOrEqual(MAX_RATIO);
 
     // checks vs list length: the same 100 checks against 5000 vs 250 holidays (20x)
-    const fewHol = { NSE: few, MCX: few };
-    expect(isMarketOpen("NSE", MON_26_10, fewHol)).toBe(true);
+    t0 = performance.now();
     const lists = costRatio(checks(100, fewHol), checks(100, hol));
+    log("lists", lists, t0);
     expect(lists.ratio, why("checks vs list length", lists)).toBeLessThanOrEqual(MAX_RATIO);
   }, 300_000);
 });

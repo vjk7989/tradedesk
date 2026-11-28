@@ -780,8 +780,16 @@ const portOpen = (port: number) =>
     c.on("error", () => r(false));
   });
 
-function startServer(dir: string, port: number) {
-  const p = spawn(process.execPath, ["--import", "tsx", INDEX_TS], {
+/** Opt-in child preload (observes only): prints SIGTERM_READY once index.ts has added its SIGTERM listener. Node
+ *  catches SIGTERM from startup (and then dies by the signal), so /proc SigCgt cannot tell; "newListener" fires just
+ *  before the add, and the microtask runs after main()'s synchronous tail, by which time the handler is in place. */
+const SIGTERM_READY = "[tm2-57] SIGTERM listener installed";
+const SIGTERM_READY_PRELOAD = "data:text/javascript," + encodeURIComponent(
+  `process.on("newListener", (e) => { if (e === "SIGTERM") queueMicrotask(() => process.stderr.write(${JSON.stringify(SIGTERM_READY + "\n")})); });`,
+);
+
+function startServer(dir: string, port: number, opts: { sigtermReady?: boolean } = {}) {
+  const p = spawn(process.execPath, ["--import", "tsx", ...(opts.sigtermReady ? ["--import", SIGTERM_READY_PRELOAD] : []), INDEX_TS], {
     cwd: ROOT,
     stdio: ["ignore", "pipe", "pipe"],
     env: {
@@ -796,13 +804,40 @@ function startServer(dir: string, port: number) {
   p.stdout!.on("data", (c) => (out += c));
   p.stderr!.on("data", (c) => (out += c));
   const exited = new Promise<{ code: number | null; signal: string | null }>((r) => p.on("exit", (code, signal) => r({ code, signal })));
+  // With sigtermReady, "started" also needs the marker after the started line (main() adds its SIGTERM listener there).
+  const isStarted = () => {
+    const i = out.indexOf("trade-mcp started");
+    return i >= 0 && (!opts.sigtermReady || out.lastIndexOf(SIGTERM_READY) > i);
+  };
   const started = new Promise<boolean>((r) => {
     const t = setInterval(() => {
-      if (/trade-mcp started/.test(out)) { clearInterval(t); r(true); }
+      if (isStarted()) { clearInterval(t); r(true); }
       else if (p.exitCode !== null || p.signalCode !== null) { clearInterval(t); r(false); }
     }, 25);
   });
   return { p, exited, started, out: () => out };
+}
+
+/** "Fresh" heartbeat age for TM2-57: well inside LIVE_WINDOW_MS. */
+const FRESH_HEARTBEAT = 1000;
+/** Run fn while holding the lock mtime at now - FRESH_HEARTBEAT (re-set every 100 ms), so a real process sees a fresh
+ *  heartbeat whenever it reads the lock, however long its startup takes. Stops (synchronously) before returning. */
+async function whileFresh<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  const pin = () => { try { age(file, FRESH_HEARTBEAT); } catch { /* lock gone: nothing to pin */ } };
+  pin();
+  const t = setInterval(pin, 100);
+  try { return await fn(); } finally { clearInterval(t); }
+}
+/** The real revoke CLI as a child process, without blocking the event loop (so whileFresh keeps pinning). */
+function cliProc(dir: string): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  const p = spawn(process.execPath, ["--import", "tsx", CLI_TS, "--force"], {
+    cwd: ROOT, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...cliEnv(dir) },
+  });
+  procs.push(p);
+  let stdout = "", stderr = "";
+  p.stdout!.on("data", (c) => (stdout += c));
+  p.stderr!.on("data", (c) => (stderr += c));
+  return new Promise((r) => p.on("close", (status) => r({ status, stdout, stderr })));
 }
 
 describe("real trade-mcp process", () => {
@@ -866,46 +901,65 @@ describe("real trade-mcp process", () => {
   });
 
   // POSIX-only: ends with a graceful SIGTERM shutdown (exit 0, lock removed); on Windows kill() terminates outright.
-  it.skipIf(IS_WIN)("SIGKILLed server seen from another hostname: LIVE (start refused) while its heartbeat is < 15 s, then replaced", async () => {
+  // TM2-57: every heartbeat-age decision is pinned. A real process reads the lock at an unknown moment (after tsx
+  // startup, which takes seconds under load), so while one runs the mtime is held at "fresh" (now - 1 s) or was
+  // set "stale" (now - LIVE_WINDOW_MS - 5 s, which only gets older). No step depends on elapsed real time.
+  it.skipIf(IS_WIN)("SIGKILLed server seen from another hostname: LIVE (start refused) while its heartbeat is < 15 s, then replaced", { timeout: 240_000 }, async () => {
     const dir = tmp();
+    const f = lockPath(dir);
     const [p1, p2, p3] = [await freePort(), await freePort(), await freePort()];
     const a = startServer(dir, p1);
     expect(await a.started, a.out()).toBe(true);
     a.p.kill("SIGKILL");
-    await a.exited;
-    // Simulate the view from a different container: same lock, other hostname, fresh heartbeat.
+    expect(await a.exited).toEqual({ code: null, signal: "SIGKILL" });
+    // Truly dead (reaped), so its heartbeat timer can no longer touch the mtime.
+    expect(() => process.kill(a.p.pid!, 0)).toThrow();
+    // Simulate the view from a different container: same lock, other hostname.
     const l = readLock(dir) as unknown as Record<string, unknown>;
     expect(l.pid).toBe(a.p.pid);
     writeLock(dir, { ...l, hostname: "crashed-container-1" });
-    // A heartbeat 5 s short of the window is live: checked in-process, where only milliseconds pass.
-    age(lockPath(dir), LIVE_WINDOW_MS - 5000);
+
+    // Classification at the edges, in-process (only milliseconds pass between utimes and check).
+    age(f, LIVE_WINDOW_MS - 5000);
     expect(checkLock(dir)).toBe("live");
-    // The real-process checks below take seconds under load (tsx startup), so a 5 s margin could run out
-    // and turn the lock stale mid-check. Backdate deterministically to 1 s before each real process instead.
-    age(lockPath(dir), 1000);
-    const b = startServer(dir, p2);
-    const eb = await b.exited;
-    expect(eb.code).toBe(1);
-    expect(b.out()).toMatch(/already running on this DATA_DIR.*crashed-container-1.*After a crash, wait up to 15s/);
-    expect(await portOpen(p2)).toBe(false);
-    expect(readLock(dir)).toMatchObject({ hostname: "crashed-container-1" });
-    // The CLI also refuses during the window.
-    age(lockPath(dir), 1000);
-    const cli = spawnSync(process.execPath, ["--import", "tsx", CLI_TS, "--force"], {
-      cwd: ROOT, encoding: "utf8", env: { ...process.env, ...cliEnv(dir) },
+    age(f, FRESH_HEARTBEAT);
+    expect(checkLock(dir)).toBe("live");
+    age(f, OLD_HEARTBEAT);
+    expect(checkLock(dir)).toBe("stale");
+
+    // Fresh heartbeat: a real server start is refused (exit 1, message) and does not bind.
+    const b = await whileFresh(f, async () => {
+      const s = startServer(dir, p2);
+      return { s, e: await s.exited };
     });
+    expect(b.e.code).toBe(1);
+    expect(b.s.out()).toMatch(/already running on this DATA_DIR.*crashed-container-1.*After a crash, wait up to 15s/);
+    expect(b.s.out()).not.toMatch(/trade-mcp started/);
+    expect(await portOpen(p2)).toBe(false);
+    expect(readLock(dir)).toMatchObject({ pid: a.p.pid, hostname: "crashed-container-1" });
+
+    // Fresh heartbeat: the real revoke CLI also refuses (exit 4) and leaves the store alone.
+    const store = seedStore(dir);
+    const cli = await whileFresh(f, () => cliProc(dir));
     expect(cli.status).toBe(4);
-    // Past the window: replaced.
-    age(lockPath(dir), OLD_HEARTBEAT);
-    const c = startServer(dir, p3);
+    expect(cli.stderr).toMatch(/trade-mcp is running \(lock heartbeat \d+s ago\); stop it first/);
+    expect(readFileSync(path.join(dir, "oauth.json"), "utf8")).toBe(store);
+
+    // Stale heartbeat: the next real start replaces it. Nothing refreshes the mtime any more (a is dead,
+    // whileFresh has stopped), so the lock stays stale however long the start takes.
+    age(f, OLD_HEARTBEAT);
+    expect(checkLock(dir)).toBe("stale");
+    const c = startServer(dir, p3, { sigtermReady: true }); // SIGTERM below only after the handler exists
     expect(await c.started, c.out()).toBe(true);
     expect(c.out()).toMatch(/replacing stale trade-mcp\.lock.*crashed-container-1/);
     expect(readLock(dir)).toMatchObject({ pid: c.p.pid, hostname: HOST });
+    expect(await portOpen(p3)).toBe(true);
+    // SIGTERM removes it.
     c.p.kill("SIGTERM");
     expect((await c.exited).code).toBe(0);
-    expect(existsSync(lockPath(dir))).toBe(false);
+    expect(existsSync(f)).toBe(false);
     expect(leftovers(dir)).toEqual([]);
-    noSecrets(a.out() + b.out() + c.out() + cli.stdout + cli.stderr);
+    noSecrets(a.out() + b.s.out() + c.out() + cli.stdout + cli.stderr);
   });
 
   it("listen failure (port already in use) after the lock is taken does not leave the lock behind", async () => {

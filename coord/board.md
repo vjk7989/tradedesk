@@ -4,13 +4,18 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| O-16 | OWNER | in progress | coord/tasks/O-16.md | EXECUTE_MEMORY_MB (per-run sandbox memory knob) |
+| TM2-61 | TM2 | in progress | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
+| TM2-62 | TM2 | merged #98 | coord/tasks/TM2-62.md | README refresh |
+| TM2-63 | TM2 | in progress | coord/tasks/TM2-63.md | register SIGINT/SIGTERM before startup completes |
+| PB-1 | OWNER | done | coord/tasks/PB-1.md | paper-bot crypto paper trader + dashboard |
+| PB-2 | OWNER | in progress | coord/tasks/PB-2.md | deploy paper-bot behind Caddy basic auth + CI |
+| O-16 | OWNER | done | coord/tasks/O-16.md | EXECUTE_MEMORY_MB (per-run sandbox memory knob) |
 | TM2-55 | TM2 | merged #92 (audit: 1 third-party warning) | coord/tasks/TM2-55.md | warnings audit after pandas 3 |
 | TM2-56 | TM2 | merged #89 | coord/tasks/TM2-56.md | CONTRIBUTING.md developer setup |
-| TM2-58 | TM2 | in progress | coord/tasks/TM2-58.md | tm3_holidays perf test under 8 s |
-| TM2-57 | TM2 | in progress | coord/tasks/TM2-57.md | de-flake tm2_46 SIGKILL/other-hostname test |
-| TM2-59 | TM2 | ready | coord/tasks/TM2-59.md | explicit-unit asserts in pass-through tests |
-| TM2-60 | TM2 | ready | coord/tasks/TM2-60.md | datetime columns vs int64 audit |
+| TM2-58 | TM2 | merged #94 | coord/tasks/TM2-58.md | tm3_holidays perf test under 8 s |
+| TM2-57 | TM2 | merged #96 | coord/tasks/TM2-57.md | de-flake tm2_46 SIGKILL/other-hostname test |
+| TM2-59 | TM2 | in progress | coord/tasks/TM2-59.md | explicit-unit asserts in pass-through tests |
+| TM2-60 | TM2 | in progress | coord/tasks/TM2-60.md | datetime columns vs int64 audit |
 | O-15 | OWNER | done | coord/tasks/O-15.md | CI asserts pandas 3 in bt-service job |
 | TM2-53 | TM2 | merged #91 | coord/tasks/TM2-53.md | smoke: concurrency cap + memory recovery e2e |
 | TM2-54 | TM2 | merged #88 | coord/tasks/TM2-54.md | troubleshooting: sandbox-limit errors |
