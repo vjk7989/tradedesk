@@ -173,3 +173,6 @@ Detailed plan: `plan.md`.
 - TM2-48 · docs · SECURITY.md (TM2) [.]
 - TM2-49 · trade-mcp · TM2-35/46 tests green on Windows (TM2) [.]
 - O-14 · trade-mcp · api-docs sandbox limits (OWNER) [.] (building)
+- TM2-50 · docs · thin-fold warning + hostname line (TM2) [ ]
+- TM2-51 · bt-service · walk-forward equity guard (TM2) [ ]
+- TM2-52 · trade-mcp · de-flake tm3_holidays perf (TM2) [ ]
