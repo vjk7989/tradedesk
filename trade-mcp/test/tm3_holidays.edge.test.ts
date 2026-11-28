@@ -218,16 +218,62 @@ describe("large list performance", () => {
     }
     return out;
   })();
+  // TM2-52: no wall-clock bound (it flaked under machine load). Instead a scale-invariant relative bound:
+  // the big workload is 20x the small one, so linear cost gives a ~20x ratio and O(n^2) gives ~400x.
+  // Cost is this thread's CPU time, not wall time: other processes can delay a run but do not add to its
+  // CPU time, and a short run would otherwise dodge preemption more often than a long one and skew the
+  // ratio. Each size is the median of `reps` interleaved runs after a warm-up, so one noisy run cannot
+  // decide the result. MAX_RATIO is 1.5x linear and well below O(n^2).
+  const MAX_RATIO = 30;
+  const cpuMs = () => {
+    const u = process.threadCpuUsage();
+    return (u.user + u.system) / 1000;
+  };
+  const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1];
+  type Ratio = { small: number; large: number; ratio: number };
+  function costRatio(reps: number, small: () => void, large: () => void): Ratio {
+    small();
+    large(); // warm-up: JIT and caches, not measured
+    const s: number[] = [];
+    const l: number[] = [];
+    for (let k = 0; k < reps; k++) {
+      let t0 = cpuMs();
+      small();
+      s.push(cpuMs() - t0);
+      t0 = cpuMs();
+      large();
+      l.push(cpuMs() - t0);
+    }
+    const ms = { small: median(s), large: median(l) };
+    return { ...ms, ratio: ms.large / Math.max(ms.small, 0.05) };
+  }
+  const why = (what: string, m: Ratio) =>
+    `${what}: large ${m.large.toFixed(2)} / small ${m.small.toFixed(2)} CPU ms = ${m.ratio.toFixed(1)}x (linear ~20x, O(n^2) ~400x)`;
+
   it("5000 dates parse and 10k checks stay fast", () => {
-    const t0 = performance.now();
     const r = load({ marketHolidays: { NSE: many, MCX: many } }).risk;
     expect(r.marketHolidays?.NSE).toHaveLength(5000);
     // the last date (2013-09-08) is not 2026-01-26, so NSE stays open
-    for (let i = 0; i < 10000; i++) isMarketOpen("NSE", MON_26_10, r.marketHolidays);
     expect(isMarketOpen("NSE", MON_26_10, r.marketHolidays)).toBe(true);
     expect(isMarketOpen("NSE", MON_26_10, { NSE: [...many, "2026-01-26"] })).toBe(false);
-    expect(performance.now() - t0).toBeLessThan(3000);
-  });
+
+    // parse: 5000 dates per group vs 250 (20x). A parse is ~2-20 ms, so it gets more reps than the checks.
+    const few = many.slice(0, 250);
+    const parse = costRatio(
+      15,
+      () => load({ marketHolidays: { NSE: few, MCX: few } }),
+      () => load({ marketHolidays: { NSE: many, MCX: many } }),
+    );
+    expect(parse.ratio, why("parse", parse)).toBeLessThanOrEqual(MAX_RATIO);
+
+    // checks: 10k vs 500 (20x), against the full 5000-date list
+    const hol = r.marketHolidays;
+    const checks = (n: number) => () => {
+      for (let i = 0; i < n; i++) isMarketOpen("NSE", MON_26_10, hol);
+    };
+    const check = costRatio(5, checks(500), checks(10_000));
+    expect(check.ratio, why("checks", check)).toBeLessThanOrEqual(MAX_RATIO);
+  }, 60_000);
 });
 
 describe("engine paths on a holiday", () => {
