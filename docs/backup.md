@@ -158,11 +158,13 @@ a second copy of the key.
     BACKUP_BUCKET=<BUCKET>
     AGE_RECIPIENTS_FILE=/etc/tradedesk/age-recipients.txt
     BACKUP_PREFIX=tradedesk
-    # BACKUP_WORKDIR=/var/lib/tradedesk-backup   (default; root-only scratch dir)
+    # BACKUP_WORKDIR=/var/lib/tradedesk-backup   (default; absolute path, not /)
 
 Scratch space: the script works under `BACKUP_WORKDIR` (default
-`/var/lib/tradedesk-backup`, created mode 700), on disk rather than RAM-backed `/tmp`,
-and needs about one backup of free space. The EXIT trap removes its `tradedesk-gcs.*`
+`/var/lib/tradedesk-backup`), on disk rather than RAM-backed `/tmp`,
+and needs about one backup of free space. The script creates it mode 700 if missing; an
+existing directory must already be owned by the running user with mode 700, otherwise
+the script refuses (exit 2) and never chmods it. Relative paths and `/` are refused. The EXIT trap removes its `tradedesk-gcs.*`
 dir; if a run is killed hard (SIGKILL, OOM, power loss) the next run deletes leftover
 `tradedesk-gcs.*` dirs older than a day.
 

@@ -7,7 +7,7 @@
 #      AGE_RECIPIENTS_FILE (required, file of age public recipients),
 #      BACKUP_PREFIX (default tradedesk), COMPOSE_PROJECT_NAME and
 #      TRADEDESK_DEPLOY_DIR (passed through to backup.sh),
-#      BACKUP_WORKDIR (default /var/lib/tradedesk-backup; root-only scratch dir, made 700).
+#      BACKUP_WORKDIR (default /var/lib/tradedesk-backup; absolute, not /; created 700 or must already be an owned 700 dir).
 #      TRADEDESK_BACKUP_SH: TEST-ONLY override of the backup.sh path; not part of the
 #      supported interface and deliberately not documented in docs/backup.md.
 # Exit codes as backup.sh: 2 = bad configuration/usage, 1 = runtime failure.
@@ -41,9 +41,18 @@ grep -qE '^age1[02-9ac-hj-np-z]{58}$' "$AGE_RECIPIENTS_FILE" || conf "recipient 
 
 # Root-only work dir on disk (not RAM-backed /tmp) so a SIGKILL/OOM/power loss cannot leave
 # plaintext in memory-backed storage. Stale dirs from killed runs are swept after a day.
+[ "${BACKUP_WORKDIR-x}" != "" ] || conf "BACKUP_WORKDIR is set but empty"
 WORKDIR="${BACKUP_WORKDIR:-/var/lib/tradedesk-backup}"
-mkdir -p "$WORKDIR" 2>/dev/null || conf "cannot create work dir $WORKDIR (run as root or set BACKUP_WORKDIR)"
-chmod 700 "$WORKDIR"
+case "$WORKDIR" in /*) ;; *) conf "BACKUP_WORKDIR must be an absolute path";; esac
+case "$WORKDIR" in /|//*) conf "BACKUP_WORKDIR must not be /";; esac
+if [ -d "$WORKDIR" ]; then
+  # Never chmod a directory this script did not create: require it to be already private.
+  [ -O "$WORKDIR" ] || conf "work dir $WORKDIR is not owned by the current user"
+  [ "$(stat -c %a "$WORKDIR")" = 700 ] || conf "existing work dir $WORKDIR must have mode 700 (it is not changed automatically)"
+else
+  # umask 077 (set above) makes the new dir mode 700; chmod is never run on a pre-existing dir.
+  mkdir -p "$WORKDIR" 2>/dev/null || conf "cannot create work dir $WORKDIR (run as root or set BACKUP_WORKDIR)"
+fi
 find "$WORKDIR" -mindepth 1 -maxdepth 1 -type d -name 'tradedesk-gcs.*' -mtime +0 -exec rm -rf {} + 2>/dev/null || true
 TMP="$(mktemp -d "$WORKDIR/tradedesk-gcs.XXXXXX")"
 chmod 700 "$TMP"
