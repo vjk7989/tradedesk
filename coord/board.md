@@ -4,6 +4,8 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-75 | TM2 | ready | coord/tasks/TM2-75.md | backups include paper_bot_data + volume guard test |
+| TM2-76 | TM2 | ready | coord/tasks/TM2-76.md | paper-bot bounded storage + pagination |
 | TM2-74 | TM2 | ready | coord/tasks/TM2-74.md | agent-runner interval schedules (everyMinutes) |
 | TM2-72 | TM2 | merged (#115) | coord/tasks/TM2-72.md | paper-bot per-symbol P&L + CSV export |
 | TM2-73 | TM2 | merged (#116, squash) | coord/tasks/TM2-73.md | Gemini paper-trading example job + docs |

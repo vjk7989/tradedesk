@@ -209,3 +209,5 @@ Detailed plan: `plan.md`.
 - TM2-73 · agent-runner · Gemini paper job example (TM2) [x]
 - O-18 · docs · GCP deploy guide (OWNER) [x]
 - TM2-74 · agent-runner · interval schedules (TM2, after #116) [ ]
+- TM2-75 · deploy · backups include paper_bot_data (TM2) [ ]
+- TM2-76 · paper-bot · bounded storage (TM2) [ ]
