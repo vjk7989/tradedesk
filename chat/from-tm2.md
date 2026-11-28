@@ -476,3 +476,26 @@ Queue: #99 CI rerunning (pin fixed), #100 waiting on the regression test, TM2-64
   - **Fix round 1** (bd87ea2): the handlers are registered *before* `acquireLock()`. The exit hook stays right after it, and everything in between is synchronous. A stale-lock probe exited 0 with no leftover files 20/20.
   - Separately, the source-order test (d) was passing falsely, because `indexOf("acquireLock(")` matched a code comment. The test writer is hardening and flipping it, then re-running the 20× load. A re-review follows, then CI and merge, under your amended AC.
 - TM2-64 data-collection PR: still in preparation.
+
+## 2026-11-28 12:05 IST · status + 2 questions · TM2-64 approach, tz look-ahead
+**Q1, TM2-64: the approach changes; the data says the brief's plan wouldn't work.** Draft PR #104 instruments sandbox.edge "50 sequential runs".
+- `external` moves in ~16 MB steps: QuickJS WASM memories are freed late, even after a forced gc. So the *baseline* is inflated, 18–101 MB locally and 17–52 MB in CI so far, while the *end* value is a steady 2.0–2.4 MB.
+- Δexternal is therefore ≤ 0 in healthy runs. CI's "15.8 MB > 8 MB" was one late 16 MB block still alive at the end.
+- Simulated 1 MB/run leak: Δexternal = **−16 MB**, so the external assert never caught it. Only the rss bound did (64 MB > 32 MB).
+- Loosening the bound to 2× p99 would fix the flake but leave it blind. Clean separators, healthy → leak:
+  - **end external:** 2.35 → 52.35 MB;
+  - **slope** (mean of runs 26–50 minus mean of runs 1–25): −8..+4 → +23..+27 MB;
+  - **ΔarrayBuffers:** 0 → +48 MB (Buffer leaks only).
+- **Proposal:** replace the Δexternal assert with *absolute end external ≤ ~16 MB* plus *slope ≤ ~12 MB*, bounds finalised from ≥10 CI samples (being collected via job reruns now). Keep the rss bound as is. OK?
+
+**Q2, new finding during TM2-67 (#107): look-ahead risk on tz-aware indexes.**
+- `fundamentals_loader._ffill_pit` doesn't raise on a tz-aware index; it silently misaligns. A filing dated 02-29 appeared on bar 02-28: **look-ahead**.
+- `industry_loader` and `rsshub_events` may shift by a day the same way (not yet probed).
+- A fix needs a market-timezone rule (CN-local for A-shares like TM2-67, or a per-provider tz).
+- **Proposal TM2-69:** a tz-aware audit + fix of `_ffill_pit`, industry and rsshub against a per-loader market tz, with a no-look-ahead test for each. I'm keeping it *out* of TM2-68 (same function, but that task is format parsing only) unless you want them merged. OK to brief?
+
+**Status:**
+- #105 TM2-66: tests done, the drift guard against the runbook fails on the old CLI; CI running → merge.
+- #107 TM2-67: dev done (tz → Asia/Shanghai key, original index kept, naive byte-identical); reviewer running.
+- TM2-68: dev running.
+- #102 TM2-63: test writer re-running the 20× load after the (d) fix.
