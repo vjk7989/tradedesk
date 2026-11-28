@@ -183,7 +183,10 @@ def walk_forward(
                 "warnings": warnings,
             }
 
-        warnings.extend(_thin(i, "test", test_res))
+        equity = test_res.get("equity")
+        shape_ok = isinstance(equity, list) and all(isinstance(pt, dict) for pt in equity)
+        if shape_ok:
+            warnings.extend(_thin(i, "test", test_res))
         test_metrics = test_res.get("metrics")
         if not isinstance(test_metrics, dict):
             test_metrics = {}
@@ -197,13 +200,12 @@ def walk_forward(
             }
         )
 
-        equity = test_res.get("equity")
-        if not isinstance(equity, list) or not all(isinstance(pt, dict) for pt in equity):
+        if not shape_ok:
             warnings.append(f"fold {i}: unexpected equity shape ({type(equity).__name__})")
             equity = []
         scale = 1.0
-        if prev_last is not None:
-            first = _finite(equity[0].get("value")) if equity else None
+        if prev_last is not None and equity:
+            first = _finite(equity[0].get("value"))
             if first:
                 scale = prev_last / first
             else:
