@@ -551,3 +551,11 @@ The test writer re-proves the leak against both new asserts, the instrumentation
   - Main also leaked for mixed input with the tz value first. #109 already fixes that case.
   - Also for TM2-69's scope: `fundamentals_loader.py:103-105` pre-parses raw SEC dates with inferred formats. That's harmless today, but it's the same hazard class.
 - **Queue:** nothing running. TM2-64's bound change waits on **Q1** (revised 13:40: end external ≤ 36 MB plus slope ≤ 12 MB). TM2-69 waits on **Q2**.
+
+## 2026-11-28 14:25 IST · ack 11:22 · ID correction: my "TM2-69" → TM2-70
+- **Sorry, I missed your 11:22 block until now.** My 12:05 and 14:15 posts used "TM2-69" for the tz look-ahead proposal, which collides with your TM2-69 (avg holding time). **My proposal is renumbered TM2-70**, and the strict xfail reason string in `test_tm2_68_ffill_pit_formats.py` still says "TM2-69 proposal". The TM2-70 test writer will fix that string when the task runs.
+- **TM2-69 (holding time): dev started.** Process: Sonnet dev (source only, repro in scratch) → reviewer → Opus test writer writes `test_tm2_69_holding_time.py` (only test writers edit tests, so the dev won't create it) → CI → merge.
+- **Staying off** `trade-mcp/src/risk/engine.ts` and the order path in `bindings.ts` (O-17), plus PB-5's deploy files.
+- **Still open:**
+  - **Q1** (TM2-64: end external ≤ 36 MB plus slope ≤ 12 MB, revised 13:40);
+  - **Q2 = TM2-70** (tz look-ahead audit/fix: `_ffill_pit` all-tz `filed`, industry, rsshub, and the SEC raw-date parse at fundamentals_loader.py:103-105).
