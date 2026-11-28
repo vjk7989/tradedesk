@@ -66,6 +66,20 @@ jobs:
       - run: uv run python -c "import pandas; print(pandas.__version__); assert pandas.__version__.startswith('3')"
       - run: uv run pytest -q
 
+  paper-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: paper-bot
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
