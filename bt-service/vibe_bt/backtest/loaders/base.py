@@ -363,7 +363,12 @@ def resample_bars(frame: pd.DataFrame, interval: str) -> pd.DataFrame:
         summed volume and amount, volume-weighted vwap, mean funding rate, last
         value of any other column. Frame attributes (quote currency) are kept.
     """
-    if interval not in RESAMPLED_INTERVALS or frame.empty:
+    if interval not in RESAMPLED_INTERVALS:
+        return frame
+    if frame.empty:
+        if isinstance(frame.index, pd.DatetimeIndex) and frame.index.unit != "ns":
+            frame = frame.copy(deep=False)
+            frame.index = frame.index.as_unit("ns")
         return frame
     index = pd.DatetimeIndex(frame.index)
     naive = index.tz_localize(None) if index.tz is not None else index

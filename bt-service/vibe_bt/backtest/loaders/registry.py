@@ -9,10 +9,13 @@ of import order.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 from threading import Lock
 from typing import Any, Type
+
+import pandas as pd
 
 from vibe_bt.backtest.loaders.base import NoAvailableSourceError
 
@@ -66,15 +69,47 @@ VALID_SOURCES: set[str] = {
 }
 
 
+def _to_ns_index(df: Any) -> Any:
+    """Return ``df`` with a ``DatetimeIndex`` pinned to nanosecond resolution.
+
+    pandas 3 infers ``datetime64[us]`` for many constructors; the rest of the
+    stack assumes ``ns``. Values and tz are unchanged, and a no-op on pandas 2.
+    Anything that is not a frame/series with a ``DatetimeIndex`` passes through.
+    """
+    index = getattr(df, "index", None)
+    if isinstance(index, pd.DatetimeIndex) and index.unit != "ns":
+        df = df.copy(deep=False)
+        df.index = index.as_unit("ns")
+    return df
+
+
+def _ns_normalised_fetch(fetch: Any) -> Any:
+    """Wrap a loader ``fetch`` so every returned frame has an ns index."""
+    if getattr(fetch, "_ns_normalised", False):
+        return fetch
+
+    @functools.wraps(fetch)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = fetch(*args, **kwargs)
+        if isinstance(result, dict):
+            return {key: _to_ns_index(frame) for key, frame in result.items()}
+        return _to_ns_index(result)
+
+    wrapper._ns_normalised = True  # type: ignore[attr-defined]
+    return wrapper
+
+
 def register(cls: Type[Any]) -> Type[Any]:
     """Class decorator: register a loader into the global registry.
 
-    The class must have a ``name`` class attribute.
+    The class must have a ``name`` class attribute. Every registered loader's
+    ``fetch`` is wrapped so its output index is pinned to ``ns``.
     """
     from vibe_bt.src.data_gateway.reads import loader_read
 
     if not getattr(cls.fetch, "gateway_public_read", False):
         cls.fetch = loader_read(cls.fetch)
+    cls.fetch = _ns_normalised_fetch(cls.fetch)
     LOADER_REGISTRY[cls.name] = cls
     return cls
 

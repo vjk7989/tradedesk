@@ -183,14 +183,15 @@ def test_resample_bars_empty_ns_frame_stays_empty_ns(tz, interval):
     _assert_ns(out.index, tz)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TM2-41 gap: resample_bars returns an empty frame unchanged (early return before "
-           "the ns pin), so a non-ns empty input keeps its unit. Loaders never pass one today.",
-)
-def test_resample_bars_empty_non_ns_frame_is_pinned_to_ns():
-    frame = _daily_frame(_TRADING, "us", None).iloc[:0]
-    _assert_ns(resample_bars(frame, "1W").index)
+@pytest.mark.parametrize("tz", [None, "Asia/Kolkata"])
+@pytest.mark.parametrize("unit", ["s", "ms", "us"])
+def test_resample_bars_empty_non_ns_frame_is_pinned_to_ns(unit, tz):
+    # TM2-45 closed the TM2-41 gap: the empty early return now pins ns too.
+    frame = _daily_frame(_TRADING, unit, tz).iloc[:0]
+    out = resample_bars(frame, "1W")
+    assert out.empty
+    _assert_ns(out.index, tz)
+    assert frame.index.unit == unit  # the input frame is not mutated
 
 
 # ── local_loader: _resample_to_interval and full fetch ───────────────────────
@@ -218,6 +219,17 @@ def test_resample_to_interval_output_is_ns_and_values_unchanged(unit, interval, 
     assert list(out.index.asi8) == expected
     assert list(out["close"]) == [float(m + step - 1) for m in range(0, 180, step)]
     assert list(out["volume"]) == [float(step)] * (180 // step)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="TM2-45 gap: local_loader._resample_to_interval returns an empty frame unchanged "
+           "(early return before the ns pin), so a non-ns empty input keeps its unit. "
+           "Unreachable through fetch today: _fetch_one returns None for an empty frame.",
+)
+def test_resample_to_interval_empty_non_ns_frame_is_pinned_to_ns():
+    frame = _minute_frame(datetime(2024, 3, 4), 1, "us").iloc[:0]
+    _assert_ns(local_loader._resample_to_interval(frame, "15m", "BTCUSDT").index)
 
 
 def _write_config(tmp_path, monkeypatch, entries: list[tuple[str, str]]) -> None:
