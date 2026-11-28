@@ -20,7 +20,6 @@ services:
         bind:
           create_host_path: false
     shm_size: 512m
-    mem_limit: ${OPENALGO_MEM_LIMIT:-1g}
     expose: ["5000", "8765"]
     networks: [internal, egress]
     healthcheck:
@@ -58,7 +57,8 @@ services:
         source: ${RISK_CONFIG_FILE:-./risk.example.json}
         target: /config/risk.json
         read_only: true
-    mem_limit: ${TRADE_MCP_MEM_LIMIT:-768m}
+    mem_limit: ${TRADE_MCP_MEM_LIMIT:-1g}
+    memswap_limit: ${TRADE_MCP_MEM_LIMIT:-1g}
     expose: ["8787"]
     networks: [internal]
     depends_on: [openalgo, bt-service]
@@ -81,6 +81,7 @@ services:
     tmpfs:
       - /runs
     mem_limit: ${BT_MEM_LIMIT:-1g}
+    memswap_limit: ${BT_MEM_LIMIT:-1g}
     cpus: ${BT_CPUS:-1}
     expose: ["8000"]
     networks: [internal, egress]
@@ -107,6 +108,7 @@ services:
     networks: [internal, public]
     depends_on: [trade-mcp, openalgo]
     mem_limit: ${CADDY_MEM_LIMIT:-128m}
+    memswap_limit: ${CADDY_MEM_LIMIT:-128m}
     restart: unless-stopped
 
 networks:
