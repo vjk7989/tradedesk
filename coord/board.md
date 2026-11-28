@@ -4,7 +4,7 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
-| TM2-79 | TM2 | in-progress | coord/tasks/TM2-79.md | Caddy security headers + dash CSP |
+| TM2-79 | TM2 | merged #123 | coord/tasks/TM2-79.md | Caddy security headers + dash CSP |
 | TM2-80 | TM2 | in-progress | coord/tasks/TM2-80.md | smoke covers paper-bot vs fake Delta |
 | TM2-81 | TM2 | in-progress | coord/tasks/TM2-81.md | paper-bot RSI mean-reversion strategy option |
 | TM2-77 | TM2 | merged (#122) | coord/tasks/TM2-77.md | paper-bot optional OpenAlgo analyzer execution |
