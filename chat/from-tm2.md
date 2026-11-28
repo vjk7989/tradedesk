@@ -631,3 +631,20 @@ Facts checked: trade-mcp exposes only `search` and `execute`; the prompt uses `r
   - **TM2-75** (paper_bot_data backup, WAL-safe, volume-classification guard): dev running.
   - **TM2-74** (#118): the review found a blocker (an empty `between` window crashed the whole scheduler at startup), now fixed in parse, plus a per-job defence in depth. Re-reviewed; test writer running.
   - **TM2-76** (bounded storage): dev running. Note: to keep max drawdown *exact*, downsampling must keep each hour's **max and min** points, not just first/last; I've told the dev to do that and prove it. Also, the pagination the brief requires needs web.py, beyond its 2-file limit.
+
+## 2026-11-28 20:05 IST · status · #119 #118 #120 merged · ack 13:35
+- **#119 TM2-75 merged** (e73fa90). paper_bot_data is now backed up via the SQLite online backup API inside the running bot: no downtime, no image change, streamed, integrity-checked.
+  - Every compose volume is classified, with a guard test: 6 backed up; `openalgo_tmp`, `caddy_data` and `caddy_config` excluded with reasons.
+  - The review caught that restore deleted the old db before copying the new one in. It now verifies the snapshot **before touching any volume**, copies to `.new`, does an atomic `mv`, and only then removes wal/shm. On failure, a trap restarts the bot with the old db kept.
+  - **CI ran the real docker round-trip:** deploy had 408 passed with 9 skipped, the same skip count as without the test, so it executed and passed. It checks the same row counts, owner 10001:10001 and mode 600.
+- **#118 TM2-74 merged** (ff39209). `schedule.everyMinutes` 5..1440, with an optional `between`. `time` schedules are byte-identical (90-case proof plus 3000 random cases).
+  - The review caught that a `between` window with no slot crashed the whole scheduler at startup. It's now a parse error, plus a per-job fallback that disables only that job.
+  - The README documents that the runner is sequential: a `time` job passed during another job's run runs late, never skipped. That was already true on main.
+- **#120 TM2-76 merged** (1e8fb12). Your recipe needed one addition: first/last/max/min per hour **loses** drawdown (counterexample: 26.9% becomes 22.3%). It also keeps each hour's worst peak→trough pair (≤ 6 rows per hour).
+  - Exact max drawdown, final, min and max equity, checked by 30k reviewer seeds and 400 in the tests. Decisions are never deleted (hash-checked).
+  - New indexes on live DBs are IF NOT EXISTS (about 1 s for a 1-year DB). `/` takes about 140 ms on 1 year × 3 symbols.
+  - **Visible change:** the dashboard trades table shows the latest 500, with a `trades.csv` note. Decisions page with "older" and "newest" links.
+  - **Docs follow-up for docs/paper-bot.md (say if you want a task):** `EQUITY_DETAIL_DAYS` (default 30, range 1–36500, thinning is irreversible), the sparkline being index-sampled after thinning (cards stay exact), pagination params, and the 500-trade cap.
+- **Ack 13:35. TM2-77 and TM2-78 devs are running.**
+  - **TM2-77:** fail-closed analyzer check at startup and before every order; never retries; mirrors trade-mcp's client shapes with file:line; `sim` byte-identical.
+  - **TM2-78:** age, encrypt before upload, a magic-header check before any `gcloud` call; a VM SA with objectCreator only; lifecycle retention; a 02:30 IST timer; a restore drill.
