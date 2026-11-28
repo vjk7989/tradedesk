@@ -62,6 +62,177 @@ Otherwise set the zone in the crontab:
 `--delete` mirrors local retention off-site (drop it to keep everything). Use a
 dedicated SSH key.
 
+## Off-site copy to Google Cloud Storage (encrypted)
+`deploy/backup-gcs.sh` runs `backup.sh` into a private temp dir, encrypts the result
+with `age`, verifies the age header, and uploads only the encrypted file to
+`gs://$BACKUP_BUCKET/$BACKUP_PREFIX/<UTC timestamp>.tar.age`. **Nothing is ever
+uploaded unencrypted**: the backup holds `.env` and `openalgo.env`. Placeholders below
+(`<...>`) are yours to fill in.
+
+Why age: one small binary, a plain public-key recipient file, no keyring or trust
+database, no agent. gpg would also work but needs key import and trust handling on the
+VM. Only age is supported, to keep the script simple.
+
+### 1. Bucket
+Same region as the VM (asia-south1 in gcp-deploy.md):
+
+    gcloud storage buckets create gs://<BUCKET> --location=asia-south1 \
+      --uniform-bucket-level-access --public-access-prevention
+    echo '{"rule":[{"action":{"type":"Delete"},"condition":{"age":30}}]}' > lifecycle.json
+    gcloud storage buckets update gs://<BUCKET> --lifecycle-file=lifecycle.json
+    # optional: gcloud storage buckets update gs://<BUCKET> --versioning
+
+The lifecycle rule (30 days here; pick N) is how old backups are removed. The script
+does not prune remotely (see the next step for why). Versioning adds
+little here: objectCreator cannot overwrite, so no object is ever replaced. A bucket
+retention policy (`--retention-period=<N days>`, set it no longer than the lifecycle age)
+is the better protection: objects cannot be deleted by anyone before they age out.
+
+### 2. Service account with upload-only rights
+
+    gcloud iam service-accounts create tradedesk-backup --display-name "tradedesk backup uploader"
+    gcloud storage buckets add-iam-policy-binding gs://<BUCKET> \
+      --member serviceAccount:tradedesk-backup@<PROJECT_ID>.iam.gserviceaccount.com \
+      --role roles/storage.objectCreator
+
+Grant only `roles/storage.objectCreator`, only on this bucket. It can create objects
+but cannot read, list, overwrite or delete them. A compromised VM therefore cannot
+exfiltrate or wipe earlier backups (and the data in them is age-encrypted anyway).
+Because objectCreator cannot list or delete, the script does no `KEEP_DAYS` pruning;
+retention is the lifecycle rule. (Granting delete rights to the VM would defeat the
+point.)
+
+Attach it to the VM (VM stopped; needs the storage scope):
+
+    gcloud compute instances stop tradedesk-vm --zone asia-south1-a
+    gcloud compute instances set-service-account tradedesk-vm --zone asia-south1-a \
+      --service-account tradedesk-backup@<PROJECT_ID>.iam.gserviceaccount.com \
+      --scopes storage-rw
+    gcloud compute instances start tradedesk-vm --zone asia-south1-a
+
+Alternative without changing the VM identity: `gcloud auth activate-service-account
+--key-file <KEYFILE>` on the VM (a key file is a long-lived secret; prefer attaching).
+Install gcloud on the VM if missing (`gcloud --version`).
+
+Changing the VM's service account drops the scopes of the previous (default) one, such as
+logging and Artifact Registry. Include what the VM needs, e.g.
+`--scopes storage-rw,logging-write`, or use the key-file alternative above, which leaves
+the VM identity alone.
+
+Large uploads: by default `gcloud storage cp` uses parallel composite uploads for files of
+150 MiB or more, which compose objects (needs `storage.objects.get`) and delete temporary
+parts (needs `storage.objects.delete`). objectCreator has neither, so such uploads would
+fail as the backup grows. `backup-gcs.sh` therefore exports
+`CLOUDSDK_STORAGE_PARALLEL_COMPOSITE_UPLOAD_ENABLED=False` (the property
+`storage/parallel_composite_upload_enabled`, per Google's "Parallel composite uploads"
+documentation) so every upload is a plain single object. It does not use `--no-clobber`
+(needs read access); timestamped names never collide and objectCreator cannot overwrite.
+
+### 3. Encryption key (generated OFF the VM)
+On your own machine, not the VM:
+
+    age-keygen -o tradedesk-backup.key      # prints "Public key: age1..."
+
+Install age on the VM and your machine: `sudo apt install age` (Debian 12, Ubuntu 22.04
+or newer), check with `age --version`. Keep `tradedesk-backup.key` offline (password manager or printed copy, never on the VM or
+in the repo). Put only the public line on the VM:
+
+    sudo mkdir -p /etc/tradedesk && sudo chmod 755 /etc/tradedesk
+    echo 'age1<PUBLIC_KEY>' | sudo tee /etc/tradedesk/age-recipients.txt
+    sudo chown root:root /etc/tradedesk /etc/tradedesk/age-recipients.txt
+    sudo chmod 644 /etc/tradedesk/age-recipients.txt
+
+`/etc/tradedesk` and the recipient file must be root-owned and not group- or
+world-writable: whoever can edit that file chooses who can decrypt your backups. Only
+plain `age1...` recipients are expected (`age -R` would otherwise run `age-plugin-*`
+programs from PATH); `backup-gcs.sh` refuses any other line except comments. Compare the
+public key printed on the VM (`cat /etc/tradedesk/age-recipients.txt`) with the one shown
+by `age-keygen -y tradedesk-backup.key` on your machine.
+
+Lose the private key and the backups are unrecoverable; test a restore (below) and keep
+a second copy of the key.
+
+### 4. systemd timer (daily 02:30 IST)
+`/etc/tradedesk/backup-gcs.env` (`sudo chmod 600`, owner root):
+
+    BACKUP_BUCKET=<BUCKET>
+    AGE_RECIPIENTS_FILE=/etc/tradedesk/age-recipients.txt
+    BACKUP_PREFIX=tradedesk
+    # BACKUP_WORKDIR=/var/lib/tradedesk-backup   (default; absolute path, not /)
+
+Scratch space: the script works under `BACKUP_WORKDIR` (default
+`/var/lib/tradedesk-backup`), on disk rather than RAM-backed `/tmp`,
+and needs about one backup of free space. The script creates it mode 700 if missing; an
+existing directory must already be owned by the running user with mode 700, otherwise
+the script refuses (exit 2) and never chmods it. Relative paths and `/` are refused. The EXIT trap removes its `tradedesk-gcs.*`
+dir; if a run is killed hard (SIGKILL, OOM, power loss) the next run deletes leftover
+`tradedesk-gcs.*` dirs older than a day.
+
+`/etc/systemd/system/tradedesk-backup-gcs.service`:
+
+    [Unit]
+    Description=tradedesk encrypted backup to GCS
+    [Service]
+    Type=oneshot
+    EnvironmentFile=/etc/tradedesk/backup-gcs.env
+    ExecStart=/usr/bin/flock -n /run/tradedesk-backup-gcs.lock /opt/tradedesk/deploy/backup-gcs.sh
+
+`/etc/systemd/system/tradedesk-backup-gcs.timer`:
+
+    [Unit]
+    Description=daily tradedesk GCS backup
+    [Timer]
+    OnCalendar=*-*-* 02:30:00 Asia/Kolkata
+    Persistent=true
+    [Install]
+    WantedBy=timers.target
+
+Timezone suffixes in `OnCalendar` need systemd 235 or newer (Debian 10+, Ubuntu 18.04+).
+Verify with `systemd-analyze calendar '*-*-* 02:30:00 Asia/Kolkata'`; if unsupported use
+`OnCalendar=*-*-* 21:00:00 UTC` (02:30 IST is 21:00 UTC the previous day).
+
+The timer is stated in IST (`Asia/Kolkata`) directly, so the host clock zone does not
+matter (UTC equivalent: `*-*-* 21:00:00 UTC` the previous day). `flock -n` makes an
+overlapping run fail instead of queueing. It runs after the 02:15 local `backup.sh`
+cron, so both fit the same quiet window; this script makes its own fresh backup in a
+temp dir (needs free disk of about one backup) and removes it on exit, success or
+failure. Enable and test:
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now tradedesk-backup-gcs.timer
+    sudo systemctl start tradedesk-backup-gcs.service && journalctl -u tradedesk-backup-gcs -n 20
+
+Failure exit codes follow `backup.sh`: 2 = bad configuration (missing bucket, recipient
+file, age or gcloud), 1 = runtime failure (backup, encryption or upload). The script
+never prints key material.
+
+### 5. Before enabling the timer, and ongoing checks
+Owner checklist (GCP is yours to run):
+- [ ] Run `sudo env $(cat /etc/tradedesk/backup-gcs.env | xargs) /opt/tradedesk/deploy/backup-gcs.sh`
+      once by hand on the VM, using the objectCreator-only service account, against the
+      real bucket. Then, from a read-capable identity (not the VM SA), confirm the object
+      exists: `gcloud storage ls -l gs://<BUCKET>/tradedesk/`. Ideally repeat once with a
+      backup above 150 MiB (or raw `gcloud storage cp` with the env var above).
+- [ ] Then `systemctl enable --now tradedesk-backup-gcs.timer`.
+- [ ] Freshness: the lifecycle rule will expire every good backup if uploads silently
+      stop. Weekly (or via an alert), from a read-capable identity, check that the newest
+      object under the prefix is under 2 days old. The uploader SA cannot list, so the
+      VM cannot check this itself.
+
+### 6. Restore drill from GCS
+Use an account that has read access (your own admin identity, or a separate reader
+service account), NOT the VM's uploader SA, which cannot read. On a scratch host with
+the offline key:
+
+    gcloud storage ls gs://<BUCKET>/tradedesk/
+    gcloud storage cp gs://<BUCKET>/tradedesk/<TIMESTAMP>.tar.age .
+    mkdir restored && chmod 700 restored
+    age -d -i tradedesk-backup.key <TIMESTAMP>.tar.age | tar -x -C restored
+    deploy/restore.sh restored        # use a scratch COMPOSE_PROJECT_NAME; see the drill checklist
+
+`restore.sh` verifies `MANIFEST.txt` as usual. Delete the decrypted directory and the
+downloaded file afterwards.
+
 ## Restore
 1. `docker compose -f deploy/docker-compose.yml down`, then
    `deploy/restore.sh /var/backups/tradedesk/<timestamp>`, then `... up -d`.

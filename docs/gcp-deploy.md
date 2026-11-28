@@ -130,7 +130,9 @@ Update (from `deploy/`):
 ```
 git pull && docker compose up -d --build
 ```
-Backups: see [backup.md](backup.md).
+Backups: see [backup.md](backup.md). For scheduled, encrypted off-site copies to a GCS
+bucket (upload-only service account, daily 02:30 IST timer), follow "Off-site copy to
+Google Cloud Storage" there.
 
 Teardown (this deletes the VM and its disk, and releases the IP):
 ```
