@@ -160,6 +160,8 @@ def test_spacing_too_few_bars_keeps_declared():
 def test_local_resample_ohlcv_aggregation(iv, n):
     df = session_1m()
     out = local_loader._resample_to_interval(df, iv, "X")
+    # 1m source to 3m/10m: resampled, so the output index is pinned to ns
+    assert out.index.unit == "ns"
     for label, row in out.iterrows():
         chunk = df[(df.index >= label) & (df.index < label + pd.Timedelta(minutes=n))]
         assert not chunk.empty
@@ -175,6 +177,8 @@ def test_local_resample_ohlcv_aggregation(iv, n):
 def test_local_resample_bins_aligned_to_session_open(iv, n, bins):
     df = session_1m()
     out = local_loader._resample_to_interval(df, iv, "X")
+    # resampled path: output index pinned to ns
+    assert out.index.unit == "ns"
     assert out.index[0] == pd.Timestamp("2025-04-01 09:15"), (
         f"{iv} bins start at {out.index[0].time()}, not session open 09:15"
     )
@@ -185,13 +189,20 @@ def test_local_resample_bins_aligned_to_session_open(iv, n, bins):
 @pytest.mark.parametrize("iv", ["3m", "10m"])
 def test_local_resample_empty(iv):
     empty = session_1m().iloc[:0]
-    assert local_loader._resample_to_interval(empty, iv, "X").empty
+    out = local_loader._resample_to_interval(empty, iv, "X")
+    assert out.empty
+    # empty frames are returned unchanged (pass-through), keeping the input unit
+    assert out.index.unit == empty.index.unit
 
 
 def test_local_resample_same_granularity_unchanged():
     df = session_1m().iloc[::3]
     df.index = pd.date_range("2025-04-01 09:15", periods=len(df), freq="3min")
-    pd.testing.assert_frame_equal(local_loader._resample_to_interval(df, "3m", "X"), df)
+    out = local_loader._resample_to_interval(df, "3m", "X")
+    # same granularity is a documented pass-through: the source frame is returned
+    # unchanged, so it keeps the input unit (not ns-normalised).
+    assert out.index.unit == df.index.unit
+    pd.testing.assert_frame_equal(out, df)
 
 
 def test_local_resample_refuses_upsample_5m_to_3m(caplog):
@@ -199,6 +210,8 @@ def test_local_resample_refuses_upsample_5m_to_3m(caplog):
     df.index = pd.date_range("2025-04-01 09:15", periods=len(df), freq="5min")
     with caplog.at_level(logging.WARNING):
         out = local_loader._resample_to_interval(df, "3m", "X")
+    # upsample refused: source bars returned unchanged, so the input unit is kept
+    assert out.index.unit == df.index.unit
     pd.testing.assert_frame_equal(out, df)
     assert "cannot upsample" in caplog.text
 
@@ -209,6 +222,8 @@ def test_local_resample_unknown_variant_returns_source(iv, caplog):
     with caplog.at_level(logging.WARNING):
         out = local_loader._resample_to_interval(df, iv, "X")
     assert out is df and "unsupported interval" in caplog.text
+    # unsupported interval: source returned unchanged (pass-through), input unit kept
+    assert out.index.unit == df.index.unit
 
 
 # --- ccxt ---------------------------------------------------------------------

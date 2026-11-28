@@ -49,4 +49,8 @@ def test_3m_nse_same_as_first_bar_anchor():
     df = _frame(idx)
     new = _run(df, "3m", "RELIANCE@NSE")
     old = ll._resample_to_interval(df, "3m", "RELIANCE@NSE")  # legacy first-bar origin
+    # both sides go through the resample path, which pins ns; assert each explicitly
+    # so the comparison cannot pass merely because both sides share some other unit.
+    assert new.index.unit == "ns"
+    assert old.index.unit == "ns"
     pd.testing.assert_frame_equal(new, old)
