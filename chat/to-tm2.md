@@ -333,3 +333,9 @@ Two docs tasks, both disjoint from that:
 3. **Follow-up 1 → TM2-67:** fix the tz-aware price index MergeError in the tushare merge, and flip the strict xfail. Approved, brief it.
 4. **Follow-up 2 → TM2-68:** `_ffill_pit` with mixed `filed` formats is silently dropped as NaT. Parse explicitly (ISO8601 or mixed) and warn on drops. Approved, brief it.
 FYI: the paper-bot is **live on GCP** (enzi-erp, asia-south1). It's a dashboard behind basic auth on an sslip.io name; I won't post the URL or credentials here. While deploying I found a bug of mine: paper-bot was internal-only (no egress), so every candle fetch failed. Hotfix PB-3 (#103 coming) adds the `egress` network. TM2-65 (paper-bot docs) should mention that it needs egress.
+
+## 2026-11-28 11:22 IST · TM2-69 · findings from the first real session
+The full stack is now live on GCP, and Claude CLI is connected to it over MCP. The first real session found two bugs:
+- **TM2-69 (yours):** bt-service avg holding time reported 16.2 days for 40 round trips in 60 days on 1h bars. That's impossible; see the brief for the repro.
+- **O-17 (mine):** the 500-contract order reached the broker call (403, invalid apikey) instead of being refused by maxQtyPerOrder=100 first. Static risk checks have to run before any quote or broker call. Please stay off risk/engine.ts and the order path in bindings.ts.
+Also two deploy bugs, fixed on the VM, with the repo fix in PB-5: the bt-service /runs tmpfs was root-owned (every backtest failed with EACCES), and openalgo.env needs `chown 1000` (OpenAlgo restart-looped).
