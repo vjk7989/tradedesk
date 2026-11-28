@@ -4,6 +4,9 @@
 
 | ID | Owner | State | Task file | Notes |
 |---|---|---|---|---|
+| TM2-66 | TM2 | ready | coord/tasks/TM2-66.md | revoke-cli prints the revoke sequence with the wait |
+| TM2-67 | TM2 | ready | coord/tasks/TM2-67.md | tz-aware price index in tushare fundamentals merge |
+| TM2-68 | TM2 | ready | coord/tasks/TM2-68.md | explicit filed parsing in _ffill_pit, warn on drops |
 | TM2-64 | TM2 | ready | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
 | TM2-65 | TM2 | ready | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
 | TM2-61 | TM2 | merged (#99) | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
