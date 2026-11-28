@@ -155,6 +155,15 @@ const WF_PARTIAL =
   " On ok:false, `folds` holds only the folds completed before the failure (possibly empty); summary and oosEquity are empty; check ok and error.";
 /** Header lines added on purpose after the baseline. Each may appear at most once. */
 const ALLOWED_ADDED_HEADER = [/^Kill switch: /];
+/**
+ * O-14 (AC change): the sandbox-limits block, exact text, contiguous, immediately after the Kill switch line.
+ * Its numbers and strings are pinned to the code in o14_sandbox_limits_doc.edge.test.ts.
+ */
+const O14_BLOCK = [
+  "Sandbox limits: memory 64 MB per run (exceeding it fails with 'memory limit exceeded'), so keep data small and aggregate inside bt-service. No ArrayBuffer, SharedArrayBuffer, TypedArray, DataView, Atomics or WebAssembly; use plain arrays.",
+  "Binding calls: argument max 1 MB JSON ('binding argument too large'); result max min(4 MB, memory/4), else 'binding result too large (<n> chars, max <m>): narrow the query, e.g. fewer bars or a shorter date range'. Request fewer bars or a shorter range.",
+  "Executes: at most EXECUTE_MAX_CONCURRENT (default 4) run at once; on 'busy: too many concurrent executes, retry shortly' wait briefly and retry, and do not fire many executes in parallel. Timeout EXECUTE_TIMEOUT_MS (default 60000 ms), failing with 'timeout: execution exceeded <ms>ms'. Code max 100 KB ('code exceeds 100KB limit').",
+];
 
 const BASE_CRYPTO_NOTE = [
   "Crypto (Delta via OpenAlgo): exchange \"CRYPTO\" (Delta Exchange is OpenAlgo's only crypto broker); futures, perpetuals and options only.",
@@ -247,12 +256,22 @@ function headerDiff(header: string): { matched: number; added: string[] } {
   }
   return { matched, added };
 }
+/** O-14 block present exactly once, verbatim, contiguous, right after the Kill switch line; no other copy of its lines. */
+const o14Ok = (header: string) => {
+  const ls = header.split("\n");
+  const at = ls.indexOf(O14_BLOCK[0]);
+  if (at < 1 || !/^Kill switch: /.test(ls[at - 1])) return false;
+  if (O14_BLOCK.some((b, j) => ls[at + j] !== b)) return false;
+  return O14_BLOCK.every((b) => ls.filter((l) => l === b).length === 1);
+};
 const headerOk = (header: string) => {
   const { matched, added } = headerDiff(header);
+  const rest = added.filter((l) => !O14_BLOCK.includes(l));
   return (
     matched === BASE_HEADER.length &&
-    added.every((l) => ALLOWED_ADDED_HEADER.some((re) => re.test(l))) &&
-    ALLOWED_ADDED_HEADER.every((re) => added.filter((l) => re.test(l)).length <= 1)
+    o14Ok(header) &&
+    rest.every((l) => ALLOWED_ADDED_HEADER.some((re) => re.test(l))) &&
+    ALLOWED_ADDED_HEADER.every((re) => rest.filter((l) => re.test(l)).length <= 1)
   );
 };
 
@@ -271,8 +290,11 @@ describe("O-1 edge: walkForward and crypto sections unchanged vs pinned baseline
     expect(API_HEADER).toContain(CRYPTO_NOTE); // contiguous block
     const { matched, added } = headerDiff(API_HEADER);
     expect(matched).toBe(BASE_HEADER.length); // all baseline lines present, same order, unedited
-    for (const l of added) expect(ALLOWED_ADDED_HEADER.some((re) => re.test(l)), `unexpected header line: ${l}`).toBe(true);
-    expect(added.length).toBeLessThanOrEqual(ALLOWED_ADDED_HEADER.length);
+    const rest = added.filter((l) => !O14_BLOCK.includes(l));
+    expect(added.filter((l) => O14_BLOCK.includes(l))).toEqual(O14_BLOCK); // O-14 block: all lines, once, in order
+    expect(o14Ok(API_HEADER)).toBe(true); // contiguous, right after the Kill switch line
+    for (const l of rest) expect(ALLOWED_ADDED_HEADER.some((re) => re.test(l)), `unexpected header line: ${l}`).toBe(true);
+    expect(rest.length).toBeLessThanOrEqual(ALLOWED_ADDED_HEADER.length);
     expect(headerOk(API_HEADER)).toBe(true);
   });
 
@@ -291,6 +313,21 @@ describe("O-1 edge: walkForward and crypto sections unchanged vs pinned baseline
     expect(headerOk([...ls, "Some new rule nobody reviewed."].join("\n"))).toBe(false);
     if (kill >= 0) expect(headerOk([...ls, ls[kill]].join("\n"))).toBe(false);
     expect(headerOk(API_HEADER.replace(CRYPTO_NOTE, CRYPTO_NOTE + " "))).toBe(false);
+    // O-14 block: edited, dropped, duplicated, reordered or moved lines are all rejected
+    const o = ls.indexOf(O14_BLOCK[0]);
+    expect(o).toBe(kill + 1);
+    expect(headerOk(API_HEADER.replace("64 MB", "128 MB"))).toBe(false);
+    expect(headerOk(API_HEADER.replace("(default 4)", "(default 8)"))).toBe(false);
+    for (let j = 0; j < O14_BLOCK.length; j++) {
+      expect(headerOk(ls.filter((_, i) => i !== o + j).join("\n")), `drop O-14 line ${j}`).toBe(false);
+      expect(headerOk([...ls, O14_BLOCK[j]].join("\n")), `duplicate O-14 line ${j}`).toBe(false);
+    }
+    const sw = [...ls];
+    [sw[o], sw[o + 1]] = [sw[o + 1], sw[o]];
+    expect(headerOk(sw.join("\n"))).toBe(false);
+    const moved = ls.filter((_, i) => i < o || i >= o + O14_BLOCK.length);
+    moved.splice(0, 0, ...O14_BLOCK); // whole block moved to the top
+    expect(headerOk(moved.join("\n"))).toBe(false);
   });
 
   it("walkForward entry identical (signature and doc) except the one O-12 partial-fold sentence", () => {
