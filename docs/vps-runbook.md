@@ -105,7 +105,9 @@ Use when a connector token may have leaked. Kills every OAuth access token, refr
 docker compose stop trade-mcp && docker compose run --rm --no-deps trade-mcp node dist/src/oauth/revoke-cli.js --force && docker compose start trade-mcp
 ```
 - Do not run against a live server: it re-persists its in-memory store and undoes the revoke. `--force` means "trade-mcp is stopped". Do not use `docker compose exec`.
-- Exit codes: 0 ok or nothing to revoke; 1 corrupt or wrong-shape store (untouched); 2 usage (missing `--force` or unknown argument); 3 unexpected error.
+- Exit codes: 0 ok or nothing to revoke; 1 corrupt or wrong-shape store (untouched); 2 usage (missing `--force` or unknown argument); 3 unexpected error; 4 trade-mcp is running (live `DATA_DIR/trade-mcp.lock`; checked first, with or without `--force`).
+- Lock heartbeat: the server refreshes the lock mtime every 5 s; a lock younger than 15 s counts as live whatever the container or hostname. After `docker compose stop trade-mcp`, wait ~15 s before running revoke (exit 4 until the heartbeat ages out). Keep the order stop, wait, run, start.
+- Trade-off: after a crash or SIGKILL a NEW container may wait up to 15 s before it can start (compose `restart:` retries cover this); a same-container restart is immediate. If `DATA_DIR` is read-only or permission-denied, trade-mcp now refuses to start (message names the lock); on a full disk it warns and runs without a lock.
 - Then rotate `MCP_TOKEN` and `MCP_TOKEN_READONLY` in `deploy/.env` if exposed (static tokens are not affected).
 
 ## 14. Troubleshooting

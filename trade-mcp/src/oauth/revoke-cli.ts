@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { TradeOAuthProvider } from "./provider.js";
-import { checkLock, readLock, lockPath } from "../datadir-lock.js";
+import { checkLock, lockAgeSeconds, lockPath, LIVE_WINDOW_MS } from "../datadir-lock.js";
 
 const out = (s: string) => process.stdout.write(s + "\n");
 const err = (s: string) => process.stderr.write(s + "\n");
@@ -14,6 +14,18 @@ const RUNBOOK =
 
 /** Exit codes: 0 ok / nothing to revoke, 1 corrupt or wrong-shape store, 2 usage, 3 unexpected error, 4 trade-mcp is running. */
 export function run(argv: string[], env: NodeJS.ProcessEnv = process.env): number {
+  const dataDir = env.DATA_DIR || "./runtime";
+  // Lock first: a live server always gives exit 4, with or without --force.
+  try {
+    if (checkLock(dataDir) === "live") {
+      const age = lockAgeSeconds(dataDir);
+      err(`trade-mcp is running (lock heartbeat ${age ?? "?"}s ago); stop it first, then wait ${LIVE_WINDOW_MS / 1000} s (${RUNBOOK}). --force does not override a live lock. Nothing changed.`);
+      return 4;
+    }
+  } catch {
+    err("Cannot check the DATA_DIR lock; refusing. Check DATA_DIR permissions. Nothing changed.");
+    return 3;
+  }
   const unknown = argv.filter((a) => a !== "--force");
   if (unknown.length) {
     err("Unknown argument. " + USAGE);
@@ -24,23 +36,13 @@ export function run(argv: string[], env: NodeJS.ProcessEnv = process.env): numbe
       "Refusing to run without --force.\n" +
         "--force confirms trade-mcp is STOPPED. Revoking while it runs is undone by the server: it keeps the OAuth store in memory\n" +
         "and rewrites oauth.json on its next write, even an unauthenticated /authorize, which restores the revoked tokens.\n" +
-        "Supported procedure (stop, run, start):\n  " + RUNBOOK,
+        "Supported procedure (stop, wait ~15 s, run, start):\n  " + RUNBOOK,
     );
     return 2;
   }
   try {
-    const dataDir = env.DATA_DIR || "./runtime";
     const lock = checkLock(dataDir);
-    if (lock === "live") {
-      err("trade-mcp is running; stop it first (" + RUNBOOK + "). --force does not override a live lock. Nothing changed.");
-      return 4;
-    }
-    if (lock === "foreign") {
-      const i = readLock(dataDir);
-      err(`Warning: ${lockPath(dataDir)} was written by another container (${typeof i === "object" ? i.hostname : "?"}); its liveness cannot be checked from here. Proceeding because --force says trade-mcp is stopped.`);
-    } else if (lock === "stale" || lock === "corrupt") {
-      err(`Note: ignoring ${lock} ${lockPath(dataDir)} (no live trade-mcp process).`);
-    }
+    if (lock === "stale" || lock === "corrupt") err(`Note: ignoring ${lock} ${lockPath(dataDir)} (no live trade-mcp process).`);
     const stateFile = path.join(dataDir, "oauth.json");
     if (!existsSync(stateFile)) {
       out("No OAuth store found; nothing to revoke.");
