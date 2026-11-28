@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import io
+import json
 import logging
 import time
 from contextlib import asynccontextmanager, contextmanager
@@ -47,6 +48,9 @@ def _pnl(v, d=2, suffix=""):
 
 
 def equity_svg(totals):
+    # Index-sampled, not time-sampled: after old equity rows are thinned (db.downsample_equity) the x-axis is not
+    # time-proportional and the min/max caption comes from the sampled points. The Max drawdown and Total P&L
+    # cards are computed from all rows and stay exact.
     if len(totals) < 2:
         return '<svg viewBox="0 0 600 160"><text x="300" y="85" fill="#8b949e" text-anchor="middle">no equity data yet</text></svg>'
     step = max(1, len(totals) // 400)
@@ -83,6 +87,12 @@ def to_csv(columns, rows):
     for r in rows:
         wr.writerow([_sanitize(r.get(c)) for c in columns])
     return buf.getvalue()
+
+
+def json_rows(rows):
+    """Same bytes FastAPI's JSONResponse would produce (compact separators), without the per-row
+    jsonable_encoder cost that dominates large lists."""
+    return Response(json.dumps(rows, separators=(",", ":"), ensure_ascii=False), media_type="application/json")
 
 
 def csv_response(body, name):
@@ -130,7 +140,19 @@ def trades_csv(conn, cfg, symbol="", action=""):
     return to_csv(["id", "ts", "time_utc", "symbol", "side", "kind", "qty", "price", "fee", "pnl"], rows)
 
 
-def render(conn, cfg, symbol="", action="", now=None):
+DEFAULT_LIMIT, MAX_LIMIT = 200, 1000
+MAX_ID = 2 ** 63 - 1  # SQLite INTEGER range
+TRADES_SHOWN = 500  # dashboard trades table; the full list stays in /api/trades and trades.csv
+
+
+def page_params(before="", limit=""):
+    """Dashboard pagination, validated like the filters: anything invalid silently falls back to the default."""
+    b = int(before) if before.isascii() and before.isdigit() and 0 < int(before) <= MAX_ID else None
+    n = int(limit) if limit.isascii() and limit.isdigit() and 1 <= int(limit) <= MAX_LIMIT else DEFAULT_LIMIT
+    return b, n
+
+
+def render(conn, cfg, symbol="", action="", now=None, before="", limit=""):
     now = now or time.time()
     s = summary(conn, cfg)
     last = s["last_tick"]
@@ -144,12 +166,20 @@ def render(conn, cfg, symbol="", action="", now=None):
         conds.append("symbol=?"); args.append(sym_ok)
     if act_ok:
         conds.append("action=?"); args.append(act_ok)
+    before_id, n = page_params(before, limit)
+    if before_id:
+        conds.append("id<?"); args.append(before_id)
     if conds:
         q += " WHERE " + " AND ".join(conds)
-    decisions = D.rows(conn, q + " ORDER BY id DESC LIMIT 200", args)
-    trades = D.rows(conn, "SELECT * FROM trades ORDER BY id DESC")
+    decisions = D.rows(conn, q + " ORDER BY id DESC LIMIT ?", args + [n + 1])
+    title = (f"{n} per page, before id {before_id}" if before_id else f"latest {n}")
+    more = len(decisions) > n  # fetched one extra row only to know whether an older page exists
+    decisions = decisions[:n]
+    trades = D.rows(conn, "SELECT * FROM trades ORDER BY id DESC LIMIT ?", (TRADES_SHOWN + 1,))
+    trades_cut = len(trades) > TRADES_SHOWN
+    trades = trades[:TRADES_SHOWN]
     positions = D.rows(conn, "SELECT * FROM positions ORDER BY symbol")
-    totals = [r["total"] for r in D.rows(conn, "SELECT total FROM equity ORDER BY id")]
+    totals = [r[0] for r in conn.execute("SELECT total FROM equity ORDER BY id")]
 
     def opts(items, cur):
         return "".join(f'<option value="{escape(i)}"{" selected" if i == cur else ""}>{escape(i)}</option>'
@@ -189,7 +219,7 @@ def render(conn, cfg, symbol="", action="", now=None):
     qs = "" if qs == "?" else qs
     h += ["</div>", f'<div class="muted">Download: <a href="/api/trades.csv{qs}">trades.csv</a> | '
           f'<a href="/api/decisions.csv{qs}">decisions.csv</a></div>',
-          f'<h2>Decisions (latest 200)</h2><form method="get"><select name="symbol"><option value="">all symbols</option>'
+          f'<h2>Decisions ({title})</h2><form method="get"><select name="symbol"><option value="">all symbols</option>'
           f'{opts(cfg.symbols, sym_ok)}</select> <select name="action"><option value="">all actions</option>'
           f'{opts(ACTIONS, act_ok)}</select> <button>Filter</button></form>',
           "<div class='wrap'><table><tr><th>Time</th><th>Symbol</th><th>Candle</th><th class=r>Close</th>"
@@ -200,7 +230,16 @@ def render(conn, cfg, symbol="", action="", now=None):
                  f'<td class=r>{_n(d["close"])}</td><td class=r>{_n(d["fast"])}</td><td class=r>{_n(d["slow"])}</td>'
                  f'<td>{escape(d["signal"] or "")}</td><td><span class="tag" style="background:{c}">{escape(d["action"])}</span></td>'
                  f'<td class="reason">{escape(d["reason"] or "")}</td></tr>')
-    h += ["</table></div><h2>Trades</h2><div class='wrap'><table><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Kind</th>"
+    older_link = ""
+    if before_id:
+        newest = urlencode({k: v for k, v in (("symbol", sym_ok), ("action", act_ok),
+                                              ("limit", n if n != DEFAULT_LIMIT else "")) if v != ""})
+        older_link = f'<div class="muted"><a href="/{"?" + newest if newest else ""}">newest decisions</a></div>'
+    if more and decisions:
+        older = urlencode({k: v for k, v in (("symbol", sym_ok), ("action", act_ok), ("before", decisions[-1]["id"]),
+                                             ("limit", n if n != DEFAULT_LIMIT else "")) if v != ""})
+        older_link += f'<div class="muted"><a href="/?{older}">older decisions</a></div>'
+    h += [f"</table></div>{older_link}<h2>Trades</h2><div class='wrap'><table><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Kind</th>"
           "<th class=r>Qty</th><th class=r>Price</th><th class=r>Fee</th><th class=r>Realised P&amp;L</th></tr>"]
     for t in trades:
         h.append(f'<tr><td>{_t(t["ts"])}</td><td>{escape(t["symbol"])}</td><td>{escape(t["side"])}</td>'
@@ -208,7 +247,11 @@ def render(conn, cfg, symbol="", action="", now=None):
                  f'<td class=r>{_n(t["fee"], 4)}</td><td class=r>{_pnl(t["pnl"])}</td></tr>')
     if not trades:
         h.append('<tr><td colspan=8 class="muted">no trades yet</td></tr>')
-    h.append("</table></div></body></html>")
+    if trades_cut:
+        h.append(f'</table></div><div class="muted">latest {TRADES_SHOWN} trades shown; '
+                 f'<a href="/api/trades.csv">trades.csv</a> has all of them</div></body></html>')
+    else:
+        h.append("</table></div></body></html>")
     return "".join(h)
 
 
@@ -220,16 +263,26 @@ def next_delay(cfg, now):
     return (now // cfg.period + 1) * cfg.period + cfg.align_delay - now
 
 
-async def loop(engine, cfg):
+async def loop(engine, cfg, detail_days=D.EQUITY_DETAIL_DAYS):
     while True:
         try:
             await engine.tick()
         except Exception:
             log.exception("tick failed")
+        try:
+            # Daily, right after a tick and on the same writer connection (so never concurrent with one). The
+            # downsample commits in short batches; the next tick is minutes away.
+            t0 = time.perf_counter()
+            n = await asyncio.to_thread(D.maintain, engine.db, detail_days)
+            if n is not None:
+                log.info("maintenance: %d equity rows thinned in %.0f ms", n, (time.perf_counter() - t0) * 1000)
+        except Exception:
+            log.exception("maintenance failed")
         await asyncio.sleep(next_delay(cfg, time.time()))
 
 
 def create_app(cfg, conn=None, client=None, run_loop=True):
+    detail_days = D.equity_detail_days()  # fail at startup on a bad EQUITY_DETAIL_DAYS, like Config.validate
     conn = conn or D.connect(cfg.db_path)  # the writer: only the strategy loop uses it
     path = D.db_file(conn)
 
@@ -244,7 +297,7 @@ def create_app(cfg, conn=None, client=None, run_loop=True):
     @asynccontextmanager
     async def lifespan(app):
         c = client or httpx.AsyncClient()
-        task = asyncio.create_task(loop(Engine(cfg, conn, c), cfg)) if run_loop else None
+        task = asyncio.create_task(loop(Engine(cfg, conn, c), cfg, detail_days)) if run_loop else None
         yield
         if task:
             task.cancel()
@@ -258,19 +311,22 @@ def create_app(cfg, conn=None, client=None, run_loop=True):
         return {"ok": True}
 
     @app.get("/", response_class=HTMLResponse)
-    def index(symbol: str = "", action: str = ""):
+    def index(symbol: str = "", action: str = "", before: str = "", limit: str = ""):
         with reader() as r:
-            return render(r, cfg, symbol, action)
+            return render(r, cfg, symbol, action, before=before, limit=limit)
 
     @app.get("/api/decisions")
-    def decisions(limit: int = Query(200, ge=1, le=1000)):
+    def decisions(limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT), before: int | None = Query(None, ge=1, le=MAX_ID)):
+        """Newest first; `before=<id>` returns the page of rows with a smaller id (keyset pagination)."""
         with reader() as r:
-            return D.rows(r, "SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,))
+            if before is None:
+                return D.rows(r, "SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,))
+            return D.rows(r, "SELECT * FROM decisions WHERE id<? ORDER BY id DESC LIMIT ?", (before, limit))
 
     @app.get("/api/trades")
     def trades():
         with reader() as r:
-            return D.rows(r, "SELECT * FROM trades ORDER BY id DESC")
+            return json_rows(D.rows(r, "SELECT * FROM trades ORDER BY id DESC"))
 
     @app.get("/api/trades.csv")
     def trades_export(symbol: str = "", action: str = ""):
@@ -290,7 +346,9 @@ def create_app(cfg, conn=None, client=None, run_loop=True):
     @app.get("/api/equity")
     def equity():
         with reader() as r:
-            return D.rows(r, "SELECT ts,cash,unrealised,total FROM equity ORDER BY id")
+            r.row_factory = None  # plain tuples: much cheaper than sqlite3.Row -> dict for ~10^5 rows
+            rs = r.execute("SELECT ts,cash,unrealised,total FROM equity ORDER BY id").fetchall()
+        return json_rows([{"ts": a, "cash": b, "unrealised": c, "total": d} for a, b, c, d in rs])
 
     @app.get("/api/summary")
     def api_summary():
