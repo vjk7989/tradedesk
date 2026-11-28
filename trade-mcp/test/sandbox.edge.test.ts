@@ -376,81 +376,76 @@ describe("sandbox limits", () => {
   // max ~570 ms, and a whole 50-run loop took up to ~3.9 s, so the old 5 s default flaked.
   // Round 2 saw a whole test take 7.2 s under heavier load, so the timeout is ~3x that. Wall time
   // is not the leak signal: the degradation, memory and handle checks are.
-  it("50 sequential runs: fresh context each, every run ok, no leak or degradation", async () => {
+  // TM2-64: `external` moves in ~16 MB steps (QuickJS WASM memories released lazily, even past a forced
+  // gc), so end-minus-base external was noise: the base ranged 18-101 MB, CI hit +15.8 MB healthy, and a
+  // 1 MB/run Buffer leak gave about -16 MB. Two checks replace it (bounds from 11 CI + 11 local runs):
+  // - end external after the final gc: healthy CI 2.05 or 18.05 MB, local 2.35 MB; the leak gives >= 52.
+  // - slope = mean external of runs 26-50 minus runs 1-25 (sampled after each run, gc every 5th run, as
+  //   in the calibration data): healthy CI -6.0..+5.8 MB, local -7.8..+4.4; the leak gives +22.9..+27.3.
+  // The "flags a 1 MB/run leak" test below runs the same loop with the leak and proves both checks fire.
+  const MB = 1024 * 1024;
+  const END_EXTERNAL_MAX_MB = 36;
+  const EXTERNAL_SLOPE_MAX_MB = 12;
+  const GC_EVERY = 5;
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return (s[(s.length - 1) >> 1]! + s[s.length >> 1]!) / 2;
+  };
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const once = (i: number) =>
+    runCode(`globalThis.counter = (globalThis.counter ?? 0) + 1; return [counter, await m.f(${i})];`, { m: { f: echo } });
+
+  /** Both TM2-64 external checks, in MB. `series` = external after each run, `endExternal` after the final gc. */
+  function externalChecks(series: number[], endExternal: number) {
+    const half = series.length >> 1;
+    const endMB = endExternal / MB;
+    const slopeMB = (mean(series.slice(half)) - mean(series.slice(0, half))) / MB;
+    return {
+      endMB,
+      slopeMB,
+      endOk: endMB <= END_EXTERNAL_MAX_MB,
+      slopeOk: slopeMB <= EXTERNAL_SLOPE_MAX_MB,
+      endMsg: `end external ${endMB.toFixed(2)} MB (bound ${END_EXTERNAL_MAX_MB} MB)`,
+      slopeMsg: `external slope ${slopeMB.toFixed(2)} MB, mean runs ${half + 1}-${series.length} minus runs 1-${half} (bound ${EXTERNAL_SLOPE_MAX_MB} MB)`,
+    };
+  }
+
+  /** Warm-up, base, 50 runs (each checked and timed), final gc. `perRun` runs after each run, untimed. */
+  async function fiftyRuns(perRun?: (i: number) => void) {
     v8.setFlagsFromString("--expose-gc");
     const gc = nodeVm.runInNewContext("gc") as () => void;
-    const median = (xs: number[]) => {
-      const s = [...xs].sort((a, b) => a - b);
-      return (s[(s.length - 1) >> 1]! + s[s.length >> 1]!) / 2;
-    };
-    const once = (i: number) =>
-      runCode(`globalThis.counter = (globalThis.counter ?? 0) + 1; return [counter, await m.f(${i})];`, { m: { f: echo } });
-
     // Warm-up (JIT, first WASM compile) so the baselines measure steady state.
     for (let i = 0; i < 5; i++) expect(await once(i)).toMatchObject({ ok: true, result: [1, i] });
     gc();
     const base = process.memoryUsage();
     const baseHandles = process.getActiveResourcesInfo().length;
-
     const ms: number[] = [];
-    // TM2-64 (temporary): per-run memory samples (gc every 5th run), outside the timed region.
-    const samples: { external: number; heapUsed: number; rss: number; arrayBuffers: number }[] = [];
-    let gcMs = 0;
+    const external: number[] = [];
     for (let i = 0; i < 50; i++) {
       const t0 = performance.now();
       const r = await once(i);
       ms.push(performance.now() - t0);
       // Fresh context each run: the guest global never carries over.
       expect(r, `run ${i}`).toMatchObject({ ok: true, result: [1, i] });
-      if (i % 5 === 4) {
-        const g0 = performance.now();
-        gc();
-        gcMs += performance.now() - g0;
-      }
-      const { external, heapUsed, rss, arrayBuffers } = process.memoryUsage();
-      samples.push({ external, heapUsed, rss, arrayBuffers });
+      perRun?.(i);
+      if (i % GC_EVERY === GC_EVERY - 1) gc();
+      external.push(process.memoryUsage().external);
     }
-
     gc();
     await sleep(20);
     gc();
-    const end = process.memoryUsage();
-    const MB = 1024 * 1024;
-    {
-      // TM2-64 (temporary): one machine-parseable line per test run. Values in bytes unless *_MB.
-      const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-      const ext = samples.map((s) => s.external - base.external);
-      const r1 = (x: number) => Math.round((x / MB) * 1000) / 1000;
-      const data = {
-        platform: process.platform,
-        arch: process.arch,
-        node: process.version,
-        ci: Boolean(process.env.CI),
-        delta_MB: {
-          external: r1(end.external - base.external),
-          heapUsed: r1(end.heapUsed - base.heapUsed),
-          rss: r1(end.rss - base.rss),
-          arrayBuffers: r1(end.arrayBuffers - base.arrayBuffers),
-        },
-        base_MB: { external: r1(base.external), heapUsed: r1(base.heapUsed), rss: r1(base.rss), arrayBuffers: r1(base.arrayBuffers) },
-        end_MB: { external: r1(end.external), heapUsed: r1(end.heapUsed), rss: r1(end.rss), arrayBuffers: r1(end.arrayBuffers) },
-        slope_external_MB: r1(mean(ext.slice(25)) - mean(ext.slice(0, 25))),
-        // Same slope over the post-gc samples only (runs 5,10,..,25 vs 30,..,50).
-        slope_external_postgc_MB: r1(mean(ext.filter((_, i) => i % 5 === 4 && i >= 25)) - mean(ext.filter((_, i) => i % 5 === 4 && i < 25))),
-        slope_heapUsed_MB: r1(mean(samples.slice(25).map((s) => s.heapUsed)) - mean(samples.slice(0, 25).map((s) => s.heapUsed))),
-        max_external_MB: r1(Math.max(...ext)),
-        gc_ms_total: Math.round(gcMs),
-        gc_every: 5,
-        run_ms_median: Math.round(median(ms) * 10) / 10,
-        external_series_MB: ext.map(r1),
-      };
-      process.stderr.write(`TM2-64-DATA ${JSON.stringify(data)}\n`);
-    }
+    return { base, baseHandles, ms, external, end: process.memoryUsage() };
+  }
+
+  it("50 sequential runs: fresh context each, every run ok, no leak or degradation", async () => {
+    const { base, baseHandles, ms, external, end } = await fiftyRuns();
     // Limits after forced GC (round 2). Healthy maxima over 50 measured runs (alone, loaded, full file):
-    // RSS +16.9 MB, external +0.0 MB, heapUsed +0.0 MB.
-    // Retaining 1 MB of JS heap or Buffer per run (+50 MB) fails; 0.5 MB/run of heap fails on heapUsed.
+    // RSS +16.9 MB, heapUsed +0.0 MB. Retaining 1 MB of JS heap or Buffer per run (+50 MB) fails;
+    // 0.5 MB/run of heap fails on heapUsed.
     expect(end.rss - base.rss, "rss growth").toBeLessThan(32 * MB);
-    expect(end.external - base.external, "external growth").toBeLessThan(8 * MB);
+    const ext = externalChecks(external, end.external);
+    expect(ext.endMB, ext.endMsg).toBeLessThanOrEqual(END_EXTERNAL_MAX_MB);
+    expect(ext.slopeMB, ext.slopeMsg).toBeLessThanOrEqual(EXTERNAL_SLOPE_MAX_MB);
     expect(end.heapUsed - base.heapUsed, "heapUsed growth").toBeLessThan(10 * MB);
     // No timers/handles left behind per run.
     expect(process.getActiveResourcesInfo().length, "active handles").toBeLessThanOrEqual(baseHandles + 2);
@@ -465,5 +460,18 @@ describe("sandbox limits", () => {
     expect(last, `median last10 ${last.toFixed(1)} ms vs first10 ${first.toFixed(1)} ms`).toBeLessThanOrEqual(
       Math.max(1.5 * first, first + FLOOR_MS),
     );
+  }, 21_000);
+
+  // TM2-64 leak proof: the same loop retaining a 1 MB Buffer per run (+50 MB) must trip BOTH external checks.
+  it("50 sequential runs: the external checks flag a simulated 1 MB/run leak", async () => {
+    const leak: Buffer[] = [];
+    try {
+      const { external, end } = await fiftyRuns(() => leak.push(Buffer.alloc(MB, 1)));
+      const ext = externalChecks(external, end.external);
+      expect(ext.endOk, `leak must fail: ${ext.endMsg}`).toBe(false);
+      expect(ext.slopeOk, `leak must fail: ${ext.slopeMsg}`).toBe(false);
+    } finally {
+      leak.length = 0;
+    }
   }, 21_000);
 });
