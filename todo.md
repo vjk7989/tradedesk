@@ -189,7 +189,7 @@ Detailed plan: `plan.md`.
 - PB-1 · paper-bot · crypto paper trader + dashboard (OWNER) [x]
 - PB-2 · deploy · paper-bot wiring + basic auth + CI (OWNER) [.] (building)
 - GCP-1 · deploy · GCP VM (e2-medium, asia-south1) + sslip.io + paper run (OWNER) [.] (installing gcloud)
-- TM2-61 · docs · runbook accuracy pass (TM2) [.]
+- TM2-61 · docs · runbook accuracy pass (TM2) [x]
 - TM2-62 · docs · README refresh (TM2) [x]
 - TM2-63 · trade-mcp · register shutdown handlers before startup completes (TM2) [.]
 - TM2-64 · trade-mcp · recalibrate 50-runs bound from CI (TM2) [ ]

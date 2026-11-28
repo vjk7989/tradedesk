@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | TM2-64 | TM2 | ready | coord/tasks/TM2-64.md | recalibrate 50-runs external-growth bound from CI data |
 | TM2-65 | TM2 | ready (after #95) | coord/tasks/TM2-65.md | docs/paper-bot.md operator guide |
-| TM2-61 | TM2 | in progress | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
+| TM2-61 | TM2 | merged (#99) | coord/tasks/TM2-61.md | runbook end-to-end accuracy pass |
 | TM2-62 | TM2 | merged #98 | coord/tasks/TM2-62.md | README refresh |
 | TM2-63 | TM2 | in progress | coord/tasks/TM2-63.md | register SIGINT/SIGTERM before startup completes |
 | PB-1 | OWNER | done | coord/tasks/PB-1.md | paper-bot crypto paper trader + dashboard |
