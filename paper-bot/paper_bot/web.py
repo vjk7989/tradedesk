@@ -48,6 +48,9 @@ def _pnl(v, d=2, suffix=""):
 
 
 def equity_svg(totals):
+    # Index-sampled, not time-sampled: after old equity rows are thinned (db.downsample_equity) the x-axis is not
+    # time-proportional and the min/max caption comes from the sampled points. The Max drawdown and Total P&L
+    # cards are computed from all rows and stay exact.
     if len(totals) < 2:
         return '<svg viewBox="0 0 600 160"><text x="300" y="85" fill="#8b949e" text-anchor="middle">no equity data yet</text></svg>'
     step = max(1, len(totals) // 400)
@@ -144,8 +147,8 @@ TRADES_SHOWN = 500  # dashboard trades table; the full list stays in /api/trades
 
 def page_params(before="", limit=""):
     """Dashboard pagination, validated like the filters: anything invalid silently falls back to the default."""
-    b = int(before) if before.isdigit() and 0 < int(before) <= MAX_ID else None
-    n = int(limit) if limit.isdigit() and 1 <= int(limit) <= MAX_LIMIT else DEFAULT_LIMIT
+    b = int(before) if before.isascii() and before.isdigit() and 0 < int(before) <= MAX_ID else None
+    n = int(limit) if limit.isascii() and limit.isdigit() and 1 <= int(limit) <= MAX_LIMIT else DEFAULT_LIMIT
     return b, n
 
 
@@ -228,10 +231,14 @@ def render(conn, cfg, symbol="", action="", now=None, before="", limit=""):
                  f'<td>{escape(d["signal"] or "")}</td><td><span class="tag" style="background:{c}">{escape(d["action"])}</span></td>'
                  f'<td class="reason">{escape(d["reason"] or "")}</td></tr>')
     older_link = ""
+    if before_id:
+        newest = urlencode({k: v for k, v in (("symbol", sym_ok), ("action", act_ok),
+                                              ("limit", n if n != DEFAULT_LIMIT else "")) if v != ""})
+        older_link = f'<div class="muted"><a href="/{"?" + newest if newest else ""}">newest decisions</a></div>'
     if more and decisions:
         older = urlencode({k: v for k, v in (("symbol", sym_ok), ("action", act_ok), ("before", decisions[-1]["id"]),
                                              ("limit", n if n != DEFAULT_LIMIT else "")) if v != ""})
-        older_link = f'<div class="muted"><a href="/?{older}">older decisions</a></div>'
+        older_link += f'<div class="muted"><a href="/?{older}">older decisions</a></div>'
     h += [f"</table></div>{older_link}<h2>Trades</h2><div class='wrap'><table><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Kind</th>"
           "<th class=r>Qty</th><th class=r>Price</th><th class=r>Fee</th><th class=r>Realised P&amp;L</th></tr>"]
     for t in trades:
